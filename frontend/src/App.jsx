@@ -10,7 +10,6 @@ function App() {
     <Router>
       <Routes>
         <Route path="/" element={<HomeRoute />} />
-        {/* Add more routes here, like about and contact */}
       </Routes>
     </Router>
   );

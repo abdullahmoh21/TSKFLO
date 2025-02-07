@@ -1,14 +1,16 @@
 import './App.css';
 import React from 'react';
-import { BrowserRouter as Router } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'; // Include Routes and Route
 import NavBar from './layout/NavBar'; // Import NavBar
-import HomeRoute from './routes/HomeRoute'; // Import Routes
+import HomeRoute from './routes/HomeRoute'; // Import HomeRoute
 
 function App() {
   return (
     <Router>
       <NavBar /> {/* Ensure Navbar is always visible */}
-      <HomeRoute /> {/* This will handle all routes */}
+      <Routes>
+        <Route path="/" element={<HomeRoute />} /> {/* Define HomeRoute for the root path */}
+      </Routes>
     </Router>
   );
 }

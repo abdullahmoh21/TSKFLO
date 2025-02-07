@@ -1,8 +1,15 @@
-import React from 'react';
-import HomePage from "../pages/HomePage"; // Import HomePage from the projects folder
+import React from "react";
+import { Routes, Route } from "react-router-dom";
+import HomePage from "../pages/HomePage";
+import AboutPage from "../pages/AboutPage"; // Import About Page
 
 const HomeRoute = () => {
-  return <HomePage />;
+  return (
+    <Routes>
+      <Route path="/" element={<HomePage />} />
+      <Route path="/about" element={<AboutPage />} /> {/* Ensure AboutPage is included */}
+    </Routes>
+  );
 };
 
 export default HomeRoute;

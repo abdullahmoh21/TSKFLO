@@ -1,17 +1,14 @@
-import './App.css'
-
-// src/App.jsx
+import './App.css';
 import React from 'react';
-import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
-import HomeRoute from './routes/HomeRoute'; // Import HomeRoute from the routes folder
+import { BrowserRouter as Router } from 'react-router-dom';
+import NavBar from './layout/NavBar'; // Import NavBar
+import HomeRoute from './routes/HomeRoute'; // Import Routes
 
 function App() {
   return (
     <Router>
-      <Routes>
-        <Route path="/" element={<HomeRoute />} />
-        {/* Add more routes here, like about and contact */}
-      </Routes>
+      <NavBar /> {/* Ensure Navbar is always visible */}
+      <HomeRoute /> {/* This will handle all routes */}
     </Router>
   );
 }

@@ -4,7 +4,7 @@ import { Link } from "react-router-dom";
 const Navbar = () => {
   const navigation = [
     { name: "About", href: "/about" },
-    { name: "Log In", href: "/login" }
+    { name: "Log In", href: "/login" },
   ];
 
   return (
@@ -19,7 +19,7 @@ const Navbar = () => {
           {navigation.map((item, itemIdx) => (
             <Link
               key={itemIdx}
-              to={item.href}
+              to={item.href} // Make sure this is using "to", not "href"
               className="text-sm font-semibold text-gray-600 hover:text-gray-900 transition-colors duration-300"
             >
               {item.name}

@@ -1,10 +1,9 @@
-=======
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import HomePage from '../pages/HomePage';
 import UserDashboard from '../pages/UserDashboard';
 import TaskManagement from '../pages/TaskManagement';
-import AboutPage from "../pages/AboutPage"; // Import About Page
+import AboutPage from "../pages/AboutPage"; 
 
 const HomeRoute = () => {
   return (

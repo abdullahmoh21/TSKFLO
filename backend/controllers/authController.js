@@ -23,7 +23,7 @@ const login = asyncHandler(async (req, res) => {
     return res.status(401).json({ message: "Invalid login credentials" }); // Consistent error message
   }
 
-  if (foundUser.emailVerified.state === false) {
+  if (foundUser?.emailVerified?.state === false) {
     return res.status(401).json({
       message: "Email not verified. Check your email for verification link",
     });
@@ -37,18 +37,18 @@ const login = asyncHandler(async (req, res) => {
         userId: foundUser._id,
       },
     },
-    ACCESS_TOKEN_SECRET,
-    { expiresIn: ACCESS_TOKEN_EXPIRY }
+    process.env.ACCESS_TOKEN_SECRET,
+    { expiresIn: "15m" }
   );
 
   const refreshToken = jwt.sign(
     { email: foundUser.email },
-    REFRESH_TOKEN_SECRET,
-    { expiresIn: REFRESH_TOKEN_EXPIRY }
+    process.env.REFRESH_TOKEN_SECRET,
+    { expiresIn: "3h" }
   );
 
   foundUser.refreshTokenHash = await bcrypt.hash(refreshToken, 10);
-  foundUser.refreshTokenExp = Date.now() + 8 * 60 * 60 * 1000; // Consider moving magic numbers to constants or env variables
+  foundUser.refreshTokenExp = Date.now() + 8 * 60 * 60 * 1000;
   await foundUser.save();
 
   res.cookie("jwt", refreshToken, {
@@ -70,7 +70,7 @@ const refresh = asyncHandler(async (req, res) => {
 
   let email;
   try {
-    const decoded = jwt.verify(refreshToken, REFRESH_TOKEN_SECRET);
+    const decoded = jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET);
     email = decoded.email;
   } catch (err) {
     return err instanceof jwt.TokenExpiredError
@@ -101,7 +101,7 @@ const refresh = asyncHandler(async (req, res) => {
         userId: foundUser._id,
       },
     },
-    ACCESS_TOKEN_SECRET,
+    process.env.ACCESS_TOKEN_SECRET,
     { expiresIn: "15m" }
   );
 
@@ -159,7 +159,10 @@ const logout = asyncHandler(async (req, res) => {
   const refreshToken = cookies.jwt;
 
   // Decode the refresh token
-  const decodedRefreshToken = jwt.verify(refreshToken, REFRESH_TOKEN_SECRET);
+  const decodedRefreshToken = jwt.verify(
+    refreshToken,
+    process.env.REFRESH_TOKEN_SECRET
+  );
 
   const { email } = decodedRefreshToken;
   if (!email) return res.sendStatus(204); // no content

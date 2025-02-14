@@ -1,11 +1,11 @@
-import React from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import HomePage from '../pages/HomePage';
-import UserDashboard from '../pages/UserDashboard';
-import TaskManagement from '../pages/TaskManagement';
-import AboutPage from "../pages/AboutPage"; // Import About Page
-import CreateTask from "../pages/CreateTask"; // Import About Page
-
+import React from "react";
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import HomePage from "../pages/HomePage";
+import UserDashboard from "../pages/UserDashboard";
+import TaskManagement from "../pages/TaskManagement";
+import AboutPage from "../pages/AboutPage";
+import LoginPage from "../pages/LoginPage";
+import CreateTask from "../pages/CreateTask";
 
 const HomeRoute = () => {
   return (
@@ -15,7 +15,8 @@ const HomeRoute = () => {
         <Route path="/dashboard" element={<UserDashboard />} />
         <Route path="/tasks" element={<TaskManagement />} />
         <Route path="/about" element={<AboutPage />} />
-        <Route path="/create-task" element={<CreateTask />} /> 
+        <Route path="/create-task" element={<CreateTask />} />
+        <Route path="/login" element={<LoginPage />} />
       </Routes>
     </Router>
   );

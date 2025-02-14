@@ -9,6 +9,7 @@ import AdminPage from "../pages/AdminPage";
 import TeamPage from "../pages/TeamPage"; // Import TeamPage
 import Navbar from "../layout/NavBar";
 
+
 const HomeRoute = () => {
   return (
     <Router>

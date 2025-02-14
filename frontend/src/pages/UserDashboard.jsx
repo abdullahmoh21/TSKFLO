@@ -1,15 +1,17 @@
 import React, { useState } from 'react';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import backgroundImage from '../assets/background.png';
+import Navbar from '../layout/NavBar';
 
 const UserDashboard = () => {
   const [profile, setProfile] = useState({
-    name: 'John Doe',
+    name: 'Abdullah Munir',
     role: 'Team Member',
-    email: 'john.doe@example.com',
-    phone: '123-456-7890',
+    email: 'abdullah.munir@gmail.com',
+    phone: '250-456-7890',
     gender: 'Male',
-    profilePicture: 'https://via.placeholder.com/150',
+    profilePicture: 'https://ui-avatars.com/api/?name=Abdullah+Munir&background=random',
   });
 
   const [isSaving, setIsSaving] = useState(false);
@@ -34,17 +36,27 @@ const UserDashboard = () => {
   };
 
   return (
-    <div className="w-screen h-screen bg-gradient-to-r from-blue-500 to-green-500 flex justify-center items-center">
+    <div
+      className="relative w-screen h-screen bg-cover bg-center bg-no-repeat flex flex-col items-center justify-center animate-background"
+      style={{ 
+        backgroundImage: `url(${backgroundImage})`,
+        minHeight: '100vh',
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundAttachment: 'fixed'
+      }}
+    >
+      <Navbar />
+      <h1 className="text-3xl font-bold text-white mt-20 mb-6">Your Profile</h1>
       <div className="w-full max-w-2xl bg-white shadow-xl rounded-lg overflow-hidden">
         <div className="grid md:grid-cols-2">
           <div className="flex flex-col items-center justify-center p-8 bg-gradient-to-r from-green-500 to-blue-500 text-white">
             <img
               src={profile.profilePicture}
               alt="Avatar"
-              className="w-40 h-40 rounded-full mb-6"
+              className="w-40 h-40 rounded-full mb-4"
             />
             <h2 className="text-2xl font-bold">{profile.name}</h2>
-            <p className="mt-2">Your Profile</p>
           </div>
           <div className="p-8">
             <h2 className="text-2xl font-semibold mb-6">Edit Profile</h2>

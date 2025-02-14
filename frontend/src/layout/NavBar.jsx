@@ -5,8 +5,10 @@ const Navbar = () => {
   const location = useLocation(); // Get current location
   const navigation = [
     { name: "About", href: "/about" },
-    { name: "Dashboard", href: "/dashboard" }, // Added Dashboard link
-    { name: "Log In", href: "/login" }
+    { name: "User Profile", href: "/dashboard" }, 
+    { name: "Log In", href: "/login" },
+    { name: "Task Dashboard", href: "/tasks" }
+
   ];
 
   return (

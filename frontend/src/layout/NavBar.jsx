@@ -1,7 +1,8 @@
 import React from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 
 const Navbar = () => {
+  const location = useLocation(); // Get current location
   const navigation = [
     { name: "About", href: "/about" },
     { name: "Dashboard", href: "/dashboard" }, // Added Dashboard link
@@ -20,15 +21,20 @@ const Navbar = () => {
 
         {/* Navigation Links */}
         <nav className="flex gap-8">
-          {navigation.map((item, index) => (
-            <Link
-              key={index}
-              to={item.href}
-              className="text-sm font-semibold text-gray-600 hover:text-blue-500 transition-colors duration-300"
-            >
-              {item.name}
-            </Link>
-          ))}
+          {navigation
+            .filter(item => 
+              location.pathname !== "/admin" && location.pathname !== "/team" 
+              || item.name !== "Log In" && item.name !== "About"
+            ) // Hide About and Login on Admin or Team Page
+            .map((item, index) => (
+              <Link
+                key={index}
+                to={item.href}
+                className="text-sm font-semibold text-gray-600 hover:text-blue-500 transition-colors duration-300"
+              >
+                {item.name}
+              </Link>
+            ))}
         </nav>
       </div>
     </header>

@@ -39,8 +39,15 @@ const LoginPage = () => {
       return;
     }
 
+    // Store user info in localStorage (or any other suitable place)
     localStorage.setItem("isAdmin", user.isAdmin);
-    navigate(user.isAdmin ? "/admin" : "/dash");
+
+    // Navigate based on the role (admin or team)
+    if (user.isAdmin) {
+      navigate("/admin"); // Redirect to AdminPage
+    } else {
+      navigate("/team"); // Redirect to TeamPage (updated route)
+    }
   };
 
   return (

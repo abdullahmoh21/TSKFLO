@@ -1,14 +1,18 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+
+const dummyUsers = [
+  { email: "admin@example.com", password: "admin123", isAdmin: true },
+  { email: "team@example.com", password: "team123", isAdmin: false },
+];
 
 const LoginPage = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [errors, setErrors] = useState({});
+  const navigate = useNavigate();
 
-  const validateEmail = (email) => {
-    // Simple regex for basic email validation
-    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-  };
+  const validateEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -29,20 +33,24 @@ const LoginPage = () => {
       return;
     }
 
-    setErrors({});
-    console.log("Logging in with:", { email, password });
-    alert("Login successful! Redirecting...");
+    const user = dummyUsers.find((u) => u.email === email && u.password === password);
+    if (!user) {
+      setErrors({ general: "Invalid email or password" });
+      return;
+    }
+
+    localStorage.setItem("isAdmin", user.isAdmin);
+    navigate(user.isAdmin ? "/admin" : "/tasks");
   };
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-gradient-to-r from-blue-400 to-indigo-500">
       <div className="bg-white p-8 rounded-lg shadow-lg w-96 text-center">
         <h2 className="text-3xl font-bold text-gray-900 mb-6">Login</h2>
+        {errors.general && <p className="text-red-500 text-sm">{errors.general}</p>}
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="text-left">
-            <label className="block text-sm font-medium text-gray-700">
-              Email Address
-            </label>
+            <label className="block text-sm font-medium text-gray-700">Email Address</label>
             <input
               type="text"
               value={email}
@@ -55,15 +63,13 @@ const LoginPage = () => {
           </div>
 
           <div className="text-left">
-            <label className="block text-sm font-medium text-gray-700">
-              Password
-            </label>
+            <label className="block text-sm font-medium text-gray-700">Password</label>
             <input
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               className={`w-full px-3 py-2 border rounded-md bg-white text-black focus:outline-none ${
-                errors.password ? "border-red-500" : "border-gray-300 "
+                errors.password ? "border-red-500" : "border-gray-300"
               }`}
             />
             {errors.password && <p className="text-red-500 text-sm mt-1">{errors.password}</p>}

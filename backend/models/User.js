@@ -22,6 +22,10 @@ const userSchema = new Schema(
       type: String,
       required: true,
     },
+    phone: {
+      type: String,
+      required: false,
+    },
     refreshTokenHash: {
       type: String,
     },
@@ -32,6 +36,9 @@ const userSchema = new Schema(
       type: String,
     },
     resetPasswordExp: {
+      type: Date,
+    },
+    lastLogin: {
       type: Date,
     },
   },

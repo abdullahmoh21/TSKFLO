@@ -12,7 +12,7 @@ const login = asyncHandler(async (req, res) => {
 
   const foundUser = await User.findOne(
     { email },
-    "email role password emailVerified"
+    "email role password emailVerified lastLogin"
   ).exec();
   if (!foundUser) {
     return res.status(401).json({ message: "Invalid login credentials" }); // Avoid user enumeration
@@ -49,6 +49,7 @@ const login = asyncHandler(async (req, res) => {
 
   foundUser.refreshTokenHash = await bcrypt.hash(refreshToken, 10);
   foundUser.refreshTokenExp = Date.now() + 8 * 60 * 60 * 1000;
+  foundUser.lastLogin = Date.now();
   await foundUser.save();
 
   res.cookie("jwt", refreshToken, {

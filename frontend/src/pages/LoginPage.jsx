@@ -40,7 +40,7 @@ const LoginPage = () => {
     }
 
     localStorage.setItem("isAdmin", user.isAdmin);
-    navigate(user.isAdmin ? "/admin" : "/tasks");
+    navigate(user.isAdmin ? "/admin" : "/dash");
   };
 
   return (

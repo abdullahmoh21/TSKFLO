@@ -17,7 +17,8 @@
     "express-async-handler": "^1.2.0",
     "express-joi-validation": "^6.0.0",
     "jsonwebtoken": "^9.0.2",
-    "mongoose": "^8.10.0"
+    "mongoose": "^8.10.0",
+    "winston": "^3.17.0"
   },
   "devDependencies": {
     "nodemon": "^3.1.9"

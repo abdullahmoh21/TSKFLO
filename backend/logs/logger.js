@@ -10,13 +10,6 @@ const customLevels = {
     debug: 3,
     success: 4,
   },
-  colors: {
-    error: "red",
-    warn: "yellow",
-    info: "magenta",
-    debug: "blue",
-    success: "green",
-  },
 };
 
 const logger = winston.createLogger({
@@ -30,11 +23,15 @@ const logger = winston.createLogger({
     winston.format.json()
   ),
   transports: [
-    // Console transport with custom format
     new winston.transports.Console({
       level: "success",
-      format: winston.format.combine(winston.format.colorize()),
+      format: winston.format.combine(
+        winston.format.printf(
+          ({ level, message }) => `[${level.toUpperCase()}] ${message}`
+        )
+      ),
     }),
+
     // Error log file transport
     new winston.transports.File({
       filename: "logs/errors.log",
@@ -42,8 +39,5 @@ const logger = winston.createLogger({
     }),
   ],
 });
-
-// Add colors to console output
-winston.addColors(customLevels.colors);
 
 module.exports = logger;

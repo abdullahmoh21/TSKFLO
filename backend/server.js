@@ -5,6 +5,7 @@ const cookieParser = require("cookie-parser");
 const mongoose = require("mongoose");
 const connectDB = require("./utils/connectDB");
 const logger = require("./logs/logger");
+const errorHandler = require("./middleware/errorHandler");
 
 connectDB();
 
@@ -15,6 +16,8 @@ app.use(cookieParser());
 app.use("/auth", require("./endpoints/authEndpoints"));
 app.use("/user", require("./endpoints/userEndpoints"));
 app.use("/tasks", require("./endpoints/taskEndpoints"));
+
+app.use(errorHandler);
 
 if (process.env.NODE_ENV !== "test") {
   const server = app.listen(process.env.PORT || 3200, () => {

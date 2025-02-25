@@ -17,7 +17,8 @@ app.use("/auth", require("./endpoints/authEndpoints"));
 app.use("/user", require("./endpoints/userEndpoints"));
 app.use("/tasks", require("./endpoints/taskEndpoints"));
 
-app.use(errorHandler);
+app.use(require("./middleware/formatJoiErrors")); // formats Joi validation errors into JSON
+app.use(errorHandler); // catches any unhandled error
 
 if (process.env.NODE_ENV !== "test") {
   const server = app.listen(process.env.PORT || 3200, () => {

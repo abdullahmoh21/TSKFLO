@@ -1,6 +1,14 @@
 const jwt = require("jsonwebtoken");
+const logger = require("../logs/logger");
 
 const verifyJWT = (req, res, next) => {
+  if (process.env.NODE_ENV === "test") {
+    req.user = {
+      id: "67acb6c00a79cee04957d04b",
+      role: process.env.USER_ROLE,
+    };
+    return next();
+  }
   const authHeader = req.headers.authorization || req.headers.Authorization;
   if (!authHeader?.startsWith("Bearer ")) return res.sendStatus(401); //unauthorized
 
@@ -12,8 +20,7 @@ const verifyJWT = (req, res, next) => {
         .json({ message: "Invalid JWT payload. Access Denied" });
     }
     //for role based access control
-    req.email = decoded.userInfo.email;
-    req.role = decoded.userInfo.role; //for role based access control
+    req.user = decoded.user;
     next();
   });
 };

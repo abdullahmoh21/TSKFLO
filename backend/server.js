@@ -2,9 +2,9 @@ const express = require("express");
 require("dotenv").config();
 const app = express();
 const cookieParser = require("cookie-parser");
-
+const mongoose = require("mongoose");
 const connectDB = require("./utils/connectDB");
-const logger = require("./utils/logger");
+const logger = require("./logs/logger");
 
 connectDB();
 
@@ -14,7 +14,19 @@ app.use(cookieParser());
 
 app.use("/auth", require("./endpoints/authEndpoints"));
 app.use("/user", require("./endpoints/userEndpoints"));
+app.use("/tasks", require("./endpoints/taskEndpoints"));
 
-app.listen(process.env.PORT, () => {
-  console.log(`Server is running on port ${process.env.PORT}`);
+if (process.env.NODE_ENV !== "test") {
+  const server = app.listen(process.env.PORT || 3200, () => {
+    console.log(`Server running on port ${process.env.PORT || 3200}`);
+  });
+}
+
+mongoose.connection.on("error", (err) => {
+  logger.error(`${err.no}: ${err.code}\t${err.syscall}\t${err.hostname}`);
+  if (server) {
+    server.close();
+  }
 });
+
+module.exports = app;

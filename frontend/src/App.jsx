@@ -1,15 +1,15 @@
 import './App.css';
-import React from 'react';
+import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
-//Include Routes and Route
+import { useDispatch } from 'react-redux';
 import NavBar from './layout/NavBar'; // Import NavBar
 import HomePage from './pages/HomePage';
 import LoginPage from './pages/LoginPage';
 import TaskDashboard from './pages/TaskDashboard';
 import CreateTask from './pages/CreateTask';
 import AboutPage from './pages/AboutPage';
-import { AuthProvider } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
+import { checkAuthStatus } from './redux/thunks/authThunks';
 
 // Create a wrapper component that uses location
 function AppContent() {
@@ -43,12 +43,17 @@ function AppContent() {
 }
 
 function App() {
+  const dispatch = useDispatch();
+
+  useEffect(() => {
+    // Check authentication status when app loads
+    dispatch(checkAuthStatus());
+  }, [dispatch]);
+
   return (
-    <AuthProvider>
-      <Router>
-        <AppContent />
-      </Router>
-    </AuthProvider>
+    <Router>
+      <AppContent />
+    </Router>
   );
 }
 

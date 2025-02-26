@@ -1,20 +1,24 @@
-const express = require("express");
-require("dotenv").config();
-const app = express();
-const cookieParser = require("cookie-parser");
-
+const mongoose = require("mongoose");
 const connectDB = require("./utils/connectDB");
-const logger = require("./utils/logger");
+const logger = require("./logs/logger");
+const app = require("./app");
 
-connectDB();
+require("dotenv").config();
 
-app.use(express.json());
-app.use(express.urlencoded({ extended: true, limit: "10kb" }));
-app.use(cookieParser());
+// start server and DB connection only when not in test mode
+let server;
+if (process.env.NODE_ENV !== "test") {
+  connectDB();
+  server = app.listen(process.env.PORT || 3200, () => {
+    console.log(`Server running on port ${process.env.PORT || 3200}`);
+  });
+}
 
-app.use("/auth", require("./endpoints/authEndpoints"));
-app.use("/user", require("./endpoints/userEndpoints"));
-
-app.listen(process.env.PORT, () => {
-  console.log(`Server is running on port ${process.env.PORT}`);
+mongoose.connection.on("error", (err) => {
+  logger.error(`${err.no}: ${err.code}\t${err.syscall}\t${err.hostname}`);
+  if (server) {
+    server.close();
+  }
 });
+
+module.exports = server;

@@ -1,6 +1,8 @@
 const express = require("express");
 const router = express.Router();
-const validator = require("express-joi-validation").createValidator({});
+const validator = require("express-joi-validation").createValidator({
+  passError: true,
+});
 const {
   createTaskSchema,
   updateTaskSchema,
@@ -9,9 +11,6 @@ const {
 } = require("../utils/validation/taskSchemas");
 const taskController = require("../controllers/taskController");
 const { verifyJWT } = require("../middleware/verifyJWT");
-
-//TODO: add joi validation to all routes
-//TODO: add unit tests for all endpoints
 
 // All routes are protected
 router.use(verifyJWT);

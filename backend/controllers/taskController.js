@@ -8,25 +8,21 @@ const logger = require("../logs/logger");
 //@route GET /tasks
 //@access Private
 const getUserTasks = asyncHandler(async (req, res) => {
-  try {
-    const user = await User.findOne({ _id: req.user.id }).lean().exec();
-    if (!user) {
-      return res
-        .status(404)
-        .json({ message: "No user found for provided email" });
-    }
-
-    const tasks = await Task.find({
-      $or: [{ owner: user._id }, { assignees: user._id }],
-    })
-      .lean()
-      .select("-owner -updatedAt -__v")
-      .exec();
-
-    return res.status(200).json(tasks);
-  } catch (err) {
-    logger.debug(err);
+  const user = await User.findOne({ _id: req.user.id }).lean().exec();
+  if (!user) {
+    return res
+      .status(404)
+      .json({ message: "No user found for provided email" });
   }
+
+  const tasks = await Task.find({
+    $or: [{ owner: user._id }, { assignees: user._id }],
+  })
+    .lean()
+    .select("-owner -updatedAt -__v")
+    .exec();
+
+  return res.status(200).json(tasks);
 });
 
 //@desc Creates a new Task document
@@ -34,33 +30,23 @@ const getUserTasks = asyncHandler(async (req, res) => {
 //@route POST /tasks
 //@access Private
 const createTask = asyncHandler(async (req, res) => {
-  logger.log("in createTask controller");
-  try {
-    const { title, description, priority, dueDate, assignees } = req.body;
-    logger.log(`body received: ${req.body}:`);
+  const { title, description, priority, dueDate, assignees } = req.body;
 
-    const user = await User.findOne({ _id: req.user.id }).lean().exec();
-    if (!user) {
-      return res.status(404).json({ message: "No user found in DB" });
-    }
-    logger.log(`user found: ${JSON.stringify(user)}:`);
-
-    const newTask = new Task({
-      title,
-      description,
-      priority,
-      dueDate,
-      status: "Incomplete",
-      owner: req.user.id,
-      assignees,
-    });
-    await newTask.save();
-    logger.log(`Task saved: ${newTask}:`);
-
-    return res.status(200).json({ message: "Task created successfully" });
-  } catch (err) {
-    logger.error(err);
+  const user = await User.findOne({ _id: req.user.id }).lean().exec();
+  if (!user) {
+    return res.status(404).json({ message: "No user found in DB" });
   }
+  const newTask = new Task({
+    title,
+    description,
+    priority,
+    dueDate,
+    status: "Incomplete",
+    owner: req.user.id,
+    assignees,
+  });
+  await newTask.save();
+  return res.status(200).json({ message: "Task created successfully" });
 });
 
 //@desc Returns a specific task with all it's details
@@ -90,12 +76,13 @@ const updateTask = asyncHandler(async (req, res) => {
     "description",
     "title",
   ];
-  const task = await Task.findOne({ _id: taskId });
+
+  const task = await Task.findOne({ _id: taskId }).exec();
   if (!task) {
     return res.status(404).json({ message: "No Task with provided ID found" });
   }
 
-  // check for illegal fields
+  // Check for illegal fields
   const keys = Object.keys(newData);
   const disallowed = keys.filter((key) => !allowedUpdates.includes(key));
   if (disallowed.length > 0) {
@@ -104,19 +91,13 @@ const updateTask = asyncHandler(async (req, res) => {
     });
   }
 
-  const updates = keys.reduce((obj, key) => {
-    obj[key] = newData[key];
-    return obj;
-  }, {});
+  keys.forEach((key) => {
+    task[key] = newData[key];
+  });
 
-  const updatedTask = await Task.findOneAndUpdate({ _id: taskId }, updates, {
-    new: true,
-    runValidators: true,
-  }).exec();
-  if (!updatedTask) {
-    return res.status(404).json({ message: "No Task with provided ID found" });
-  }
-  return res.status(200).json(updatedTask);
+  await task.save();
+
+  return res.status(200).json(task);
 });
 
 //@desc Deletes a task ensuring only owners can delete
@@ -166,9 +147,6 @@ const addAssignee = asyncHandler(async (req, res) => {
     return res.status(404).json({ message: "No user with provided ID exists" });
   }
 
-  logger.debug(task);
-  logger.debug(JSON.stringify(assignee));
-
   if (task.assignees.includes(assigneeId)) {
     return res.status(204).json({ message: "No changes made" });
   }
@@ -191,7 +169,7 @@ const removeAssignee = asyncHandler(async (req, res) => {
   const task = await Task.findOne({
     _id: taskId,
     owner: req.user.id,
-  });
+  }).exec();
 
   if (!task) {
     return res

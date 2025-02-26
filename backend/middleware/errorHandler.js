@@ -22,7 +22,7 @@ process.on("uncaughtException", function (err) {
   if (err.message.includes("EADDRINUSE")) {
     logger.error("Error: Port is already in use. restarting the server");
   }
-  restartServer();
+  // restartServer();
 });
 
 process.on("unhandledRejection", (reason, promise) => {

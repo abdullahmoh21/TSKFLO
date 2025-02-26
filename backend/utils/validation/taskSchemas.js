@@ -25,6 +25,13 @@ const updateTaskSchema = Joi.object({
   status: Joi.string().valid("Complete", "Incomplete"),
   dueDate: Joi.date().greater("now"),
   assignees: Joi.array().items(Joi.string().length(24).hex()),
+  owner: Joi.forbidden().messages({
+    "any.unknown": "The 'owner' field cannot be edited",
+  }),
+  assignees: Joi.forbidden().messages({
+    "any.unknown":
+      "The 'assignees' field cannot be edited. Please edit via POST tasks/:taskId/assignee",
+  }),
 });
 
 module.exports = {

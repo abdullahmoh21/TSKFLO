@@ -1,47 +1,20 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { FaPlus, FaFilter, FaClock, FaUser, FaCheckCircle, FaTimes } from 'react-icons/fa';
-import { useAuth } from '../context/AuthContext';
+import { useSelector, useDispatch } from 'react-redux';
+import { fetchTasks } from '../redux/thunks/taskThunks';
+import { setFilters } from '../redux/slices/taskSlice';
 
 const TaskDashboard = () => {
-  const { user } = useAuth();
+  const dispatch = useDispatch();
+  const { user } = useSelector((state) => state.auth);
+  const { tasks, loading, filters } = useSelector((state) => state.tasks);
   const [showFilters, setShowFilters] = useState(false);
-  const [filters, setFilters] = useState({
-    status: '',
-    priority: '',
-    assignee: ''
-  });
 
-  // Mock data - replace with actual API calls
-  const [tasks] = useState([
-    {
-      id: 1,
-      title: 'Implement Authentication',
-      description: 'Add user authentication and protected routes',
-      status: 'In Progress',
-      priority: 'High',
-      dueDate: '2024-03-01',
-      assignees: ['John Doe']
-    },
-    {
-      id: 2,
-      title: 'Create Dashboard UI',
-      description: 'Design and implement the main dashboard interface',
-      status: 'To Do',
-      priority: 'Medium',
-      dueDate: '2024-03-05',
-      assignees: ['Jane Smith']
-    },
-    {
-      id: 3,
-      title: 'API Integration',
-      description: 'Connect frontend with backend API endpoints',
-      status: 'Done',
-      priority: 'High',
-      dueDate: '2024-02-28',
-      assignees: ['John Doe', 'Jane Smith']
-    }
-  ]);
+  useEffect(() => {
+    // Fetch tasks when component mounts
+    dispatch(fetchTasks());
+  }, [dispatch]);
 
   const getPriorityColor = (priority) => {
     switch (priority.toLowerCase()) {
@@ -74,18 +47,18 @@ const TaskDashboard = () => {
   };
 
   const handleFilterChange = (key, value) => {
-    setFilters(prev => ({
-      ...prev,
+    dispatch(setFilters({
+      ...filters,
       [key]: value
     }));
   };
 
   const clearFilters = () => {
-    setFilters({
+    dispatch(setFilters({
       status: '',
       priority: '',
       assignee: ''
-    });
+    }));
   };
 
   const filteredTasks = tasks.filter(task => {
@@ -218,9 +191,16 @@ const TaskDashboard = () => {
           )}
         </div>
 
+        {/* Loading State */}
+        {loading && (
+          <div className="flex justify-center my-8">
+            <div className="loader"></div>
+          </div>
+        )}
+
         {/* Task Grid */}
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 mb-6">
-          {filteredTasks.length > 0 ? (
+          {!loading && filteredTasks.length > 0 ? (
             filteredTasks.map((task) => (
               <div
                 key={task.id}
@@ -259,8 +239,8 @@ const TaskDashboard = () => {
                       <span className="text-sm">Due Date</span>
                     </div>
                     <span
-                      className={`text-sm ${
-                        isOverdue(task.dueDate) ? 'text-red-600' : 'text-gray-900'
+                      className={`text-xs font-medium ${
+                        isOverdue(task.dueDate) ? 'text-red-600' : 'text-gray-700'
                       }`}
                     >
                       {new Date(task.dueDate).toLocaleDateString()}
@@ -271,23 +251,35 @@ const TaskDashboard = () => {
                       <FaUser className="mr-2 h-4 w-4" />
                       <span className="text-sm">Assignees</span>
                     </div>
-                    <span className="text-sm text-gray-900">
-                      {task.assignees.join(', ')}
-                    </span>
+                    <div className="flex -space-x-1">
+                      {task.assignees.map((assignee, index) => (
+                        <div
+                          key={index}
+                          className="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center text-xs text-blue-600 border border-white"
+                          title={assignee}
+                        >
+                          {assignee.charAt(0)}
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 </div>
               </div>
             ))
           ) : (
-            <div className="col-span-full text-center py-12">
-              <p className="text-gray-500">No tasks match the selected filters.</p>
-              <button
-                onClick={clearFilters}
-                className="mt-2 text-blue-600 hover:text-blue-700"
-              >
-                Clear all filters
-              </button>
-            </div>
+            !loading && (
+              <div className="col-span-3 text-center py-8">
+                <p className="text-gray-500">No tasks match your filters</p>
+                {(filters.status || filters.priority || filters.assignee) && (
+                  <button
+                    onClick={clearFilters}
+                    className="mt-2 text-blue-600 hover:text-blue-700"
+                  >
+                    Clear filters
+                  </button>
+                )}
+              </div>
+            )
           )}
         </div>
       </div>

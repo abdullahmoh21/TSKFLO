@@ -1,29 +1,54 @@
 import './App.css';
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom'; // Include useLocation
+import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
+//Include Routes and Route
 import NavBar from './layout/NavBar'; // Import NavBar
-import HomeRoute from './routes/HomeRoute'; // Import HomeRoute
-import LoginRoute from './routes/LoginRoute';
-import DashboardPage from './pages/DashboardPage'; // Import DashboardPage
-import AdminPage from './pages/AdminPage'; // Import AdminPage
-import TeamPage from './pages/TeamPage'; // Import TeamPage
+import HomePage from './pages/HomePage';
+import LoginPage from './pages/LoginPage';
+import TaskDashboard from './pages/TaskDashboard';
+import CreateTask from './pages/CreateTask';
+import AboutPage from './pages/AboutPage';
+import { AuthProvider } from './context/AuthContext';
+import ProtectedRoute from './components/ProtectedRoute';
+
+// Create a wrapper component that uses location
+function AppContent() {
+  const location = useLocation();
+  return (
+    <>
+      <NavBar />
+      <Routes>
+        <Route path="/" element={<HomePage />} />
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/about" element={<AboutPage />} />
+        <Route
+          path="/dashboard"
+          element={
+            <ProtectedRoute>
+              <TaskDashboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/create-task"
+          element={
+            <ProtectedRoute>
+              <CreateTask />
+            </ProtectedRoute>
+          }
+        />
+      </Routes>
+    </>
+  );
+}
 
 function App() {
-  const location = useLocation();
-
   return (
-    <Router>
-      {/* Only show NavBar if not on login, dashboard, or team page */}
-      {(location.pathname !== '/login' && location.pathname !== '/dash' && location.pathname !== '/team') && <NavBar />}
-
-      <Routes>
-        <Route path="/" element={<HomeRoute />} />
-        <Route path="/login" element={<LoginRoute />} />
-        <Route path="/dash" element={<DashboardPage />} />
-        <Route path="/admin" element={<AdminPage />} />
-        <Route path="/team" element={<TeamPage />} /> {/* Add the TeamPage route */}
-      </Routes>
-    </Router>
+    <AuthProvider>
+      <Router>
+        <AppContent />
+      </Router>
+    </AuthProvider>
   );
 }
 

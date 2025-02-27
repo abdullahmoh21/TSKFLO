@@ -10,6 +10,7 @@ import CreateTask from './pages/CreateTask';
 import AboutPage from './pages/AboutPage';
 import { AuthProvider } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
+import AdminPage from './pages/AdminPage';
 
 // Create a wrapper component that uses location
 function AppContent() {
@@ -37,6 +38,16 @@ function AppContent() {
             </ProtectedRoute>
           }
         />
+
+<Route
+          path="/admindashboard"
+          element={
+            <ProtectedRoute>
+              <AdminPage />
+            </ProtectedRoute>
+          }
+        />
+
       </Routes>
     </>
   );

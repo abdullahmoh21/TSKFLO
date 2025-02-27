@@ -21,7 +21,7 @@ const HomeRoute = () => {
         <Route path="/about" element={<AboutPage />} />
         <Route path="/create-task" element={<CreateTask />} />
         <Route path="/login" element={<LoginPage />} />
-        <Route path="/admin" element={<AdminPage />} />
+        <Route path="/admindashboard" element={<AdminPage />} />
         <Route path="/team" element={<TeamPage />} /> {/* Added TeamPage route */}
       </Routes>
     </Router>

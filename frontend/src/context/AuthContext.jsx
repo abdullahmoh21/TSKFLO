@@ -11,7 +11,7 @@ export const AuthProvider = ({ children }) => {
                 id: '1',
                 name: 'John Doe',
                 email,
-                role: 'user'
+                role: 'admin'
             };
             setUser(mockUser);
             return { success: true };

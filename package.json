@@ -16,5 +16,9 @@
     "url": "https://github.com/abdullahmoh21/task-management/issues"
   },
   "homepage": "https://github.com/abdullahmoh21/task-management#readme",
-  "description": ""
+  "description": "",
+  "dependencies": {
+    "chart.js": "^4.4.8",
+    "react-chartjs-2": "^5.3.0"
+  }
 }

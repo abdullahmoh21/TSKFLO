@@ -18,7 +18,8 @@
     "express-joi-validation": "^6.0.0",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.10.0",
-    "winston": "^3.17.0"
+    "winston": "^3.17.0",
+    "cookie-parser": "^1.4.6"
   },
   "devDependencies": {
     "jest": "^29.7.0",

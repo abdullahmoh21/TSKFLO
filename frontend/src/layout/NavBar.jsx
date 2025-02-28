@@ -1,7 +1,7 @@
 import React, { useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { FaTasks, FaUserCircle } from 'react-icons/fa';
+import { FaTasks, FaUserCircle } from "react-icons/fa";
 
 const Navbar = () => {
   const { isAuthenticated, logout, user } = useAuth();
@@ -13,8 +13,7 @@ const Navbar = () => {
     console.log("Current Location:", location.pathname);
   }, [location, user]);
 
-  // If authentication data is still loading, prevent rendering
-  if (!isAuthenticated || user === null) return null;
+  // Removed early return so that navbar is rendered even if the user is not authenticated
 
   // Public navigation (for non-authenticated users)
   const publicNavigation = [
@@ -28,7 +27,7 @@ const Navbar = () => {
     { name: "Create Task", href: "/create-task" }
   ];
 
-  // Navigation for admin (only when on /admindashboard)
+  // Navigation for admin
   const adminNavigation = [
     { name: "Admin Dashboard", href: "/admindashboard" }
   ];
@@ -39,16 +38,20 @@ const Navbar = () => {
 
   const isActivePath = (path) => location.pathname === path;
 
-  // Determine navigation links based on user role and current location
+  // Determine navigation links based on user role and current path
   const navigationItems = () => {
     if (!isAuthenticated) return publicNavigation;
 
-    if (user?.role === "admin" && location.pathname === "/admindashboard") {
-      // If the user is an admin and on the admin dashboard route, show adminNavigation only.
+    // If user is admin and on admin dashboard or admin-related pages
+    if (user?.isAdmin && (location.pathname === "/admindashboard" || location.pathname.startsWith("/admin"))) {
       return adminNavigation;
     }
 
-    // For non-admin users, and admin users on non-admin pages, show the privateNavigation.
+    // If user is admin but not on admin pages, show adminNavigation and privateNavigation
+    if (user?.isAdmin) {
+      return [...adminNavigation, ...privateNavigation];
+    }
+
     return privateNavigation;
   };
 
@@ -76,8 +79,8 @@ const Navbar = () => {
                   to={item.href}
                   className={`px-4 py-2 rounded-md text-sm font-medium transition-colors duration-200 ${
                     isActivePath(item.href)
-                      ? 'bg-blue-50 text-blue-700'
-                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                      ? "bg-blue-50 text-blue-700"
+                      : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
                   }`}
                 >
                   {item.name}
@@ -85,13 +88,13 @@ const Navbar = () => {
               ))}
             </nav>
 
-            {/* User Profile & Logout Button */}
+            {/* User Profile & Logout Button (only for authenticated users) */}
             {isAuthenticated && (
               <div className="flex items-center gap-3 ml-4 pl-4 border-l border-gray-200">
                 <div className="flex items-center gap-2">
                   <FaUserCircle className="h-5 w-5 text-gray-400" />
                   <span className="text-sm font-medium text-gray-700">
-                    {user?.name || 'User'} {user?.isAdmin ? '(Admin)' : ''}
+                    {user?.name || "User"} {user?.isAdmin ? "(Admin)" : ""}
                   </span>
                 </div>
                 <button
@@ -109,4 +112,4 @@ const Navbar = () => {
   );
 };
 
-export default Navbar;
+export default Navbar

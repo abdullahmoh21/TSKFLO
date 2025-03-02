@@ -37,7 +37,7 @@ const updateUserData = asyncHandler(async (req, res) => {
       new: true,
       runValidators: true,
     }
-  ).select("_id email phone role DOB name");
+  ).select("_id email phone role name");
 
   if (!updatedUser) {
     return res.status(404).json({ message: "User not found" });

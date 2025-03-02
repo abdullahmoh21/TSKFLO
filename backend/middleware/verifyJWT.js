@@ -28,7 +28,8 @@ const verifyJWT = (req, res, next) => {
 const verifyAdmin = (req, res, next) => {
   verifyJWT(req, res, (err) => {
     if (err) return next(err);
-    if (req.role !== ROLES_LIST.Admin) {
+    if (req.user.role !== "admin") {
+      logger.debug("invalid role:", req.user.role);
       return res.sendStatus(403); // Forbidden
     }
     next();

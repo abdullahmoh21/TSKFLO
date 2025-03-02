@@ -13,7 +13,7 @@ app.use(cookieParser());
 
 app.use("/auth", require("./endpoints/authEndpoints"));
 app.use("/user", require("./endpoints/userEndpoints"));
-app.use("/tasks", require("./endpoints/taskEndpoints"));
+app.use("/tasks", require("./endpoints/tasksEndpoints"));
 app.use("/admin", require("./endpoints/adminEndpoints"));
 
 app.use(require("./middleware/formatJoiErrors")); // formats Joi validation errors into JSON

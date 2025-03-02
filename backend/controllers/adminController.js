@@ -124,9 +124,20 @@ const deleteUser = asyncHandler(async (req, res) => {
   res.sendStatus(200);
 });
 
+const getAllTasks = asyncHandler(async (req, res) => {});
+const createTask = asyncHandler(async (req, res) => {});
+const getTask = asyncHandler(async (req, res) => {});
+const updateTask = asyncHandler(async (req, res) => {});
+const deleteTask = asyncHandler(async (req, res) => {});
+
 module.exports = {
   getAllUsers,
   invite,
   updateUser,
   deleteUser,
+  getAllTasks,
+  createTask,
+  getTask,
+  updateTask,
+  deleteTask,
 };

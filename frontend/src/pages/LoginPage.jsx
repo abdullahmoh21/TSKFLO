@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useDispatch } from 'react-redux';
-import { setToken, setUser } from '../authSlice';
+import { setToken, setUser } from '../redux/authSlice';
 import {jwtDecode} from 'jwt-decode';
 import { useNavigate } from 'react-router-dom';
 
@@ -64,7 +64,7 @@ const LoginPage = () => {
         dispatch(setUser(decoded.user));
 
         // Navigate to dashboard
-        if (decoded.role === 1111) {
+        if (decoded.user.role === "admin") {
           navigate('/admindashboard');
         } else {
           navigate('/dashboard');

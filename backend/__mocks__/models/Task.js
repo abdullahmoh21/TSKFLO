@@ -1,3 +1,10 @@
+function TaskConstructor(data) {
+  return {
+    ...data,
+    save: jest.fn().mockResolvedValue(data),
+  };
+}
+
 const mockTask = {
   findOne: jest.fn(),
   find: jest.fn(),
@@ -21,4 +28,8 @@ mockTask.find = jest.fn().mockReturnValue(chainableMock);
 mockTask.findOneAndDelete = jest.fn().mockReturnValue(chainableMock);
 mockTask.findById = jest.fn().mockReturnValue(chainableMock);
 
-module.exports = mockTask;
+// Add the constructor functionality
+const TaskMock = jest.fn().mockImplementation(TaskConstructor);
+Object.assign(TaskMock, mockTask);
+
+module.exports = TaskMock;

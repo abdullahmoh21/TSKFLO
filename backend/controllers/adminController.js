@@ -4,6 +4,8 @@ const asyncHandler = require("express-async-handler");
 const sendEmail = require("../utils/emailTransporter");
 const crypto = require("crypto");
 const bcrypt = require("bcrypt");
+const logger = require("../logs/logger");
+const { execFileSync } = require("child_process");
 
 //@desc returns list of all users with paging
 //@param {Object} req with valid Admin JWT
@@ -15,7 +17,6 @@ const getAllUsers = asyncHandler(async (req, res) => {
   // Convert page and limit to numbers, and set defaults if not provided
   page = parseInt(page) || 1;
   limit = parseInt(limit) || 10;
-
   // Ensure page and limit are positive
   if (page < 1 || limit < 1) {
     return res
@@ -72,7 +73,6 @@ const invite = asyncHandler(async (req, res) => {
   try {
     await sendEmail(email, "inviteUser", { name, link });
   } catch (err) {
-    print(err);
     // rollback if email sending failed
     await Invitation.deleteOne({ _id: newInvitation._id });
     return res

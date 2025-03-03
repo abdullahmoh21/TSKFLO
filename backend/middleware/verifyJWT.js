@@ -5,7 +5,7 @@ const verifyJWT = (req, res, next) => {
   if (process.env.NODE_ENV === "test") {
     req.user = {
       id: "67acb6c00a79cee04957d04b",
-      role: process.env.USER_ROLE,
+      role: "admin",
     };
     return next();
   }

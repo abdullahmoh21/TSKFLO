@@ -1,32 +1,52 @@
-
-import React from 'react';
-import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
+import React from "react";
+import {
+  BrowserRouter as Router,
+  Routes,
+  Route,
+  useLocation,
+} from "react-router-dom";
 //Include Routes and Route
-import NavBar from './layout/NavBar'; // Import NavBar
-import HomePage from './pages/HomePage';
-import LoginPage from './pages/LoginPage';
-import TaskDashboard from './pages/TaskDashboard';
-import CreateTask from './pages/CreateTask';
-import AboutPage from './pages/AboutPage';
-import { AuthProvider } from './context/AuthContext';
-import ProtectedRoute from './components/ProtectedRoute';
-import AdminPage from './pages/AdminPage';
+import HomeNavBar from "./components/homeNavBar";
+import UserNavbar from "./components/userNavBar";
+import AdminNavbar from "./components/adminNavbar";
+import HomePage from "./pages/HomePage";
+import LoginPage from "./pages/LoginPage";
+import UserDashboard from "./pages/UserDashboard";
+import CreateTask from "./pages/CreateTask";
+import AboutPage from "./pages/AboutPage";
+import ProtectedRoute from "./components/ProtectedRoute";
+import AdminPage from "./pages/AdminDashboard";
 
 // Create a wrapper component that uses location
 function AppContent() {
   const location = useLocation();
+
+  // Decide which Navbar to show based on the current path
+  let NavbarComponent;
+  if (location.pathname.startsWith("/admindashboard")) {
+    NavbarComponent = AdminNavbar;
+  } else if (
+    location.pathname.startsWith("/dashboard") ||
+    location.pathname.startsWith("/create-task")
+  ) {
+    NavbarComponent = UserNavbar;
+  } else {
+    NavbarComponent = HomeNavBar;
+  }
+
   return (
     <>
-      <NavBar />
+      <NavbarComponent />
       <Routes>
         <Route path="/" element={<HomePage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/about" element={<AboutPage />} />
+
         <Route
           path="/dashboard"
           element={
             <ProtectedRoute>
-              <TaskDashboard />
+              <UserDashboard />
             </ProtectedRoute>
           }
         />
@@ -39,7 +59,7 @@ function AppContent() {
           }
         />
 
-<Route
+        <Route
           path="/admindashboard"
           element={
             <ProtectedRoute>
@@ -47,7 +67,6 @@ function AppContent() {
             </ProtectedRoute>
           }
         />
-
       </Routes>
     </>
   );
@@ -55,11 +74,9 @@ function AppContent() {
 
 function App() {
   return (
-    <AuthProvider>
-      <Router>
-        <AppContent />
-      </Router>
-    </AuthProvider>
+    <Router>
+      <AppContent />
+    </Router>
   );
 }
 

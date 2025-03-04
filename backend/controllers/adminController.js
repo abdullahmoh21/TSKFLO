@@ -1,11 +1,13 @@
 const User = require("../models/User");
+const Task = require("../models/Task");
 const Invitation = require("../models/Invitation");
 const asyncHandler = require("express-async-handler");
 const sendEmail = require("../utils/emailTransporter");
 const crypto = require("crypto");
 const bcrypt = require("bcrypt");
 const logger = require("../logs/logger");
-const { execFileSync } = require("child_process");
+
+// ------------------- /admin/users ------------------- //
 
 //@desc returns list of all users with paging
 //@param {Object} req with valid Admin JWT
@@ -15,8 +17,14 @@ const getAllUsers = asyncHandler(async (req, res) => {
   let { page, limit } = req.query;
 
   // Convert page and limit to numbers, and set defaults if not provided
-  page = parseInt(page) || 1;
-  limit = parseInt(limit) || 10;
+  // Parse values
+  page = parseInt(page);
+  limit = parseInt(limit);
+
+  // Set defaults for undefined/NaN values, not for 0
+  if (isNaN(page)) page = 1;
+  if (isNaN(limit)) limit = 10;
+
   // Ensure page and limit are positive
   if (page < 1 || limit < 1) {
     return res
@@ -124,11 +132,120 @@ const deleteUser = asyncHandler(async (req, res) => {
   res.sendStatus(200);
 });
 
-const getAllTasks = asyncHandler(async (req, res) => {});
-const createTask = asyncHandler(async (req, res) => {});
-const getTask = asyncHandler(async (req, res) => {});
-const updateTask = asyncHandler(async (req, res) => {});
-const deleteTask = asyncHandler(async (req, res) => {});
+// ------------------- /admin/tasks ------------------- //
+
+//@desc returns list of all tasks with paging
+//@param {Object} req with valid Admin JWT
+//@route GET /admin/tasks
+//@access Private
+const getAllTasks = asyncHandler(async (req, res) => {
+  let { page, limit } = req.query;
+
+  page = parseInt(page);
+  limit = parseInt(limit);
+
+  // Set defaults for undefined/NaN values, not for 0
+  if (isNaN(page)) page = 1;
+  if (isNaN(limit)) limit = 10;
+
+  // Ensure page and limit are positive
+  if (page < 1 || limit < 1) {
+    return res
+      .status(400)
+      .json({ error: "Page and limit must be positive numbers." });
+  }
+
+  const skip = (page - 1) * limit;
+
+  // Fetch paginated users
+  const tasks = await Task.find().skip(skip).limit(limit).lean().exec();
+
+  // Get total number of users
+  const totalTasks = await Task.countDocuments();
+
+  // Send response with pagination metadata
+  res.json({
+    totalTasks,
+    currentPage: page,
+    totalPages: Math.ceil(totalTasks / limit),
+    tasks,
+  });
+});
+
+//@desc returns list of all tasks with paging
+//@param {Object} req with valid Admin JWT
+//@route POST /admin/tasks
+//@access Private
+const createTask = asyncHandler(async (req, res) => {
+  const { title, description, priority, dueDate, assignees } = req.body;
+
+  const task = new Task({
+    title,
+    description,
+    priority,
+    dueDate,
+    owner: req.user.id,
+    assignees,
+  });
+
+  await task.save();
+
+  return res.sendStatus(200);
+});
+
+//@desc returns a specific task
+//@param {Object} req with valid Admin JWT and taskId
+//@route GET /admin/tasks/:taskId
+//@access Private
+const getTask = asyncHandler(async (req, res) => {
+  const { taskId } = req.params;
+
+  const task = await Task.findOne({ _id: taskId }).lean().exec();
+
+  if (!task) {
+    return res.status(404).json({ message: "No such task exists" });
+  }
+
+  return res.status(200).json(task);
+});
+
+//@desc updates a specific task
+//@param {Object} req with valid Admin JWT and field data
+//@route PATCH /admin/tasks/:taskId
+//@access Private
+const updateTask = asyncHandler(async (req, res) => {
+  const { taskId } = req.params;
+  const updates = req.body; //validated with Joi
+
+  const updatedTask = await Task.findOneAndUpdate({ _id: taskId }, updates, {
+    new: true,
+    runValidators: true,
+  })
+    .lean()
+    .exec();
+
+  if (!updatedTask) {
+    return res.status(404).json({ message: "No such task exists" });
+  }
+
+  return res.status(200).json(updatedTask);
+});
+
+//@desc deletes a specific task
+//@param {Object} req with valid Admin JWT and taskId
+//@route DELETE /admin/tasks/:taskId
+//@access Private
+const deleteTask = asyncHandler(async (req, res) => {
+  const { taskId } = req.params;
+
+  const response = await Task.deleteOne({ _id: taskId }).exec();
+
+  if (response.deletedCount == 0) {
+    return res.status(404).json({ message: "No Task found" });
+  }
+
+  return res.sendStatus(200);
+});
 
 module.exports = {
   getAllUsers,

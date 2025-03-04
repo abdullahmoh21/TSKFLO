@@ -215,7 +215,7 @@ describe("Admin User Endpoints", () => {
       }));
 
       const response = await request(app)
-        .patch("/admin/users/doesnotexist")
+        .patch("/admin/users/67b68a813a0980f15e455efd")
         .send({ name: "New Name" });
 
       expect(response.status).toBe(404);
@@ -236,7 +236,7 @@ describe("Admin User Endpoints", () => {
       }));
 
       const response = await request(app).delete(
-        "/admin/users/abc123abc123abc123abc123"
+        "/admin/users/67b68a813a0980f15e455efd"
       );
 
       expect(response.status).toBe(200);
@@ -248,7 +248,9 @@ describe("Admin User Endpoints", () => {
         exec: () => Promise.resolve({ deletedCount: 0 }),
       }));
 
-      const response = await request(app).delete("/admin/users/invalidId");
+      const response = await request(app).delete(
+        "/admin/users/67b68a813a0980f15e455efd"
+      );
       expect(response.status).toBe(404);
       expect(response.body.message).toBe("No user found with this user ID");
     });

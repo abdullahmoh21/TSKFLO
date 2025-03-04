@@ -1,5 +1,5 @@
 import React from "react";
-import Navbar from "../layout/NavBar"; // Ensure Navbar is included
+import Navbar from "../components/homeNavBar"; // Ensure Navbar is included
 import backgroundImage from "../assets/background.png"; // Use the same animated background
 
 const AboutPage = () => {
@@ -38,4 +38,3 @@ const AboutPage = () => {
 };
 
 export default AboutPage;
-

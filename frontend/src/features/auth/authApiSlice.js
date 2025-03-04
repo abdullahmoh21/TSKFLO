@@ -1,5 +1,5 @@
 import { apiSlice } from "../../app/api/apiSlice";
-import { logOut, setCredentials } from "./authSlice";
+import { logOut, setCredentials, setUserData } from "./authSlice";
 
 export const authApiSlice = apiSlice.injectEndpoints({
   endpoints: (builder) => ({
@@ -35,7 +35,6 @@ export const authApiSlice = apiSlice.injectEndpoints({
       async onQueryStarted(arg, { dispatch, queryFulfilled }) {
         try {
           await queryFulfilled;
-          console.log(queryFulfilled);
           dispatch(logOut()); //token = null
           dispatch(apiSlice.util.resetApiState());
         } catch (err) {
@@ -45,19 +44,46 @@ export const authApiSlice = apiSlice.injectEndpoints({
     }),
     refresh: builder.mutation({
       query: () => ({
-        url: "/auth/refresh",
+        url: "auth/refresh",
         method: "GET",
+        credentials: 'include',
       }),
       async onQueryStarted(arg, { dispatch, queryFulfilled }) {
         try {
           const { data } = await queryFulfilled;
-          console.log(data);
-          const { accessToken } = data;
-          dispatch(setCredentials({ accessToken }));
+          if (data && data.accessToken) {
+            console.log("Refresh token success:", data);
+            dispatch(setCredentials({ accessToken: data.accessToken }));
+            return true;
+          } else {
+            console.log("No access token in refresh response");
+            return false;
+          }
         } catch (err) {
-          console.log(err);
+          console.log("Token refresh failed:", err);
+          // Handle token refresh failure - only log out if it's a 401/403 error
+          if (err?.error?.status === 401 || err?.error?.status === 403) {
+            console.log("Refresh token expired, logging out");
+            dispatch(logOut());
+          }
+          return false;
         }
       },
+    }),
+    getUserProfile: builder.query({
+      query: () => ({
+        url: 'users',
+        method: 'GET',
+      }),
+      async onQueryStarted(arg, { dispatch, queryFulfilled }) {
+        try {
+          const { data } = await queryFulfilled;
+          dispatch(setUserData(data));
+        } catch (err) {
+          console.log('Error fetching user data:', err);
+        }
+      },
+      providesTags: ['UserProfile'],
     }),
   }),
 });
@@ -67,4 +93,5 @@ export const {
   useRegisterMutation,
   useLogoutMutation,
   useRefreshMutation,
+  useGetUserProfileQuery,
 } = authApiSlice;

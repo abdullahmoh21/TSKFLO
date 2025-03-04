@@ -1,16 +1,31 @@
 // UserDashNavbar.jsx
 import React from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { FaTasks, FaUserCircle } from "react-icons/fa";
+import { useSelector, useDispatch } from "react-redux";
+import { selectCurrentUserName } from "../features/auth/authSlice";
+import { useLogoutMutation } from "../features/auth/authApiSlice";
 
 const UserDashNavbar = () => {
   const location = useLocation();
+  const navigate = useNavigate();
+  const dispatch = useDispatch();
+  
+  // Get user name from Redux state
+  const userName = useSelector(selectCurrentUserName);
+  
+  // Logout mutation
+  const [logout] = useLogoutMutation();
 
   const isActivePath = (path) => location.pathname === path;
 
-  const handleLogout = () => {
-    // You can wire up your actual logout logic here
-    console.log("Logout clicked");
+  const handleLogout = async () => {
+    try {
+      await logout().unwrap();
+      navigate('/login');
+    } catch (err) {
+      console.error('Logout failed:', err);
+    }
   };
 
   return (
@@ -48,7 +63,7 @@ const UserDashNavbar = () => {
               <div className="flex items-center gap-2">
                 <FaUserCircle className="h-5 w-5 text-gray-400" />
                 <span className="text-sm font-medium text-gray-700">
-                  John Doe
+                  {userName || "User"}
                 </span>
               </div>
               <button

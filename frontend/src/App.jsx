@@ -15,6 +15,7 @@ import UserDashboard from "./pages/UserDashboard";
 import CreateTask from "./pages/CreateTask";
 import AboutPage from "./pages/AboutPage";
 import ProtectedRoute from "./components/ProtectedRoute";
+import AdminRoute from "./components/AdminRoute";
 import AdminPage from "./pages/AdminDashboard";
 
 // Create a wrapper component that uses location
@@ -62,9 +63,9 @@ function AppContent() {
         <Route
           path="/admindashboard"
           element={
-            <ProtectedRoute>
+            <AdminRoute>
               <AdminPage />
-            </ProtectedRoute>
+            </AdminRoute>
           }
         />
       </Routes>

@@ -3,6 +3,7 @@ const jwt = require("jsonwebtoken");
 const User = require("../models/User");
 const asyncHandler = require("express-async-handler");
 const logger = require("../logs/logger");
+const Invitation = require("../models/Invitation");
 
 //@desc Assigns new jwt token
 //@param {Object} req with valid email, password
@@ -116,17 +117,23 @@ const refresh = asyncHandler(async (req, res) => {
   res.json({ accessToken });
 });
 
-//@desc creates a new user in the database
+//@desc creates a new user in the database IF user has been invited
 //@param {Object} req with valid email, password
 //@route POST /auth/register
 //@access Public
 const register = asyncHandler(async (req, res) => {
-  const { email, password, name } = req.body;
+  const { token } = req.params;
+  const { password } = req.body;
 
   // Check if a user with this email already exists
-  const existingUser = await User.findOne({ email }).exec();
-  if (existingUser) {
-    return res.status(400).json({ message: "User already exists" });
+  const invitation = await Invitation.findOne({ token }).exec();
+  if (!invitation) {
+    return res.status(400).json({ message: "No invitation for this token" });
+  }
+
+  const userExists = await User.findOne({ email: invitation.email });
+  if (userExists) {
+    return res.status(409).json({ message: "User already created" });
   }
 
   // Hash the password before storing
@@ -134,15 +141,16 @@ const register = asyncHandler(async (req, res) => {
 
   // Create the new user
   const newUser = new User({
-    email,
-    name,
+    email: invitation.email,
+    name: invitation.name,
+    role: invitation.role,
     password: hashedPassword,
-    role: process.env.USER_ROLE,
   });
 
   await newUser.save();
+  await Invitation.deleteOne({ _id: invitation._id });
 
-  res.status(201).json({ message: "User created successfully" });
+  res.status(200).json({ message: "User created successfully" });
 });
 
 // @desc Logout

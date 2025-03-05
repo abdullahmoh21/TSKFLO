@@ -8,6 +8,6 @@ router.route("/refresh").get(authController.refresh);
 
 router.route("/logout").post(authController.logout);
 
-router.route("/register").post(authController.register);
+router.route("/register/:token").post(authController.register);
 
 module.exports = router;

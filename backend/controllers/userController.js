@@ -1,8 +1,8 @@
 const User = require("../models/User");
-const asyncHandler = require("express-async-handler"); //middleware to handle exceptions
+const asyncHandler = require("express-async-handler");
 
 //@desc get users own data
-//@route GET /users/me
+//@route GET /user
 //@access Private
 const getUserData = asyncHandler(async (req, res) => {
   const user = await User.findOne({ _id: req.user.id })
@@ -15,7 +15,7 @@ const getUserData = asyncHandler(async (req, res) => {
 
 //@desc Update users own data
 //@param {Object} req with valid new data
-//@route PATCH /users/me
+//@route PATCH /user
 //@access Private
 const updateUserData = asyncHandler(async (req, res) => {
   const newData = req.body;
@@ -37,7 +37,7 @@ const updateUserData = asyncHandler(async (req, res) => {
       new: true,
       runValidators: true,
     }
-  ).select("_id email phone role DOB name");
+  ).select("_id email phone role name");
 
   if (!updatedUser) {
     return res.status(404).json({ message: "User not found" });
@@ -46,7 +46,53 @@ const updateUserData = asyncHandler(async (req, res) => {
   return res.status(200).json(updatedUser);
 });
 
+//@desc return a list of all users and there _id's (only selected fields)
+//@param {Object} req with valid JWT
+//@route GET /user/all
+//@access Private
+const listAllUsers = asyncHandler(async (req, res) => {
+  let { page, limit } = req.query;
+
+  // Convert page and limit to numbers, and set defaults if not provided
+  // Parse values
+  page = parseInt(page);
+  limit = parseInt(limit);
+
+  // Set defaults for undefined/NaN values, not for 0
+  if (isNaN(page)) page = 1;
+  if (isNaN(limit)) limit = 10;
+
+  // Ensure page and limit are positive
+  if (page < 1 || limit < 1) {
+    return res
+      .status(400)
+      .json({ error: "Page and limit must be positive numbers." });
+  }
+
+  const skip = (page - 1) * limit;
+
+  // Fetch paginated users
+  const users = await User.find()
+    .skip(skip)
+    .limit(limit)
+    .lean()
+    .select("_id name")
+    .exec();
+
+  // Get total number of users
+  const totalUsers = await User.countDocuments();
+
+  // Send response with pagination metadata
+  res.json({
+    totalUsers,
+    currentPage: page,
+    totalPages: Math.ceil(totalUsers / limit),
+    users,
+  });
+});
+
 module.exports = {
   getUserData,
   updateUserData,
+  listAllUsers,
 };

@@ -1,19 +1,81 @@
+import React from "react";
+import {
+  BrowserRouter as Router,
+  Routes,
+  Route,
+  useLocation,
+} from "react-router-dom";
+//Include Routes and Route
+import HomeNavBar from "./components/homeNavBar";
+import UserNavbar from "./components/userNavBar";
+import AdminNavbar from "./components/adminNavbar";
+import HomePage from "./pages/HomePage";
+import LoginPage from "./pages/LoginPage";
+import UserDashboard from "./pages/UserDashboard";
+import CreateTask from "./pages/CreateTask";
+import AboutPage from "./pages/AboutPage";
+import ProtectedRoute from "./components/ProtectedRoute";
+import AdminPage from "./pages/AdminDashboard";
 
-import './App.css';
-import React from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'; // Include Routes and Route
-import NavBar from './layout/NavBar'; // Import NavBar
-import HomeRoute from './routes/HomeRoute'; // Import HomeRoute
-import LoginRoute from './routes/LoginRoute';
+// Create a wrapper component that uses location
+function AppContent() {
+  const location = useLocation();
+
+  // Decide which Navbar to show based on the current path
+  let NavbarComponent;
+  if (location.pathname.startsWith("/admindashboard")) {
+    NavbarComponent = AdminNavbar;
+  } else if (
+    location.pathname.startsWith("/dashboard") ||
+    location.pathname.startsWith("/create-task")
+  ) {
+    NavbarComponent = UserNavbar;
+  } else {
+    NavbarComponent = HomeNavBar;
+  }
+
+  return (
+    <>
+      <NavbarComponent />
+      <Routes>
+        <Route path="/" element={<HomePage />} />
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/about" element={<AboutPage />} />
+
+        <Route
+          path="/dashboard"
+          element={
+            <ProtectedRoute>
+              <UserDashboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/create-task"
+          element={
+            <ProtectedRoute>
+              <CreateTask />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/admindashboard"
+          element={
+            <ProtectedRoute>
+              <AdminPage />
+            </ProtectedRoute>
+          }
+        />
+      </Routes>
+    </>
+  );
+}
 
 function App() {
   return (
     <Router>
-      <NavBar /> {/* Ensure Navbar is always visible */}
-      <Routes>
-        <Route path="/" element={<HomeRoute />} />
-        <Route path="/login" element={<LoginRoute />} /> {/* Add Login Route */}
-      </Routes>
+      <AppContent />
     </Router>
   );
 }

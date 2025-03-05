@@ -1,17 +1,17 @@
-import React from 'react';
-import Navbar from '../layout/NavBar'; // Import Navbar from layout folder
-import backgroundImage from '../assets/background.png'; // Import the image
+import React from "react";
+import Navbar from "../components/homeNavBar"; // Import Navbar from layout folder
+import backgroundImage from "../assets/background.png"; // Import the image
 
 const HomePage = () => {
   return (
     <div
       className="relative w-full h-screen bg-cover bg-center bg-no-repeat animate-background"
-      style={{ 
+      style={{
         backgroundImage: `url(${backgroundImage})`,
-        minHeight: '100vh', // Ensure the height is 100vh
-        backgroundSize: 'cover', // Ensures the background covers the full container
-        backgroundPosition: 'center', // Centers the background image
-        backgroundAttachment: 'fixed' // Keeps the background fixed while scrolling
+        minHeight: "100vh", // Ensure the height is 100vh
+        backgroundSize: "cover", // Ensures the background covers the full container
+        backgroundPosition: "center", // Centers the background image
+        backgroundAttachment: "fixed", // Keeps the background fixed while scrolling
       }}
     >
       {/* Center the content using flex */}

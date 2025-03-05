@@ -1,37 +1,61 @@
-import { useState } from "react";
+import React, { useState } from "react";
+import { useDispatch } from "react-redux";
+import { useNavigate } from "react-router-dom";
+import { useLoginMutation } from "../features/auth/authApiSlice"; // <-- RTK Query Hook
+import { setCredentials } from "../features/auth/authSlice";
+import { jwtDecode } from "jwt-decode";
 
 const LoginPage = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [errors, setErrors] = useState({});
 
-  const validateEmail = (email) => {
-    // Simple regex for basic email validation
-    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-  };
+  // RTK Query login mutation
+  const [login, { isLoading }] = useLoginMutation();
 
-  const handleSubmit = (e) => {
+  const dispatch = useDispatch();
+  const navigate = useNavigate();
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    console.log("In handle Submit");
+    // Simple client-side validation
     let newErrors = {};
-
     if (!email) {
       newErrors.email = "Please enter your email.";
-    } else if (!validateEmail(email)) {
-      newErrors.email = "Please enter a valid email address.";
     }
-
     if (!password) {
       newErrors.password = "Please enter your password.";
     }
-
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
       return;
     }
-
     setErrors({});
-    console.log("Logging in with:", { email, password });
-    alert("Login successful! Redirecting...");
+
+    try {
+      console.log();
+      // Call the RTK Query login mutation
+      const { accessToken } = await login({ email, password }).unwrap();
+      console.log("Your JWT Token:", accessToken);
+
+      // Dispatch the token to Redux state (authSlice will decode it)
+      dispatch(setCredentials({ accessToken }));
+
+      // Optionally decode here if you want immediate access to role, email, etc.
+      const decoded = jwtDecode(accessToken);
+      console.log("Decoded Token:", decoded);
+
+      // Navigate based on role
+      if (decoded?.user?.role === "admin") {
+        navigate("/admindashboard");
+      } else {
+        navigate("/dashboard");
+      }
+    } catch (error) {
+      console.error("Error during login:", error);
+      setErrors({ login: error?.data?.message || "Invalid email or password" });
+    }
   };
 
   return (
@@ -44,16 +68,17 @@ const LoginPage = () => {
               Email Address
             </label>
             <input
-              type="text"
+              type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className={`w-full px-3 py-2 border rounded-md bg-white text-black focus:outline-none ${
                 errors.email ? "border-red-500" : "border-gray-300"
               }`}
             />
-            {errors.email && <p className="text-red-500 text-sm mt-1">{errors.email}</p>}
+            {errors.email && (
+              <p className="text-red-500 text-sm mt-1">{errors.email}</p>
+            )}
           </div>
-
           <div className="text-left">
             <label className="block text-sm font-medium text-gray-700">
               Password
@@ -63,17 +88,22 @@ const LoginPage = () => {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               className={`w-full px-3 py-2 border rounded-md bg-white text-black focus:outline-none ${
-                errors.password ? "border-red-500" : "border-gray-300 "
+                errors.password ? "border-red-500" : "border-gray-300"
               }`}
             />
-            {errors.password && <p className="text-red-500 text-sm mt-1">{errors.password}</p>}
+            {errors.password && (
+              <p className="text-red-500 text-sm mt-1">{errors.password}</p>
+            )}
           </div>
-
+          {errors.login && (
+            <p className="text-red-500 text-sm">{errors.login}</p>
+          )}
           <button
             type="submit"
+            disabled={isLoading} // optional if you want to disable the button while loading
             className="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 transition duration-300 shadow-md"
           >
-            Login
+            {isLoading ? "Logging in..." : "Login"}
           </button>
         </form>
       </div>

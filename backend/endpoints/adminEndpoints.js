@@ -45,4 +45,10 @@ router
   )
   .delete(validator.params(taskIdParamSchema), adminController.deleteTask);
 
+router.route("/tasks/:taskId/lock").patch(adminController.lockTask);
+
+router.route("/tasks/:taskId/unlock").patch(adminController.unlockTask);
+
+router.route("/metrics").get(adminController.getMetrics);
+
 module.exports = router;

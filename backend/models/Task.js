@@ -28,6 +28,10 @@ const taskSchema = new Schema(
       default: "Incomplete",
       enum: ["Complete", "Incomplete"],
     },
+    locked: {
+      type: Boolean,
+      default: false,
+    },
     owner: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",

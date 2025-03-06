@@ -16,6 +16,7 @@ import CreateTask from "./pages/CreateTask";
 import AboutPage from "./pages/AboutPage";
 import ProtectedRoute from "./components/ProtectedRoute";
 import AdminPage from "./pages/AdminDashboard";
+import MessagingPage from "./pages/MessagingPage";
 
 // Create a wrapper component that uses location
 function AppContent() {
@@ -27,7 +28,8 @@ function AppContent() {
     NavbarComponent = AdminNavbar;
   } else if (
     location.pathname.startsWith("/dashboard") ||
-    location.pathname.startsWith("/create-task")
+    location.pathname.startsWith("/create-task") ||
+    location.pathname.startsWith("/messaging")
   ) {
     NavbarComponent = UserNavbar;
   } else {
@@ -64,6 +66,15 @@ function AppContent() {
           element={
             <ProtectedRoute>
               <AdminPage />
+            </ProtectedRoute>
+          }
+        />
+        
+        <Route
+          path="/messaging"
+          element={
+            <ProtectedRoute>
+              <MessagingPage />
             </ProtectedRoute>
           }
         />

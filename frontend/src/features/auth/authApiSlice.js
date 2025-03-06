@@ -27,19 +27,24 @@ export const authApiSlice = apiSlice.injectEndpoints({
       }),
       invalidatesTags: [{ type: "User" }],
     }),
-    Logout: builder.mutation({
+    logout: builder.mutation({
       query: () => ({
         url: "/auth/logout",
         method: "POST",
+        credentials: 'include', // This is important for cookies
       }),
       async onQueryStarted(arg, { dispatch, queryFulfilled }) {
         try {
-          await queryFulfilled;
-          console.log(queryFulfilled);
-          dispatch(logOut()); //token = null
-          dispatch(apiSlice.util.resetApiState());
+          const result = await queryFulfilled;
+          console.log("Logout API response in slice:", result);
+          // Clear the auth state
+          dispatch(logOut());
+          // Reset all api state (clear cache/queries)
+          setTimeout(() => {
+            dispatch(apiSlice.util.resetApiState());
+          }, 0);
         } catch (err) {
-          console.log(err);
+          console.error("Error in logout mutation:", err);
         }
       },
     }),
@@ -47,15 +52,16 @@ export const authApiSlice = apiSlice.injectEndpoints({
       query: () => ({
         url: "/auth/refresh",
         method: "GET",
+        credentials: 'include', // This is important for cookies
       }),
       async onQueryStarted(arg, { dispatch, queryFulfilled }) {
         try {
           const { data } = await queryFulfilled;
-          console.log(data);
+          console.log("Refresh token response:", data);
           const { accessToken } = data;
           dispatch(setCredentials({ accessToken }));
         } catch (err) {
-          console.log(err);
+          console.error("Error refreshing token:", err);
         }
       },
     }),

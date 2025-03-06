@@ -247,6 +247,106 @@ const deleteTask = asyncHandler(async (req, res) => {
   return res.sendStatus(200);
 });
 
+//@desc locks a specific task
+//@param {Object} req with valid Admin JWT and taskId
+//@route PATCH /admin/tasks/:taskId/lock
+//@access Private
+const lockTask = asyncHandler(async (req, res) => {
+  const { taskId } = req.params;
+
+  const updatedTask = await Task.findOneAndUpdate(
+    { _id: taskId },
+    { locked: true },
+    {
+      new: true,
+      runValidators: true,
+    }
+  )
+    .lean()
+    .exec();
+
+  if (!updatedTask) {
+    return res.status(404).json({ message: "No such task exists" });
+  }
+
+  return res.status(200).json(updatedTask);
+});
+
+//@desc unlocks a specific task
+//@param {Object} req with valid Admin JWT and taskId
+//@route PATCH /admin/tasks/:taskId/unlock
+//@access Private
+const unlockTask = asyncHandler(async (req, res) => {
+  const { taskId } = req.params;
+
+  const updatedTask = await Task.findOneAndUpdate(
+    { _id: taskId },
+    { locked: false },
+    {
+      new: true,
+      runValidators: true,
+    }
+  )
+    .lean()
+    .exec();
+
+  if (!updatedTask) {
+    return res.status(404).json({ message: "No such task exists" });
+  }
+
+  return res.status(200).json(updatedTask);
+});
+
+//@desc returns metrics about the system
+//@param {Object} req with valid Admin JWT
+//@route GET /admin/metrics
+//@access Private
+const getMetrics = asyncHandler(async (req, res) => {
+  const [
+    totalUsers,
+    totalAdmins,
+    totalTasks,
+    completedTasks,
+    incompleteTasks,
+    lockedTasks,
+    highPriorityTasks,
+    mediumPriorityTasks,
+    lowPriorityTasks,
+  ] = await Promise.all([
+    // User metrics:
+    User.countDocuments(),
+    User.countDocuments({ role: "admin" }),
+
+    // Task metrics:
+    Task.countDocuments(),
+    Task.countDocuments({ status: "Complete" }),
+    Task.countDocuments({ status: "Incomplete" }),
+    Task.countDocuments({ locked: true }),
+    Task.countDocuments({ priority: "high" }),
+    Task.countDocuments({ priority: "medium" }),
+    Task.countDocuments({ priority: "low" }),
+  ]);
+
+  return res.status(200).json({
+    userMetrics: {
+      totalUsers,
+      totalAdmins,
+      totalNonAdmins: totalUsers - totalAdmins,
+    },
+    taskMetrics: {
+      totalTasks,
+      completedTasks,
+      incompleteTasks,
+      lockedTasks,
+      tasksByPriority: {
+        high: highPriorityTasks,
+        medium: mediumPriorityTasks,
+        low: lowPriorityTasks,
+      },
+    },
+  });
+});
+
 module.exports = {
   getAllUsers,
   invite,
@@ -257,4 +357,7 @@ module.exports = {
   getTask,
   updateTask,
   deleteTask,
+  lockTask,
+  unlockTask,
+  getMetrics,
 };

@@ -82,6 +82,10 @@ const updateTask = asyncHandler(async (req, res) => {
     return res.status(404).json({ message: "No Task with provided ID found" });
   }
 
+  if (task.locked) {
+    return res.status(423).json({ message: "The task is locked" });
+  }
+
   // Check for illegal fields
   const keys = Object.keys(newData);
   const disallowed = keys.filter((key) => !allowedUpdates.includes(key));

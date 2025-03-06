@@ -61,14 +61,16 @@ const updateTaskSchema = Joi.object({
   priority: Joi.string().valid("high", "medium", "low"),
   status: Joi.string().valid("Complete", "Incomplete"),
   dueDate: Joi.date().greater("now"),
-  // Make sure 'owner' isn't edited
   owner: Joi.forbidden().messages({
     "any.unknown": "The 'owner' field cannot be edited",
   }),
-  // Make sure 'assignees' isn't edited this way
   assignees: Joi.forbidden().messages({
     "any.unknown":
       "The 'assignees' field cannot be edited. Use the dedicated endpoint instead.",
+  }),
+  locked: Joi.forbidden().messages({
+    "any.unknown":
+      "The 'locked' field cannot be edited. Use the dedicated endpoint instead.",
   }),
 }).min(1);
 

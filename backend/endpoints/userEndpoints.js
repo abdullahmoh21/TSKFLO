@@ -4,10 +4,12 @@ const userController = require("../controllers/userController");
 const { verifyJWT } = require("../middleware/verifyJWT");
 
 router.use(verifyJWT);
-// protected routes
+
 router
   .route("/")
   .get(userController.getUserData)
   .patch(userController.updateUserData);
+
+router.route("/all").get(userController.listAllUsers);
 
 module.exports = router;

@@ -10,4 +10,7 @@ router
   .get(userController.getUserData)
   .patch(userController.updateUserData);
 
+// Add route for getting all users
+router.route("/all").get(userController.getAllUsers);
+
 module.exports = router;

@@ -3,6 +3,9 @@ import { useNavigate, useParams } from "react-router-dom";
 import { FaTasks, FaCalendarAlt, FaExclamationCircle, FaSpinner, FaCheck } from "react-icons/fa";
 import { useUpdateTaskMutation, useGetTasksQuery } from "../features/tasks/taskApiSlice";
 
+// Maximum description length as defined by the backend
+const MAX_DESCRIPTION_LENGTH = 500;
+
 const EditTask = () => {
     const { taskId } = useParams();
     const navigate = useNavigate();
@@ -49,11 +52,24 @@ const EditTask = () => {
     }, [isLoadingTasks, tasks, taskId]);
 
     const handleChange = (e) => {
-        setTask({ ...task, [e.target.name]: e.target.value });
+        const { name, value } = e.target;
+        
+        // If description field, check length limit
+        if (name === 'description' && value.length > MAX_DESCRIPTION_LENGTH) {
+            return; // Don't update if exceeding max length
+        }
+        
+        setTask({ ...task, [name]: value });
     };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        
+        if (task.description.length > MAX_DESCRIPTION_LENGTH) {
+            setErrorMessage(`Description must be ${MAX_DESCRIPTION_LENGTH} characters or less.`);
+            return;
+        }
+        
         try {
             // Format task data for API
             const payload = {
@@ -83,6 +99,10 @@ const EditTask = () => {
             setErrorMessage(err?.data?.message || 'Failed to update task. Please try again.');
         }
     };
+
+    // Calculate remaining characters
+    const remainingChars = MAX_DESCRIPTION_LENGTH - task.description.length;
+    const isNearLimit = remainingChars <= 50;
 
     if (loading || isLoadingTasks) {
         return (
@@ -149,9 +169,17 @@ const EditTask = () => {
                             placeholder="Enter task description"
                             value={task.description}
                             onChange={handleChange}
-                            className="border rounded-lg p-3 w-full focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                            className={`border rounded-lg p-3 w-full focus:ring-2 focus:outline-none ${
+                                isNearLimit ? "focus:ring-yellow-500 border-yellow-300" : "focus:ring-blue-500"
+                            }`}
                             required
+                            rows="4"
                         />
+                        <div className={`text-right text-sm mt-1 ${
+                            isNearLimit ? "text-yellow-600" : "text-gray-500"
+                        }`}>
+                            {remainingChars} characters remaining
+                        </div>
                     </div>
 
                     {/* Due Date */}

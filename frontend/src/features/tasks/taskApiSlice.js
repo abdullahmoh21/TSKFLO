@@ -37,6 +37,32 @@ export const taskApiSlice = apiSlice.injectEndpoints({
       }),
       invalidatesTags: [{ type: "Task", id: "LIST" }],
     }),
+    getUsers: builder.query({
+      query: () => "users",
+      providesTags: ['Users'],
+    }),
+    addAssignee: builder.mutation({
+      query: ({ taskId, assigneeId }) => ({
+        url: `tasks/${taskId}/assignees`,
+        method: "PATCH",
+        body: { assigneeId },
+      }),
+      invalidatesTags: (result, error, { taskId }) => [
+        { type: "Task", id: taskId },
+        { type: "Task", id: "LIST" },
+      ],
+    }),
+    removeAssignee: builder.mutation({
+      query: ({ taskId, assigneeId }) => ({
+        url: `tasks/${taskId}/assignees`,
+        method: "DELETE",
+        body: { assigneeId },
+      }),
+      invalidatesTags: (result, error, { taskId }) => [
+        { type: "Task", id: taskId },
+        { type: "Task", id: "LIST" },
+      ],
+    }),
   }),
 });
 
@@ -45,4 +71,7 @@ export const {
   useCreateTaskMutation,
   useUpdateTaskMutation,
   useDeleteTaskMutation,
+  useGetUsersQuery,
+  useAddAssigneeMutation,
+  useRemoveAssigneeMutation,
 } = taskApiSlice; 

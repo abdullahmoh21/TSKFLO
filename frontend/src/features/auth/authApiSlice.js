@@ -85,6 +85,14 @@ export const authApiSlice = apiSlice.injectEndpoints({
       },
       providesTags: ['UserProfile'],
     }),
+    // New endpoint to get all users for task assignment
+    getUsers: builder.query({
+      query: () => ({
+        url: 'users/all',
+        method: 'GET',
+      }),
+      providesTags: ['Users'],
+    }),
   }),
 });
 
@@ -94,4 +102,5 @@ export const {
   useLogoutMutation,
   useRefreshMutation,
   useGetUserProfileQuery,
+  useGetUsersQuery,
 } = authApiSlice;

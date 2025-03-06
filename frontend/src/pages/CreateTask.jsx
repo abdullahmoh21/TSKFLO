@@ -1,7 +1,11 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { FaTasks, FaCalendarAlt, FaExclamationCircle, FaCheck } from "react-icons/fa";
+import { FaTasks, FaCalendarAlt, FaExclamationCircle, FaCheck, FaUsers } from "react-icons/fa";
 import { useCreateTaskMutation } from "../features/tasks/taskApiSlice";
+import { useGetUsersQuery } from "../features/tasks/taskApiSlice";
+
+// Maximum description length as defined by the backend
+const MAX_DESCRIPTION_LENGTH = 500;
 
 const CreateTask = () => {
     const [task, setTask] = useState({
@@ -9,20 +13,47 @@ const CreateTask = () => {
         description: "",
         dueDate: "",
         priority: "medium",
-        status: "Incomplete" // Keep for UI, but won't send to API
+        status: "Incomplete", // Keep for UI, but won't send to API
+        assignees: [] // New field for assignees
     });
     
     const [createTask, { isLoading, isError, error }] = useCreateTaskMutation();
+    const { data: usersData, isLoading: isLoadingUsers } = useGetUsersQuery();
     const navigate = useNavigate();
     const [errorMessage, setErrorMessage] = useState('');
     const [notification, setNotification] = useState(null);
 
     const handleChange = (e) => {
-        setTask({ ...task, [e.target.name]: e.target.value });
+        const { name, value } = e.target;
+        
+        // If description field, check length limit
+        if (name === 'description' && value.length > MAX_DESCRIPTION_LENGTH) {
+            return; // Don't update if exceeding max length
+        }
+        
+        setTask({ ...task, [name]: value });
+    };
+
+    // Handle selecting assignees (can be multiple)
+    const handleAssigneeChange = (e) => {
+        const options = e.target.options;
+        const selectedValues = [];
+        for (let i = 0; i < options.length; i++) {
+            if (options[i].selected) {
+                selectedValues.push(options[i].value);
+            }
+        }
+        setTask({ ...task, assignees: selectedValues });
     };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        
+        if (task.description.length > MAX_DESCRIPTION_LENGTH) {
+            setErrorMessage(`Description must be ${MAX_DESCRIPTION_LENGTH} characters or less.`);
+            return;
+        }
+        
         try {
             // Format task data for API - only include fields the API expects
             // Explicitly omit 'status' as the backend doesn't allow it during creation
@@ -30,8 +61,8 @@ const CreateTask = () => {
                 title: task.title,
                 description: task.description,
                 dueDate: task.dueDate,
-                priority: task.priority.toLowerCase()
-                // status is intentionally omitted
+                priority: task.priority.toLowerCase(),
+                assignees: task.assignees // Include assignees
             };
             
             console.log('Submitting task:', payload);
@@ -52,6 +83,10 @@ const CreateTask = () => {
             setErrorMessage(err?.data?.message || 'Failed to create task. Please try again.');
         }
     };
+
+    // Calculate remaining characters
+    const remainingChars = MAX_DESCRIPTION_LENGTH - task.description.length;
+    const isNearLimit = remainingChars <= 50;
 
     return (
         <div className="flex justify-center items-center min-h-screen bg-gray-100 p-4">
@@ -107,9 +142,17 @@ const CreateTask = () => {
                             placeholder="Enter task description"
                             value={task.description}
                             onChange={handleChange}
-                            className="border rounded-lg p-3 w-full focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                            className={`border rounded-lg p-3 w-full focus:ring-2 focus:outline-none ${
+                                isNearLimit ? "focus:ring-yellow-500 border-yellow-300" : "focus:ring-blue-500"
+                            }`}
                             required
+                            rows="4"
                         />
+                        <div className={`text-right text-sm mt-1 ${
+                            isNearLimit ? "text-yellow-600" : "text-gray-500"
+                        }`}>
+                            {remainingChars} characters remaining
+                        </div>
                     </div>
 
                     {/* Due Date */}
@@ -128,6 +171,37 @@ const CreateTask = () => {
                                 className="border rounded-lg p-3 pl-10 w-full focus:ring-2 focus:ring-blue-500 focus:outline-none"
                                 required
                             />
+                        </div>
+                    </div>
+
+                    {/* Assignees - New Field */}
+                    <div className="relative flex flex-col">
+                        <label htmlFor="assignees" className="text-gray-700 font-medium">
+                            Assign To
+                        </label>
+                        <div className="relative">
+                            <FaUsers className="absolute left-3 top-3 text-gray-400" />
+                            <select
+                                id="assignees"
+                                name="assignees"
+                                multiple
+                                value={task.assignees}
+                                onChange={handleAssigneeChange}
+                                className="border rounded-lg p-3 pl-10 w-full focus:ring-2 focus:ring-blue-500 focus:outline-none min-h-[100px]"
+                            >
+                                {isLoadingUsers ? (
+                                    <option disabled>Loading users...</option>
+                                ) : (
+                                    usersData?.users?.map(user => (
+                                        <option key={user._id} value={user._id}>
+                                            {user.name} ({user.email})
+                                        </option>
+                                    ))
+                                )}
+                            </select>
+                            <p className="text-xs text-gray-500 mt-1">
+                                Hold Ctrl/Cmd to select multiple users
+                            </p>
                         </div>
                     </div>
 

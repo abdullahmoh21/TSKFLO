@@ -17,6 +17,8 @@ import {
   FaSearch,
   FaCheckCircle,
   FaUser,
+  FaCalendarAlt,
+  FaExclamationCircle,
 } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
 import { Line } from "react-chartjs-2";
@@ -27,7 +29,11 @@ import {
   useGetAdminUsersQuery,
   useDeleteAdminTaskMutation,
   useUpdateAdminTaskMutation,
+  useCreateAdminTaskMutation,
+  useLockAdminTaskMutation,
 } from "../features/admin/adminApiSlice";
+import 'react-tooltip/dist/react-tooltip.css';
+import { Tooltip as ReactTooltip } from 'react-tooltip';
 
 // Add these imports at the top of your file
 import {
@@ -68,6 +74,7 @@ const AdminPage = () => {
   const [expandedTask, setExpandedTask] = useState(null);
   const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
   const [searchTerm, setSearchTerm] = useState("");
+  const [editTaskData, setEditTaskData] = useState(null);
   const [filters, setFilters] = useState({
     status: "",
     priority: "",
@@ -144,29 +151,81 @@ const AdminPage = () => {
     }
   };
 
-  const [deleteTask] = useDeleteAdminTaskMutation();
-  const [updateTask] = useUpdateAdminTaskMutation();
+  const [deleteTask, { isLoading: isDeleting }] = useDeleteAdminTaskMutation();
+  const [updateTask, { isLoading: isUpdating }] = useUpdateAdminTaskMutation();
+  const [lockTask, { isLoading: isLocking }] = useLockAdminTaskMutation();
+  const [deleteTaskId, setDeleteTaskId] = useState(null);
+  const [deleteSuccess, setDeleteSuccess] = useState(false);
+  const [deleteError, setDeleteError] = useState(null);
+  const [lockTaskId, setLockTaskId] = useState(null);
+  const [lockSuccess, setLockSuccess] = useState(false);
+  const [lockError, setLockError] = useState(null);
 
   const handleDeleteTask = async (taskId) => {
     if (window.confirm("Are you sure you want to delete this task?")) {
+      setDeleteTaskId(taskId);
+      setDeleteError(null);
       try {
         await deleteTask(taskId).unwrap();
+        setDeleteSuccess(true);
+        
+        // Show success message briefly
+        setTimeout(() => {
+          setDeleteSuccess(false);
+          setDeleteTaskId(null);
+        }, 2000);
+        
+        // Refetch tasks to update the list
+        refetchTasks();
       } catch (error) {
         console.error("Error deleting task:", error);
-        setError("Failed to delete task");
+        setDeleteError(error.data?.message || "Failed to delete task");
+        
+        // Clear error after a delay
+        setTimeout(() => {
+          setDeleteError(null);
+          setDeleteTaskId(null);
+        }, 3000);
       }
     }
   };
 
-  const handleLockTask = async (taskId, isLocked) => {
+  const handleLockTask = async (taskId, locked) => {
+    setLockTaskId(taskId);
+    setLockError(null);
+    setLockSuccess(false);
+    
     try {
-      await updateTask({
+      // Call the lockTask mutation - it automatically chooses lock or unlock based on current state
+      await lockTask({
         taskId,
-        isLocked: !isLocked
+        locked: locked
       }).unwrap();
+      
+      // Show success message briefly
+      setLockSuccess(true);
+      setTimeout(() => {
+        setLockSuccess(false);
+        setLockTaskId(null);
+      }, 1500);
+      
+      // Refetch tasks to update the list
+      refetchTasks();
     } catch (error) {
       console.error("Error updating task lock status:", error);
-      setError("Failed to update task lock status");
+      
+      // Log more details about the error for debugging
+      if (error.data && error.data.message) {
+        console.error("Backend error message:", error.data.message);
+      }
+      
+      setLockError(error.data?.message || "Failed to update lock status");
+      
+      // Clear error after a delay
+      setTimeout(() => {
+        setLockError(null);
+        setLockTaskId(null);
+      }, 3000);
     }
   };
 
@@ -419,6 +478,16 @@ const AdminPage = () => {
     </div>
   );
 
+  // Function to handle opening the edit task modal
+  const handleEditTask = (task) => {
+    // Format the date to YYYY-MM-DD for the input field
+    const formattedTask = {
+      ...task,
+      dueDate: task.dueDate ? new Date(task.dueDate).toISOString().split('T')[0] : '',
+    };
+    setEditTaskData(formattedTask);
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 pt-16 px-4 sm:px-6 lg:px-8">
       {(error || tasksError || usersError) && (
@@ -460,7 +529,38 @@ const AdminPage = () => {
             </div>
             <CreateTask
               isModal={true}
-              onClose={() => setShowCreateTask(false)}
+              onClose={() => {
+                setShowCreateTask(false);
+                setTimeout(() => {
+                  refetchTasks();
+                  console.log("Refreshing tasks after creation");
+                }, 500);
+              }}
+            />
+          </div>
+        </div>
+      )}
+      {/* Edit Task Modal */}
+      {editTaskData && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-20 mx-auto p-5 border max-w-2xl shadow-lg rounded-md bg-white">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">
+                Edit Task
+              </h3>
+              <button
+                onClick={() => setEditTaskData(null)}
+                className="text-gray-400 hover:text-gray-500"
+              >
+                <FaTimes />
+              </button>
+            </div>
+            <EditTaskForm 
+              task={editTaskData} 
+              onClose={() => {
+                setEditTaskData(null);
+                refetchTasks();
+              }} 
             />
           </div>
         </div>
@@ -643,10 +743,23 @@ const AdminPage = () => {
           {activeTab === "tasks" && (
             <div className="bg-gradient-to-br from-white to-indigo-50/30 rounded-lg shadow-sm p-6">
               <div className="flex justify-between items-center mb-6">
-                <div className="flex items-center space-x-4">
+                <div className="flex items-center space-x-4 flex-1">
                   <h2 className="text-xl font-semibold text-indigo-900">
                     Task Management
                   </h2>
+                  
+                  {/* Search Bar - Moved outside filter dropdown */}
+                  <div className="relative flex-1 max-w-md">
+                    <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                    <input
+                      type="text"
+                      placeholder="Search tasks..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="w-full pl-10 pr-4 py-2 rounded-md border border-indigo-100 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                    />
+                  </div>
+
                   <div className="relative">
                     <button
                       onClick={() => setShowFilterDropdown(!showFilterDropdown)}
@@ -660,20 +773,6 @@ const AdminPage = () => {
                     {showFilterDropdown && (
                       <div className="absolute mt-2 right-0 w-72 bg-white rounded-lg shadow-lg border border-indigo-100 z-10 p-4">
                         <div className="space-y-4">
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Search</label>
-                            <div className="relative">
-                              <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                              <input
-                                type="text"
-                                placeholder="Search tasks..."
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                                className="w-full pl-10 pr-4 py-2 rounded-md border border-gray-200 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
-                              />
-                            </div>
-                          </div>
-                          
                           <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
                             <select
@@ -720,7 +819,6 @@ const AdminPage = () => {
                             <button
                               onClick={() => {
                                 setFilters({ status: "", priority: "", assignee: "", dueDate: "" });
-                                setSearchTerm("");
                               }}
                               className="w-full mt-2 px-4 py-2 text-sm text-red-600 hover:text-red-700 bg-red-50 hover:bg-red-100 rounded-md transition-colors duration-200"
                             >
@@ -771,6 +869,9 @@ const AdminPage = () => {
                             Due Date
                           </th>
                           <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-indigo-600 uppercase tracking-wider">
+                            Lock Status
+                          </th>
+                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-indigo-600 uppercase tracking-wider">
                             Assignees
                           </th>
                           <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-indigo-600 uppercase tracking-wider">
@@ -782,7 +883,10 @@ const AdminPage = () => {
                         {sortedAndFilteredTasks.map((task) => (
                           <tr 
                             key={task._id || task.id}
-                            className="group hover:bg-indigo-50/30 transition-colors duration-200"
+                            className={`group hover:bg-indigo-50/30 transition-colors duration-200 ${
+                              deleteTaskId === task._id ? 'bg-red-50' : 
+                              lockTaskId === task._id && lockSuccess ? 'bg-green-50/50' : ''
+                            }`}
                           >
                             <td className="px-6 py-4">
                               <div 
@@ -822,31 +926,106 @@ const AdminPage = () => {
                               </span>
                             </td>
                             <td className="px-6 py-4">
-                              <div className="text-sm text-gray-700">
-                                {Array.isArray(task.assignees) ? task.assignees.join(", ") : 'No Assignees'}
+                              <div className="flex items-center">
+                                {task.locked ? (
+                                  <div className="flex items-center text-red-600">
+                                    <FaLock className="mr-2" />
+                                    <span className="text-sm">Locked</span>
+                                  </div>
+                                ) : (
+                                  <div className="flex items-center text-green-600">
+                                    <FaUnlock className="mr-2" />
+                                    <span className="text-sm">Unlocked</span>
+                                  </div>
+                                )}
+                              </div>
+                            </td>
+                            <td className="px-6 py-4">
+                              <div className="flex flex-wrap gap-2">
+                                {Array.isArray(task.assignees) ? 
+                                  task.assignees.map(assignee => (
+                                    <span 
+                                      key={assignee._id}
+                                      className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800"
+                                    >
+                                      {assignee.name}
+                                    </span>
+                                  )) : 
+                                  'No Assignees'
+                                }
                               </div>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                               <div className="flex items-center space-x-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                                 <button
-                                  onClick={() => navigate(`/admin/tasks/${task._id}/edit`)}
+                                  onClick={(e) => {
+                                    e.stopPropagation(); // Prevent triggering the row expand
+                                    handleEditTask(task);
+                                  }}
                                   className="text-indigo-600 hover:text-indigo-900 transition-colors duration-200"
                                 >
                                   <FaEdit />
                                 </button>
                                 <button
-                                  onClick={() => handleDeleteTask(task._id)}
+                                  onClick={(e) => {
+                                    e.stopPropagation(); // Prevent triggering the row expand
+                                    handleDeleteTask(task._id);
+                                  }}
                                   className="text-red-500 hover:text-red-700 transition-colors duration-200"
+                                  disabled={isDeleting && deleteTaskId === task._id}
                                 >
-                                  <FaTrash />
+                                  {isDeleting && deleteTaskId === task._id ? 
+                                    <span className="inline-block animate-pulse">...</span> : 
+                                    <FaTrash />
+                                  }
                                 </button>
-                                <button
-                                  onClick={() => handleLockTask(task._id, task.isLocked)}
-                                  className="text-indigo-400 hover:text-indigo-600 transition-colors duration-200"
-                                >
-                                  {task.isLocked ? <FaUnlock /> : <FaLock />}
-                                </button>
+                                <div className="relative">
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation(); // Prevent triggering the row expand
+                                      handleLockTask(task._id, task.locked);
+                                    }}
+                                    className="text-indigo-400 hover:text-indigo-600 transition-colors duration-200"
+                                    disabled={isLocking && lockTaskId === task._id}
+                                    data-tooltip-id="lock-tooltip"
+                                    data-tooltip-content={task.locked ? "Unlock task" : "Lock task"}
+                                  >
+                                    {isLocking && lockTaskId === task._id ? (
+                                      <span className="inline-block animate-spin">⟳</span>
+                                    ) : task.locked ? (
+                                      <div className="relative">
+                                        <FaLock />
+                                        <div className="absolute -top-2 -right-2 w-2 h-2 bg-red-500 rounded-full"></div>
+                                      </div>
+                                    ) : (
+                                      <div className="relative">
+                                        <FaUnlock />
+                                        <div className="absolute -top-2 -right-2 w-2 h-2 bg-green-500 rounded-full"></div>
+                                      </div>
+                                    )}
+                                  </button>
+                                </div>
                               </div>
+                              {deleteSuccess && deleteTaskId === task._id && (
+                                <div className="mt-2 text-xs text-green-600 flex items-center">
+                                  <FaCheckCircle className="mr-1" /> Deleted
+                                </div>
+                              )}
+                              {deleteError && deleteTaskId === task._id && (
+                                <div className="mt-2 text-xs text-red-600">
+                                  Error: {deleteError}
+                                </div>
+                              )}
+                              {lockSuccess && lockTaskId === task._id && (
+                                <div className="mt-2 text-xs text-green-600 flex items-center">
+                                  <FaCheckCircle className="mr-1" /> Task {task.locked ? 'unlocked' : 'locked'} successfully
+                                </div>
+                              )}
+                              {lockError && lockTaskId === task._id && (
+                                <div className="mt-2 text-xs text-red-600">
+                                  Error: {lockError}
+                                </div>
+                              )}
                             </td>
                           </tr>
                         ))}
@@ -982,6 +1161,207 @@ const AdminPage = () => {
           )}
         </div>
       </div>
+
+      <ReactTooltip 
+        id="lock-tooltip"
+        place="top"
+        variant="dark"
+      />
+    </div>
+  );
+};
+
+// Edit Task Form Component
+const EditTaskForm = ({ task, onClose }) => {
+  const [updateTask, { isLoading }] = useUpdateAdminTaskMutation();
+  const [editedTask, setEditedTask] = useState({
+    title: task.title || '',
+    description: task.description || '',
+    dueDate: task.dueDate || '',
+    priority: task.priority?.toLowerCase() || 'medium',
+    assignees: task.assignees || [],
+  });
+  const [error, setError] = useState(null);
+  const [success, setSuccess] = useState(false);
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    if (name === "assignees") {
+      // Convert comma-separated string to array and trim whitespace
+      const assignees = value ? value.split(",").map(id => id.trim()).filter(Boolean) : [];
+      setEditedTask(prev => ({ ...prev, assignees }));
+    } else {
+      setEditedTask(prev => ({ ...prev, [name]: value }));
+    }
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError(null);
+    
+    // Validate form fields
+    const validationErrors = [];
+    if (!editedTask.title.trim()) {
+      validationErrors.push("Title is required");
+    }
+    
+    if (validationErrors.length > 0) {
+      setError(`Please fix the following: ${validationErrors.join(", ")}`);
+      return;
+    }
+    
+    try {
+      // Create a clean task object with expected fields
+      const taskData = {
+        taskId: task._id,
+        title: editedTask.title.trim(),
+        description: editedTask.description.trim(),
+        priority: editedTask.priority,
+      };
+      
+      // Only include dueDate if it's not empty
+      if (editedTask.dueDate) {
+        taskData.dueDate = editedTask.dueDate;
+      }
+      
+      // Only include assignees if it's not empty
+      if (editedTask.assignees && editedTask.assignees.length > 0) {
+        taskData.assignees = editedTask.assignees;
+      }
+      
+      console.log("Updating task:", taskData);
+      await updateTask(taskData).unwrap();
+      
+      setSuccess(true);
+      setTimeout(() => {
+        if (onClose) onClose();
+      }, 1500);
+    } catch (err) {
+      console.error("Task update error:", err);
+      setError(err.data?.message || "Failed to update task");
+    }
+  };
+
+  return (
+    <div className="w-full">
+      {error && (
+        <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-600 rounded-md">
+          {error}
+        </div>
+      )}
+      
+      {success && (
+        <div className="mb-4 p-3 bg-green-50 border border-green-200 text-green-600 rounded-md flex items-center">
+          <FaCheckCircle className="mr-2" />
+          Task updated successfully!
+        </div>
+      )}
+
+      <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+        <div className="flex flex-col">
+          <label htmlFor="title" className="text-gray-700 font-medium">
+            Task Title
+          </label>
+          <input
+            type="text"
+            id="title"
+            name="title"
+            placeholder="Enter task title"
+            value={editedTask.title}
+            onChange={handleChange}
+            className="border rounded-lg p-3 w-full focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+            required
+          />
+        </div>
+
+        <div className="flex flex-col">
+          <label htmlFor="description" className="text-gray-700 font-medium">
+            Description
+          </label>
+          <textarea
+            id="description"
+            name="description"
+            placeholder="Enter task description"
+            value={editedTask.description}
+            onChange={handleChange}
+            className="border rounded-lg p-3 w-full focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+            rows={4}
+          />
+        </div>
+
+        <div className="relative flex flex-col">
+          <label htmlFor="dueDate" className="text-gray-700 font-medium">
+            Due Date
+          </label>
+          <div className="relative">
+            <FaCalendarAlt className="absolute left-3 top-3 text-gray-400" />
+            <input
+              type="date"
+              id="dueDate"
+              name="dueDate"
+              value={editedTask.dueDate}
+              onChange={handleChange}
+              className="border rounded-lg p-3 pl-10 w-full focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+            />
+          </div>
+        </div>
+
+        <div className="relative flex flex-col">
+          <label htmlFor="priority" className="text-gray-700 font-medium">
+            Priority
+          </label>
+          <div className="relative">
+            <FaExclamationCircle className="absolute left-3 top-3 text-gray-400" />
+            <select
+              name="priority"
+              value={editedTask.priority}
+              onChange={handleChange}
+              className="border rounded-lg p-3 pl-10 w-full bg-white text-gray-700 focus:ring-2 focus:ring-indigo-500 focus:outline-none appearance-none"
+            >
+              <option value="low">Low</option>
+              <option value="medium">Medium</option>
+              <option value="high">High</option>
+            </select>
+          </div>
+        </div>
+
+        <div className="relative flex flex-col">
+          <label htmlFor="assignees" className="text-gray-700 font-medium">
+            Assign to (User IDs, comma-separated)
+          </label>
+          <div className="relative">
+            <FaUser className="absolute left-3 top-3 text-gray-400" />
+            <input
+              type="text"
+              id="assignees"
+              name="assignees"
+              placeholder="Enter user IDs (comma-separated)"
+              value={editedTask.assignees.join(", ")}
+              onChange={handleChange}
+              className="border rounded-lg p-3 pl-10 w-full focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+            />
+          </div>
+        </div>
+
+        <div className="flex justify-end space-x-3 mt-4">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition-colors duration-200"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            disabled={isLoading}
+            className={`px-4 py-2 bg-gradient-to-r from-indigo-500 to-indigo-600 text-white rounded-md hover:from-indigo-600 hover:to-indigo-700 transition-colors duration-200 ${
+              isLoading ? "opacity-50 cursor-not-allowed" : ""
+            }`}
+          >
+            {isLoading ? "Updating..." : "Update Task"}
+          </button>
+        </div>
+      </form>
     </div>
   );
 };

@@ -1,16 +1,37 @@
 // UserDashNavbar.jsx
 import React from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { FaTasks, FaUserCircle, FaEnvelope } from "react-icons/fa";
+import { useLogoutMutation } from "../features/auth/authApiSlice";
+import { useDispatch } from "react-redux";
+import { logOut } from "../features/auth/authSlice";
 
 const UserDashNavbar = () => {
   const location = useLocation();
+  const navigate = useNavigate();
+  const dispatch = useDispatch();
+  const [logout, { isLoading }] = useLogoutMutation();
 
   const isActivePath = (path) => location.pathname === path;
 
-  const handleLogout = () => {
-    // You can wire up your actual logout logic here
-    console.log("Logout clicked");
+  const handleLogout = async () => {
+    try {
+      console.log("Starting logout process...");
+      // First, manually dispatch the logout action to clear the Redux state
+      dispatch(logOut());
+      
+      // Then call the logout endpoint
+      const result = await logout().unwrap();
+      console.log("Logout API response:", result);
+      
+      // Navigate to login page
+      navigate('/login', { replace: true });
+    } catch (error) {
+      console.error('Logout failed:', error);
+      // If the API call fails, we still want to log out locally
+      dispatch(logOut());
+      navigate('/login', { replace: true });
+    }
   };
 
   return (
@@ -64,9 +85,10 @@ const UserDashNavbar = () => {
               </div>
               <button
                 onClick={handleLogout}
+                disabled={isLoading}
                 className="px-4 py-2 text-sm font-medium text-red-600 hover:text-red-700 hover:bg-red-50 rounded-md transition-colors duration-200"
               >
-                Logout
+                {isLoading ? "Logging out..." : "Logout"}
               </button>
             </div>
           </div>

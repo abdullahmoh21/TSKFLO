@@ -5,7 +5,7 @@ const verifyJWT = (req, res, next) => {
   if (process.env.NODE_ENV === "test") {
     req.user = {
       id: "67acb6c00a79cee04957d04b",
-      role: process.env.USER_ROLE,
+      role: "admin",
     };
     return next();
   }
@@ -28,7 +28,7 @@ const verifyJWT = (req, res, next) => {
 const verifyAdmin = (req, res, next) => {
   verifyJWT(req, res, (err) => {
     if (err) return next(err);
-    if (req.role !== ROLES_LIST.Admin) {
+    if (req.user.role !== "admin") {
       return res.sendStatus(403); // Forbidden
     }
     next();

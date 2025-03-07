@@ -27,18 +27,24 @@ export const authApiSlice = apiSlice.injectEndpoints({
       }),
       invalidatesTags: [{ type: "User" }],
     }),
-    Logout: builder.mutation({
+    logout: builder.mutation({
       query: () => ({
         url: "/auth/logout",
         method: "POST",
+        credentials: 'include',
       }),
       async onQueryStarted(arg, { dispatch, queryFulfilled }) {
         try {
-          await queryFulfilled;
-          dispatch(logOut()); //token = null
-          dispatch(apiSlice.util.resetApiState());
+          const result = await queryFulfilled;
+          console.log("Logout API response in slice:", result);
+          // Clear the auth state
+          dispatch(logOut());
+          // Reset all api state (clear cache/queries)
+          setTimeout(() => {
+            dispatch(apiSlice.util.resetApiState());
+          }, 0);
         } catch (err) {
-          console.log(err);
+          console.error("Error in logout mutation:", err);
         }
       },
     }),
@@ -46,13 +52,13 @@ export const authApiSlice = apiSlice.injectEndpoints({
       query: () => ({
         url: "auth/refresh",
         method: "GET",
-        credentials: 'include',
+        credentials: 'include', // This is important for cookies
       }),
       async onQueryStarted(arg, { dispatch, queryFulfilled }) {
         try {
           const { data } = await queryFulfilled;
+          console.log("Refresh token response:", data);
           if (data && data.accessToken) {
-            console.log("Refresh token success:", data);
             dispatch(setCredentials({ accessToken: data.accessToken }));
             return true;
           } else {
@@ -60,7 +66,7 @@ export const authApiSlice = apiSlice.injectEndpoints({
             return false;
           }
         } catch (err) {
-          console.log("Token refresh failed:", err);
+          console.error("Error refreshing token:", err);
           // Handle token refresh failure - only log out if it's a 401/403 error
           if (err?.error?.status === 401 || err?.error?.status === 403) {
             console.log("Refresh token expired, logging out");

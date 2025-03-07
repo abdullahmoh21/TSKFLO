@@ -1,7 +1,6 @@
 const nodemailer = require("nodemailer");
 const path = require("path");
 const logger = require("../logs/logger");
-const handlebars = require("nodemailer-express-handlebars").default;
 
 // Create a Nodemailer transporter
 const transporter = nodemailer.createTransport({
@@ -26,7 +25,17 @@ const handlebarOptions = {
   extName: ".hbs",
 };
 
-transporter.use("compile", handlebars(handlebarOptions));
+// We'll add handlebars to the transporter asynchronously
+// This is a common pattern for handling ESM modules in CommonJS
+(async () => {
+  try {
+    const hbsModule = await import('nodemailer-express-handlebars');
+    const handlebars = hbsModule.default;
+    transporter.use("compile", handlebars(handlebarOptions));
+  } catch (err) {
+    logger.error("Failed to load handlebars module:", err);
+  }
+})();
 
 function sendEmail(
   to,

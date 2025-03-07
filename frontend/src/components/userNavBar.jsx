@@ -2,16 +2,19 @@
 import React, { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { FaTasks, FaUserCircle, FaEnvelope } from "react-icons/fa";
+import { useSelector, useDispatch } from "react-redux";
+import { selectCurrentUserName, logOut } from "../features/auth/authSlice";
 import { useLogoutMutation } from "../features/auth/authApiSlice";
 import { useGetMyDataQuery } from "../features/user/userApiSlice";
-import { useDispatch } from "react-redux";
-import { logOut } from "../features/auth/authSlice";
 import UserProfilePopup from "./UserProfilePopup";
 
 const UserDashNavbar = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const dispatch = useDispatch();
+  
+  // Get user name from Redux state
+  const userName = useSelector(selectCurrentUserName);
   
   // API hooks
   const [logout, { isLoading: isLogoutLoading }] = useLogoutMutation();
@@ -24,7 +27,7 @@ const UserDashNavbar = () => {
   } = useGetMyDataQuery(undefined, {
     // If you don't want to refetch while editing, you can set this to false:
     refetchOnMountOrArgChange: false
-   // refetchOnMountOrArgChange: true,
+    // refetchOnMountOrArgChange: true,
   });
 
   // Local state
@@ -49,12 +52,18 @@ const UserDashNavbar = () => {
   const handleLogout = async () => {
     try {
       console.log("Starting logout process...");
+      // First, manually dispatch the logout action to clear the Redux state
       dispatch(logOut());
+      
+      // Then call the logout endpoint
       const result = await logout().unwrap();
       console.log("Logout API response:", result);
+      
+      // Navigate to login page
       navigate('/login', { replace: true });
     } catch (error) {
       console.error('Logout failed:', error);
+      // If the API call fails, we still want to log out locally
       dispatch(logOut());
       navigate('/login', { replace: true });
     }
@@ -117,7 +126,7 @@ const UserDashNavbar = () => {
                   ) : userData?.name ? (
                     userData.name
                   ) : (
-                    'User'
+                    userName || 'User'
                   )}
                 </span>
               </button>
@@ -133,15 +142,9 @@ const UserDashNavbar = () => {
         </div>
       </div>
       
-      {/* Render the popup as a separate component */}
+      {/* Render the profile popup when showPopup is true */}
       {showPopup && (
-        <UserProfilePopup
-          userData={userData}
-          isLoading={isUserLoading}
-          hasError={hasError}
-          errorMessage={userError?.data?.message}
-          onClose={handleClosePopup}
-        />
+        <UserProfilePopup user={userData} onClose={handleClosePopup} />
       )}
     </header>
   );

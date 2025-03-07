@@ -10,8 +10,7 @@ router
   .get(userController.getUserData)
   .patch(userController.updateUserData);
 
-// Routes for getting user lists
-router.route("/users/all").get(userController.getAllUsers); // For assignment
-router.route("/all").get(userController.listAllUsers); // For pagination
+// Route for getting paginated user list
+router.route("/all").get(userController.listAllUsers);
 
 module.exports = router;

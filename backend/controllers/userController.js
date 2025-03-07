@@ -13,31 +13,6 @@ const getUserData = asyncHandler(async (req, res) => {
   res.json(user);
 });
 
-//@desc Get all users for assignment
-//@route GET /users/all
-//@access Private
-const getAllUsers = asyncHandler(async (req, res) => {
-  console.log('Getting all users...');
-  try {
-    const users = await User.find({})
-      .select("_id email name")
-      .lean()
-      .exec();
-    
-    console.log('Found users:', users);
-    
-    if (!users?.length) {
-      console.log('No users found');
-      return res.status(200).json({ users: [] });
-    }
-    
-    res.json({ users });
-  } catch (error) {
-    console.error('Error fetching users:', error);
-    res.status(500).json({ message: 'Failed to fetch users', error: error.message });
-  }
-});
-
 //@desc Update users own data
 //@param {Object} req with valid new data
 //@route PATCH /user
@@ -124,6 +99,5 @@ const listAllUsers = asyncHandler(async (req, res) => {
 module.exports = {
   getUserData,
   updateUserData,
-  getAllUsers,
   listAllUsers,
 };

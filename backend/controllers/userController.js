@@ -20,7 +20,7 @@ const getUserData = asyncHandler(async (req, res) => {
 const updateUserData = asyncHandler(async (req, res) => {
   const newData = req.body;
   // whitelist of fields that can be updated
-  const allowedUpdates = ["name", "phone"];
+  const allowedUpdates = ["name", "email", "phone"];
 
   // filter out any fields that are not allowed to be edited
   const updates = Object.keys(newData)
@@ -29,6 +29,11 @@ const updateUserData = asyncHandler(async (req, res) => {
       obj[key] = newData[key];
       return obj;
     }, {});
+
+  // Check if there are any valid updates
+  if (Object.keys(updates).length === 0) {
+    return res.status(400).json({ message: "No valid fields to update" });
+  }
 
   const updatedUser = await User.findOneAndUpdate(
     { _id: req.user.id },

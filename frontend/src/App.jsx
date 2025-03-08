@@ -14,9 +14,11 @@ import LoginPage from "./pages/LoginPage";
 import UserDashboard from "./pages/UserDashboard";
 import CreateTask from "./pages/CreateTask";
 import AboutPage from "./pages/AboutPage";
-import ProtectedRoute from "./components/ProtectedRoute";
 import AdminPage from "./pages/AdminDashboard";
 import MessagingPage from "./pages/MessagingPage";
+import ProtectedRoute from "./components/ProtectedRoute";
+import PersistLogin from "./components/PersistLogin";
+import SocketInitializer from "./features/socket/SocketInitializer";
 
 // Create a wrapper component that uses location
 function AppContent() {
@@ -40,44 +42,45 @@ function AppContent() {
     <>
       <NavbarComponent />
       <Routes>
+        {/* Public routes */}
         <Route path="/" element={<HomePage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/about" element={<AboutPage />} />
 
-        <Route
-          path="/dashboard"
-          element={
-            <ProtectedRoute>
-              <UserDashboard />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/create-task"
-          element={
-            <ProtectedRoute>
-              <CreateTask />
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
-          path="/admindashboard"
-          element={
-            <ProtectedRoute>
-              <AdminPage />
-            </ProtectedRoute>
-          }
-        />
-        
-        <Route
-          path="/messaging"
-          element={
-            <ProtectedRoute>
-              <MessagingPage />
-            </ProtectedRoute>
-          }
-        />
+        <Route element={<PersistLogin />}>
+          <Route
+            path="/dashboard"
+            element={
+              <ProtectedRoute>
+                <UserDashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/create-task"
+            element={
+              <ProtectedRoute>
+                <CreateTask />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admindashboard"
+            element={
+              <ProtectedRoute>
+                <AdminPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/messaging"
+            element={
+              <ProtectedRoute>
+                <MessagingPage />
+              </ProtectedRoute>
+            }
+          />
+        </Route>
       </Routes>
     </>
   );
@@ -86,6 +89,7 @@ function AppContent() {
 function App() {
   return (
     <Router>
+      <SocketInitializer />
       <AppContent />
     </Router>
   );

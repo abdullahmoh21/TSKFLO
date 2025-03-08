@@ -1,27 +1,55 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { FaTasks, FaCalendarAlt, FaExclamationCircle, FaCheck, FaUsers } from "react-icons/fa";
-import { useCreateTaskMutation } from "../features/tasks/taskApiSlice";
-import { useGetUsersQuery } from "../features/tasks/taskApiSlice";
+import { useState, useEffect } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import { FaTasks, FaCalendarAlt, FaExclamationCircle, FaSpinner, FaCheck } from "react-icons/fa";
+import { useUpdateTaskMutation, useGetTasksQuery } from "../features/tasks/taskApiSlice";
 
 // Maximum description length as defined by the backend
 const MAX_DESCRIPTION_LENGTH = 500;
 
-const CreateTask = () => {
+const EditTask = () => {
+    const { taskId } = useParams();
+    const navigate = useNavigate();
+    const [errorMessage, setErrorMessage] = useState('');
+    const [notification, setNotification] = useState(null);
     const [task, setTask] = useState({
         title: "",
         description: "",
         dueDate: "",
         priority: "medium",
-        status: "Incomplete", // Keep for UI, but won't send to API
-        assignees: [] // New field for assignees
+        status: "Incomplete"
     });
+    const [loading, setLoading] = useState(true);
+
+    // Fetch tasks to get the one we want to edit
+    const { data: tasks = [], isLoading: isLoadingTasks } = useGetTasksQuery();
     
-    const [createTask, { isLoading, isError, error }] = useCreateTaskMutation();
-    const { data: usersData, isLoading: isLoadingUsers } = useGetUsersQuery();
-    const navigate = useNavigate();
-    const [errorMessage, setErrorMessage] = useState('');
-    const [notification, setNotification] = useState(null);
+    // Update task mutation
+    const [updateTask, { isLoading: isUpdating }] = useUpdateTaskMutation();
+
+    // Find the task to edit when data is loaded
+    useEffect(() => {
+        if (!isLoadingTasks && tasks.length > 0) {
+            const taskToEdit = tasks.find(t => t._id === taskId);
+            if (taskToEdit) {
+                // Format date to YYYY-MM-DD for the date input
+                const formattedDate = taskToEdit.dueDate 
+                    ? new Date(taskToEdit.dueDate).toISOString().split('T')[0]
+                    : '';
+                
+                setTask({
+                    title: taskToEdit.title || "",
+                    description: taskToEdit.description || "",
+                    dueDate: formattedDate,
+                    priority: taskToEdit.priority || "medium",
+                    status: taskToEdit.status || "Incomplete"
+                });
+                setLoading(false);
+            } else {
+                setErrorMessage("Task not found");
+                setLoading(false);
+            }
+        }
+    }, [isLoadingTasks, tasks, taskId]);
 
     const handleChange = (e) => {
         const { name, value } = e.target;
@@ -34,18 +62,6 @@ const CreateTask = () => {
         setTask({ ...task, [name]: value });
     };
 
-    // Handle selecting assignees (can be multiple)
-    const handleAssigneeChange = (e) => {
-        const options = e.target.options;
-        const selectedValues = [];
-        for (let i = 0; i < options.length; i++) {
-            if (options[i].selected) {
-                selectedValues.push(options[i].value);
-            }
-        }
-        setTask({ ...task, assignees: selectedValues });
-    };
-
     const handleSubmit = async (e) => {
         e.preventDefault();
         
@@ -55,23 +71,23 @@ const CreateTask = () => {
         }
         
         try {
-            // Format task data for API - only include fields the API expects
-            // Explicitly omit 'status' as the backend doesn't allow it during creation
+            // Format task data for API
             const payload = {
+                taskId,
                 title: task.title,
                 description: task.description,
                 dueDate: task.dueDate,
                 priority: task.priority.toLowerCase(),
-                assignees: task.assignees // Include assignees
+                status: task.status
             };
             
-            console.log('Submitting task:', payload);
-            await createTask(payload).unwrap();
+            console.log('Updating task:', payload);
+            await updateTask(payload).unwrap();
             
             // Show success notification
             setNotification({
                 type: 'success',
-                message: 'Task created successfully!'
+                message: 'Task updated successfully!'
             });
             
             // Navigate after a brief delay to show the notification
@@ -79,8 +95,8 @@ const CreateTask = () => {
                 navigate('/dashboard');
             }, 1500);
         } catch (err) {
-            console.error('Failed to create task:', err);
-            setErrorMessage(err?.data?.message || 'Failed to create task. Please try again.');
+            console.error('Failed to update task:', err);
+            setErrorMessage(err?.data?.message || 'Failed to update task. Please try again.');
         }
     };
 
@@ -88,13 +104,24 @@ const CreateTask = () => {
     const remainingChars = MAX_DESCRIPTION_LENGTH - task.description.length;
     const isNearLimit = remainingChars <= 50;
 
+    if (loading || isLoadingTasks) {
+        return (
+            <div className="flex justify-center items-center min-h-screen bg-gray-100">
+                <div className="text-center">
+                    <FaSpinner className="animate-spin text-blue-500 text-4xl mx-auto mb-4" />
+                    <p className="text-gray-600">Loading task...</p>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="flex justify-center items-center min-h-screen bg-gray-100 p-4">
             <div className="bg-white shadow-lg rounded-lg p-8 max-w-lg w-full">
                 {/* Header */}
                 <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-2">
                     <FaTasks className="text-blue-500" />
-                    Create New Task
+                    Edit Task
                 </h2>
 
                 {/* Success Notification */}
@@ -174,37 +201,6 @@ const CreateTask = () => {
                         </div>
                     </div>
 
-                    {/* Assignees - New Field */}
-                    <div className="relative flex flex-col">
-                        <label htmlFor="assignees" className="text-gray-700 font-medium">
-                            Assign To
-                        </label>
-                        <div className="relative">
-                            <FaUsers className="absolute left-3 top-3 text-gray-400" />
-                            <select
-                                id="assignees"
-                                name="assignees"
-                                multiple
-                                value={task.assignees}
-                                onChange={handleAssigneeChange}
-                                className="border rounded-lg p-3 pl-10 w-full focus:ring-2 focus:ring-blue-500 focus:outline-none min-h-[100px]"
-                            >
-                                {isLoadingUsers ? (
-                                    <option disabled>Loading users...</option>
-                                ) : (
-                                    usersData?.users?.map(user => (
-                                        <option key={user._id} value={user._id}>
-                                            {user.name} ({user.email})
-                                        </option>
-                                    ))
-                                )}
-                            </select>
-                            <p className="text-xs text-gray-500 mt-1">
-                                Hold Ctrl/Cmd to select multiple users
-                            </p>
-                        </div>
-                    </div>
-
                     {/* Priority */}
                     <div className="relative flex flex-col">
                         <label htmlFor="priority" className="text-gray-700 font-medium">
@@ -225,7 +221,7 @@ const CreateTask = () => {
                         </div>
                     </div>
 
-                    {/* Status (Keep UI, but won't be sent in API) */}
+                    {/* Status */}
                     <div className="flex flex-col">
                         <label htmlFor="status" className="text-gray-700 font-medium">
                             Status
@@ -236,28 +232,33 @@ const CreateTask = () => {
                             value={task.status}
                             onChange={handleChange}
                             className="border rounded-lg p-3 w-full bg-white text-gray-700 focus:ring-2 focus:ring-blue-500 focus:outline-none appearance-none"
-                            disabled
                         >
                             <option value="Incomplete">To Do</option>
                             <option value="Complete">Done</option>
                         </select>
-                        <p className="text-xs text-gray-500 mt-1">
-                            Note: New tasks are automatically set to "To Do" status
-                        </p>
                     </div>
 
-                    {/* Submit Button */}
-                    <button
-                        type="submit"
-                        disabled={isLoading}
-                        className="bg-blue-500 text-white font-semibold p-3 rounded-lg hover:bg-blue-600 transition duration-300 disabled:bg-blue-300"
-                    >
-                        {isLoading ? "Creating..." : "Create Task"}
-                    </button>
+                    {/* Submit Buttons */}
+                    <div className="flex gap-4">
+                        <button
+                            type="button"
+                            onClick={() => navigate('/dashboard')}
+                            className="flex-1 border border-gray-300 text-gray-700 font-semibold p-3 rounded-lg hover:bg-gray-100 transition duration-300"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            type="submit"
+                            disabled={isUpdating}
+                            className="flex-1 bg-blue-500 text-white font-semibold p-3 rounded-lg hover:bg-blue-600 transition duration-300 disabled:bg-blue-300"
+                        >
+                            {isUpdating ? "Updating..." : "Update Task"}
+                        </button>
+                    </div>
                 </form>
             </div>
         </div>
     );
 };
 
-export default CreateTask;
+export default EditTask; 

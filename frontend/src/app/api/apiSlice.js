@@ -1,5 +1,5 @@
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
-import { setCredentials } from "../../features/auth/authSlice";
+import { setCredentials, logOut } from "../../features/auth/authSlice";
 
 const baseQuery = fetchBaseQuery({
   baseUrl: "http://localhost:3200", // production: change to domain
@@ -16,26 +16,50 @@ const baseQuery = fetchBaseQuery({
 });
 
 const baseQueryWithReauth = async (args, api, extraOptions) => {
+  // Check localStorage for token on initial load
+  const state = api.getState();
+  if (!state.auth.token) {
+    const persistedToken = localStorage.getItem('token');
+    if (persistedToken) {
+      api.dispatch(setCredentials({ accessToken: persistedToken }));
+    }
+  }
+
   let result = await baseQuery(args, api, extraOptions);
 
-  // If you want, handle other status codes, too
-  if (result?.error?.status === 403) {
-    console.log("sending refresh token");
+  // Handle 401 and 403 status codes for token expiration
+  if (result?.error?.status === 401 || result?.error?.status === 403) {
+    console.log("Token expired, attempting refresh...");
 
-    // send refresh token to get new access token
+    // Send refresh token to get new access token
     const refreshResult = await baseQuery("/auth/refresh", api, extraOptions);
 
-    if (refreshResult?.data) {
-      // store the new token
-      api.dispatch(setCredentials({ ...refreshResult.data }));
+    if (refreshResult?.data?.accessToken) {
+      console.log("Token refresh successful");
+      
+      // Store the new token
+      const accessToken = refreshResult.data.accessToken;
+      api.dispatch(setCredentials({ accessToken }));
+      
+      // Save to localStorage
+      localStorage.setItem('token', accessToken);
 
-      // retry original query with new access token
+      // Retry original query with new access token
       result = await baseQuery(args, api, extraOptions);
     } else {
-      if (refreshResult?.error?.status === 403) {
-        refreshResult.error.data.message = "Your login has expired.";
+      console.log("Refresh token failed - logging out");
+      
+      // Clear token from localStorage
+      localStorage.removeItem('token');
+      
+      // Log the user out on failed refresh
+      api.dispatch(logOut());
+      
+      // Update error message for better UX
+      if (result.error) {
+        result.error.data = result.error.data || {};
+        result.error.data.message = "Your session has expired. Please login again.";
       }
-      return refreshResult;
     }
   }
 

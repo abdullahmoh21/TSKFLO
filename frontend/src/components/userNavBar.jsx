@@ -1,16 +1,51 @@
 // UserDashNavbar.jsx
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { FaTasks, FaUserCircle, FaEnvelope } from "react-icons/fa";
+import { useSelector, useDispatch } from "react-redux";
+import { selectCurrentUserName, logOut } from "../features/auth/authSlice";
 import { useLogoutMutation } from "../features/auth/authApiSlice";
-import { useDispatch } from "react-redux";
-import { logOut } from "../features/auth/authSlice";
+import { useGetMyDataQuery } from "../features/user/userApiSlice";
+import UserProfilePopup from "./UserProfilePopup";
 
 const UserDashNavbar = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const dispatch = useDispatch();
-  const [logout, { isLoading }] = useLogoutMutation();
+  
+  // Get user name from Redux state
+  const userName = useSelector(selectCurrentUserName);
+  
+  // API hooks
+  const [logout, { isLoading: isLogoutLoading }] = useLogoutMutation();
+  const {
+    data: userData,
+    isLoading: isUserLoading,
+    error: userError,
+    isError: hasError,
+    isSuccess: isDataLoaded,
+  } = useGetMyDataQuery(undefined, {
+    // If you don't want to refetch while editing, you can set this to false:
+    refetchOnMountOrArgChange: false
+    // refetchOnMountOrArgChange: true,
+  });
+
+  // Local state
+  const [showPopup, setShowPopup] = useState(false);
+
+  // Log userData or errors (optional debug)
+  useEffect(() => {
+    if (userData) {
+      console.log("User data received:", userData);
+    }
+    if (userError) {
+      console.error("Error fetching user data:", userError);
+    }
+  }, [userData, userError]);
+
+  const handleClosePopup = () => {
+    setShowPopup(false);
+  };
 
   const isActivePath = (path) => location.pathname === path;
 
@@ -42,7 +77,7 @@ const UserDashNavbar = () => {
           <div className="flex items-center">
             <Link
               to="/dashboard"
-              className="flex items-center gap-2 text-lg font-bold text-blue-600 hover:text-blue-700 transition-colors duration-300"
+              className="flex items-center gap-2 text-lg font-bold text-blue-500 hover:text-blue-600 transition-colors duration-300"
             >
               <FaTasks className="h-6 w-6" />
               <span>Task Management</span>
@@ -56,8 +91,8 @@ const UserDashNavbar = () => {
                 to="/dashboard"
                 className={`px-4 py-2 rounded-md text-sm font-medium transition-colors duration-200 ${
                   isActivePath("/dashboard")
-                    ? "bg-blue-50 text-blue-700"
-                    : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                    ? "bg-blue-50 text-blue-500"
+                    : "text-gray-700 hover:bg-gray-50 hover:text-blue-500"
                 }`}
               >
                 Dashboard
@@ -66,8 +101,8 @@ const UserDashNavbar = () => {
                 to="/messaging"
                 className={`px-4 py-2 rounded-md text-sm font-medium transition-colors duration-200 flex items-center gap-1 ${
                   isActivePath("/messaging")
-                    ? "bg-blue-50 text-blue-700"
-                    : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                    ? "bg-blue-50 text-blue-500"
+                    : "text-gray-700 hover:bg-gray-50 hover:text-blue-500"
                 }`}
               >
                 <FaEnvelope className="h-4 w-4" />
@@ -77,23 +112,40 @@ const UserDashNavbar = () => {
 
             {/* User Profile & Logout Button */}
             <div className="flex items-center gap-3 ml-4 pl-4 border-l border-gray-200">
-              <div className="flex items-center gap-2">
-                <FaUserCircle className="h-5 w-5 text-gray-400" />
-                <span className="text-sm font-medium text-gray-700">
-                  John Doe
+              <button
+                onClick={() => setShowPopup(true)}
+                className="flex items-center gap-2 bg-white hover:bg-gray-50 px-3 py-2 rounded-md transition-colors duration-200 border border-gray-200"
+                disabled={isUserLoading}
+              >
+                <FaUserCircle className="h-5 w-5 text-gray-500" />
+                <span className="text-sm font-medium text-black">
+                  {isUserLoading ? (
+                    'Loading...'
+                  ) : hasError ? (
+                    'Error loading user'
+                  ) : userData?.name ? (
+                    userData.name
+                  ) : (
+                    userName || 'User'
+                  )}
                 </span>
-              </div>
+              </button>
               <button
                 onClick={handleLogout}
-                disabled={isLoading}
-                className="px-4 py-2 text-sm font-medium text-red-600 hover:text-red-700 hover:bg-red-50 rounded-md transition-colors duration-200"
+                disabled={isLogoutLoading}
+                className="px-4 py-2 text-sm font-medium bg-white border border-red-500 text-red-500 hover:bg-red-50 rounded-md transition-colors duration-200"
               >
-                {isLoading ? "Logging out..." : "Logout"}
+                {isLogoutLoading ? "Logging out..." : "Logout"}
               </button>
             </div>
           </div>
         </div>
       </div>
+      
+      {/* Render the profile popup when showPopup is true */}
+      {showPopup && (
+        <UserProfilePopup user={userData} onClose={handleClosePopup} />
+      )}
     </header>
   );
 };

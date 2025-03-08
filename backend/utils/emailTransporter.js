@@ -67,7 +67,7 @@ function sendEmail(
       mailOptions.text = text;
       logger.info(`Message sent to ${to}: ${handlebarData}`);
     }
-    return; // will be uncommented in prod
+    resolve(); // will be uncommented in prod
 
     transporter.sendMail(mailOptions, (error, info) => {
       if (error) {

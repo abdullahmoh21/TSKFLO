@@ -85,6 +85,25 @@ export const adminApiSlice = createApi({
         body: task,
         credentials: "include",
       }),
+      transformResponse: (response) => {
+        console.log("Create Task Response:", response);
+        return response;
+      },
+      transformErrorResponse: (response) => {
+        console.error("Create Task Error:", response);
+        if (response.status === 400) {
+          console.error("Validation error details:", response.data);
+        }
+        return response;
+      },
+      invalidatesTags: ["AdminTasks"],
+    }),
+    lockAdminTask: builder.mutation({
+      query: ({ taskId, locked }) => ({
+        url: locked ? `/tasks/${taskId}/unlock` : `/tasks/${taskId}/lock`,
+        method: "PATCH",
+        credentials: "include",
+      }),
       invalidatesTags: ["AdminTasks"],
     }),
   }),
@@ -96,4 +115,5 @@ export const {
   useDeleteAdminTaskMutation,
   useUpdateAdminTaskMutation,
   useCreateAdminTaskMutation,
+  useLockAdminTaskMutation,
 } = adminApiSlice;

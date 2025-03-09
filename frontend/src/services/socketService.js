@@ -13,18 +13,6 @@ export const initializeSocket = (token) => {
     },
   });
 
-  // Add this event logging code
-  const onevent = socket.onevent;
-  socket.onevent = function (packet) {
-    const args = packet.data || [];
-    console.log("Socket received event:", args[0], args.slice(1));
-    onevent.call(this, packet); // original call
-  };
-
-  socket.onAny((event, ...args) => {
-    console.log(`Socket event: ${event}`, args);
-  });
-
   return socket;
 };
 

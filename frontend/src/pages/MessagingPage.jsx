@@ -21,11 +21,13 @@ import { getSocket } from "../services/socketService";
 const MessagingPage = () => {
   // State for user search input and results
   const [searchUser, setSearchUser] = useState("");
+  const [groupName, setGroupName] = useState("");
   const [searchResults, setSearchResults] = useState([]);
   const [selectedUsers, setSelectedUsers] = useState([]);
   const currentUserId = useSelector(selectCurrentUserId);
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
   const socket = getSocket();
+  const [showParticipants, setShowParticipants] = useState(false);
 
   const { data: searchResult, isLoading: isLoadingSearching } =
     useSearchUsersQuery(debouncedSearchTerm, {
@@ -63,13 +65,6 @@ const MessagingPage = () => {
   const searchRef = useRef(null);
   const messagesEndRef = useRef(null);
 
-  // UPDATED: This just updates the search input.
-  // We no longer filter mock results here, because we rely on RTK Query data.
-  const handleSearchUsers = (query) => {
-    setSearchUser(query);
-  };
-
-  // Handle user selection
   const toggleUserSelection = (user) => {
     if (selectedUsers.some((u) => u._id === user._id)) {
       setSelectedUsers(selectedUsers.filter((u) => u._id !== user._id));
@@ -78,14 +73,15 @@ const MessagingPage = () => {
     }
   };
 
-  // Existing RTK Query calls
   const { data: conversations, isLoading: isLoadingConversations } =
     useGetAllConversationsQuery();
-  // REMOVED the old line that didn’t pass arguments to useSearchUsersQuery()
-  const { data: messages, isLoading: isLoadingMessages } = useGetMessagesQuery(
-    selectedConversation,
-    { skip: !selectedConversation }
-  );
+  const {
+    data: messages,
+    isLoading: isLoadingMessages,
+    refetch,
+  } = useGetMessagesQuery(selectedConversation, {
+    skip: !selectedConversation,
+  });
   const [createConversation] = useCreateConversationMutation();
   const [createMessage] = useCreateMessageMutation();
 
@@ -122,6 +118,16 @@ const MessagingPage = () => {
     );
   };
 
+  // Helper to identify if a conversation is a group chat
+  const isGroupChat = (conversation) => {
+    if (!conversation) return false;
+    // Consider it a group chat if it has a group name or more than 2 participants
+    return (
+      conversation.groupName ||
+      (conversation.participants && conversation.participants.length > 2)
+    );
+  };
+
   // Filter conversations by search term
   const filteredConversations = useMemo(() => {
     if (!conversations) return [];
@@ -139,6 +145,7 @@ const MessagingPage = () => {
       // Send as an array of participant IDs with current user included
       await createConversation({
         participants: [currentUserId, ...selectedUsers.map((user) => user._id)],
+        groupName: groupName,
       }).unwrap();
 
       setSelectedUsers([]);
@@ -239,9 +246,9 @@ const MessagingPage = () => {
               {/* Modal for creating new conversation */}
               <dialog
                 id="new-conversation-modal"
-                className="p-6 rounded-lg shadow-xl fixed top-1/2 left-1/2 
-             transform -translate-x-1/2 -translate-y-1/2 z-50 
-             bg-white w-96 max-w-md"
+                className="p-6 rounded-lg shadow-xl fixed top-[35%] left-1/2 
+                transform -translate-x-1/2 -translate-y-1/2 z-50 bg-white
+                w-96 max-w-md max-h-[80vh] overflow-y-auto"
               >
                 <h3 className="text-xl font-semibold mb-4 text-center text-gray-900">
                   New Conversation
@@ -249,12 +256,12 @@ const MessagingPage = () => {
                 <form onSubmit={handleCreateConversation}>
                   <div className="mb-4">
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Find people to chat with
+                      Participants
                     </label>
                     <input
                       type="text"
                       value={searchUser}
-                      onChange={(e) => handleSearchUsers(e.target.value)}
+                      onChange={(e) => setSearchUser(e.target.value)}
                       placeholder="Search by name or email"
                       className="w-full p-2 border rounded-md 
                    focus:ring-2 focus:ring-blue-500 focus:border-blue-500
@@ -263,7 +270,7 @@ const MessagingPage = () => {
                   </div>
 
                   {/* Search Results */}
-                  {isLoadingSearching ? (
+                  {!searchUser.trim() ? null : isLoadingSearching ? (
                     <p className="mb-4 text-gray-700">Searching...</p>
                   ) : searchResults.length > 0 ? (
                     <div className="mb-4 max-h-40 overflow-y-auto border rounded-md bg-white">
@@ -283,7 +290,6 @@ const MessagingPage = () => {
                               <FaUser className="text-black" size={12} />
                             </div>
                             <div>
-                              {/* Force a dark text color for the name */}
                               <p className="font-medium text-sm text-gray-900">
                                 {user.name}
                               </p>
@@ -320,11 +326,28 @@ const MessagingPage = () => {
                               onClick={() => toggleUserSelection(user)}
                               className="ml-1 text-blue-600 hover:text-blue-800"
                             >
-                              <FaTimes size={12} />
+                              <FaTimes size={8} />
                             </button>
                           </div>
                         ))}
                       </div>
+                    </div>
+                  )}
+
+                  {/* Group Name */}
+                  {selectedUsers.length > 1 && (
+                    <div className="mb-4">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Group Name
+                      </label>
+                      <input
+                        type="text"
+                        value={groupName}
+                        onChange={(e) => setGroupName(e.target.value)}
+                        className="w-full p-2 border rounded-md 
+                   focus:ring-2 focus:ring-blue-500 focus:border-blue-500
+                   bg-white text-gray-900"
+                      />
                     </div>
                   )}
 
@@ -438,15 +461,59 @@ const MessagingPage = () => {
             <>
               {/* Chat Header */}
               <div className="p-4 bg-white border-b border-gray-200">
-                <h3 className="text-lg font-semibold text-gray-800">
-                  {conversations?.find((c) => c._id === selectedConversation)
-                    ? getConversationName(
-                        conversations.find(
-                          (c) => c._id === selectedConversation
-                        )
-                      )
-                    : "Loading..."}
-                </h3>
+                {(() => {
+                  const currentConversation = conversations?.find(
+                    (c) => c._id === selectedConversation
+                  );
+                  const isGroup = isGroupChat(currentConversation);
+
+                  return (
+                    <div>
+                      <div className="flex items-center justify-between">
+                        <h3 className="text-lg font-semibold text-gray-800">
+                          {currentConversation
+                            ? getConversationName(currentConversation)
+                            : "Loading..."}
+                        </h3>
+
+                        {isGroup && (
+                          <button
+                            onClick={() =>
+                              setShowParticipants(!showParticipants)
+                            }
+                            className="text-sm text-blue-500 hover:text-blue-700 focus:outline-none"
+                          >
+                            {showParticipants
+                              ? "Hide Participants"
+                              : "Show Participants"}
+                          </button>
+                        )}
+                      </div>
+
+                      {isGroup &&
+                        showParticipants &&
+                        currentConversation?.participants && (
+                          <div className="mt-2 p-2 bg-gray-50 rounded-md">
+                            <p className="text-xs text-gray-500 mb-1">
+                              Participants:
+                            </p>
+                            <div className="flex flex-wrap gap-1">
+                              {currentConversation.participants.map(
+                                (participant) => (
+                                  <span
+                                    key={participant._id}
+                                    className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full"
+                                  >
+                                    {participant.name}
+                                  </span>
+                                )
+                              )}
+                            </div>
+                          </div>
+                        )}
+                    </div>
+                  );
+                })()}
               </div>
 
               {/* Messages Area */}
@@ -461,30 +528,49 @@ const MessagingPage = () => {
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    {messages?.map((message) => (
-                      <div
-                        key={message._id}
-                        className={`max-w-xs md:max-w-md p-3 rounded-lg ${
-                          message.sender._id === currentUserId
-                            ? "ml-auto bg-blue-500 text-white"
-                            : "bg-white text-gray-800"
-                        }`}
-                      >
-                        <p>{message.text}</p>
-                        <div
-                          className={`text-xs mt-1 ${
-                            message.sender._id === currentUserId
-                              ? "text-blue-200"
-                              : "text-gray-500"
-                          }`}
-                        >
-                          {new Date(message.createdAt).toLocaleTimeString([], {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })}
+                    {messages?.map((message) => {
+                      const currentConversation = conversations?.find(
+                        (c) => c._id === selectedConversation
+                      );
+                      const isGroup = isGroupChat(currentConversation);
+                      const isCurrentUser =
+                        message.sender._id === currentUserId;
+
+                      return (
+                        <div key={message._id}>
+                          {/* Show sender name only in group chats and not for current user's messages */}
+                          {isGroup && !isCurrentUser && (
+                            <div className="text-xs text-gray-600 ml-1 mb-1">
+                              {message.sender.name}
+                            </div>
+                          )}
+                          <div
+                            className={`max-w-xs md:max-w-md p-3 rounded-lg ${
+                              isCurrentUser
+                                ? "ml-auto bg-blue-500 text-white"
+                                : "bg-white text-gray-800"
+                            }`}
+                          >
+                            <p>{message.text}</p>
+                            <div
+                              className={`text-xs mt-1 ${
+                                isCurrentUser
+                                  ? "text-blue-200"
+                                  : "text-gray-500"
+                              }`}
+                            >
+                              {new Date(message.createdAt).toLocaleTimeString(
+                                [],
+                                {
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                }
+                              )}
+                            </div>
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                     <div ref={messagesEndRef} />
                   </div>
                 )}

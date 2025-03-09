@@ -12,67 +12,64 @@ const onStartListening = (dispatch, api) => {
 
       socket.on("messageCreated", (message) => {
         console.log("Socket message received:", message);
-        try {
-          // First handle message format consistency
-          const conversationId = message.conversation;
+        const conversationId = message.conversation;
 
-          // Debug what's happening
-          console.log(
-            "Trying to update messages for conversation:",
-            conversationId
+        try {
+          // First try to update the cache directly
+          const updated = dispatch(
+            api.util.updateQueryData(
+              "getMessages",
+              conversationId,
+              (draftMessages) => {
+                // Ensure draftMessages is an array before attempting to update
+                if (!Array.isArray(draftMessages)) {
+                  console.warn(
+                    "draftMessages is not an array, creating new array"
+                  );
+                  return [message]; // Return a new array with just the new message
+                }
+
+                // Check if message already exists to avoid duplicates
+                if (!draftMessages.some((m) => m._id === message._id)) {
+                  draftMessages.push(message);
+                }
+              }
+            )
           );
 
-          // Update the messages list for this conversation
-          if (conversationId) {
-            const updated = dispatch(
-              api.util.updateQueryData(
-                "getMessages",
-                conversationId,
-                (draftMessages) => {
-                  console.log("Current draftMessages:", draftMessages?.length);
-                  if (
-                    draftMessages &&
-                    !draftMessages.find((m) => m._id === message._id)
-                  ) {
-                    console.log("Adding new message to cache");
-                    draftMessages.push(message);
-                  }
-                }
-              )
+          // Check if update was successful
+          if (!updated) {
+            console.warn(
+              "Cache update returned falsy value, forcing invalidation"
             );
-            console.log("Cache update result:", updated);
-
-            // Also update conversation's lastMessage
             dispatch(
-              api.util.updateQueryData(
-                "getAllConversations",
-                undefined,
-                (draftConversations) => {
-                  const conversation = draftConversations?.find(
-                    (c) => c._id === conversationId
-                  );
-                  if (conversation) {
-                    conversation.lastMessage = message;
-                  }
-                }
-              )
+              api.util.invalidateTags([{ type: "Message", id: conversationId }])
             );
           }
+
+          // Also update conversation's lastMessage
+          dispatch(
+            api.util.updateQueryData(
+              "getAllConversations",
+              undefined,
+              (draftConversations) => {
+                if (!Array.isArray(draftConversations)) return;
+
+                const conversation = draftConversations.find(
+                  (c) => c._id === conversationId
+                );
+                if (conversation) {
+                  conversation.lastMessage = message;
+                }
+              }
+            )
+          );
         } catch (err) {
           console.error("Error handling socket message:", err);
-          // If update fails, fall back to invalidating tags
-          try {
-            dispatch(
-              api.util.invalidateTags([
-                { type: "Message", id: message.conversation },
-              ])
-            );
-          } catch (fallbackError) {
-            console.error(
-              "Tag invalidation fallback also failed:",
-              fallbackError
-            );
-          }
+          // Always invalidate on error
+          dispatch(
+            api.util.invalidateTags([{ type: "Message", id: conversationId }])
+          );
         }
       });
 
@@ -166,12 +163,8 @@ export const messageApiSlice = apiSlice.injectEndpoints({
 
 // Create a middleware that sets up socket listeners when the app starts
 export const setupSocketListeners = (store) => {
-  // Initialize socket listeners immediately and return middleware
-  setTimeout(() => {
-    console.log("Setting up socket listeners...");
-    onStartListening(store.dispatch, apiSlice);
-  }, 1000);
-
+  // Initialize immediately instead of with a timeout
+  onStartListening(store.dispatch, apiSlice);
   return (next) => (action) => next(action);
 };
 

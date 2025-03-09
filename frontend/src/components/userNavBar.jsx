@@ -12,10 +12,10 @@ const UserDashNavbar = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const dispatch = useDispatch();
-  
+
   // Get user name from Redux state
   const userName = useSelector(selectCurrentUserName);
-  
+
   // API hooks
   const [logout, { isLoading: isLogoutLoading }] = useLogoutMutation();
   const {
@@ -25,23 +25,11 @@ const UserDashNavbar = () => {
     isError: hasError,
     isSuccess: isDataLoaded,
   } = useGetMyDataQuery(undefined, {
-    // If you don't want to refetch while editing, you can set this to false:
-    refetchOnMountOrArgChange: false
-    // refetchOnMountOrArgChange: true,
+    refetchOnMountOrArgChange: false,
   });
 
   // Local state
   const [showPopup, setShowPopup] = useState(false);
-
-  // Log userData or errors (optional debug)
-  useEffect(() => {
-    if (userData) {
-      console.log("User data received:", userData);
-    }
-    if (userError) {
-      console.error("Error fetching user data:", userError);
-    }
-  }, [userData, userError]);
 
   const handleClosePopup = () => {
     setShowPopup(false);
@@ -54,18 +42,18 @@ const UserDashNavbar = () => {
       console.log("Starting logout process...");
       // First, manually dispatch the logout action to clear the Redux state
       dispatch(logOut());
-      
+
       // Then call the logout endpoint
       const result = await logout().unwrap();
       console.log("Logout API response:", result);
-      
+
       // Navigate to login page
-      navigate('/login', { replace: true });
+      navigate("/login", { replace: true });
     } catch (error) {
-      console.error('Logout failed:', error);
+      console.error("Logout failed:", error);
       // If the API call fails, we still want to log out locally
       dispatch(logOut());
-      navigate('/login', { replace: true });
+      navigate("/login", { replace: true });
     }
   };
 
@@ -119,15 +107,13 @@ const UserDashNavbar = () => {
               >
                 <FaUserCircle className="h-5 w-5 text-gray-500" />
                 <span className="text-sm font-medium text-black">
-                  {isUserLoading ? (
-                    'Loading...'
-                  ) : hasError ? (
-                    'Error loading user'
-                  ) : userData?.name ? (
-                    userData.name
-                  ) : (
-                    userName || 'User'
-                  )}
+                  {isUserLoading
+                    ? "Loading..."
+                    : hasError
+                    ? "Error loading user"
+                    : userData?.name
+                    ? userData.name
+                    : userName || "User"}
                 </span>
               </button>
               <button
@@ -141,11 +127,9 @@ const UserDashNavbar = () => {
           </div>
         </div>
       </div>
-      
+
       {/* Render the profile popup when showPopup is true */}
-      {showPopup && (
-        <UserProfilePopup user={userData} onClose={handleClosePopup} />
-      )}
+      {showPopup && <UserProfilePopup onClose={handleClosePopup} />}
     </header>
   );
 };

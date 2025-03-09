@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useDispatch } from "react-redux";
 import { useNavigate } from "react-router-dom";
-import { useLoginMutation, useGetUserProfileQuery } from "../features/auth/authApiSlice"; // <-- RTK Query Hook
+import { useLoginMutation } from "../features/auth/authApiSlice"; // <-- RTK Query Hook
 import { setCredentials } from "../features/auth/authSlice";
 import { jwtDecode } from "jwt-decode";
 
@@ -37,31 +37,12 @@ const LoginPage = () => {
       console.log();
       // Call the RTK Query login mutation
       const { accessToken } = await login({ email, password }).unwrap();
-      console.log("Your JWT Token:", accessToken);
 
       // Dispatch the token to Redux state (authSlice will decode it)
       dispatch(setCredentials({ accessToken }));
 
-      // Optionally decode here if you want immediate access to role, email, etc.
       const decoded = jwtDecode(accessToken);
       console.log("Decoded Token:", decoded);
-
-      // Force fetch the user profile after login
-      try {
-        // This will get the user's profile information
-        const response = await fetch("http://localhost:3200/users", {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
-        });
-        
-        if (response.ok) {
-          const userData = await response.json();
-          console.log("User data fetched:", userData);
-        }
-      } catch (profileError) {
-        console.error("Error fetching profile:", profileError);
-      }
 
       // Navigate based on role
       if (decoded?.user?.role === "admin") {

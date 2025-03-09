@@ -19,8 +19,9 @@ const getUserTasks = asyncHandler(async (req, res) => {
     $or: [{ owner: user._id }, { assignees: user._id }],
   })
     .lean()
-    .select("-owner -updatedAt -__v")
+    .select("-updatedAt -__v")
     .populate("assignees", "name _id")
+    .populate("owner", "name _id")
     .exec();
 
   return res.status(200).json(tasks);

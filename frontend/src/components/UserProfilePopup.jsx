@@ -1,8 +1,14 @@
 import React, { useState, useEffect, useRef } from "react";
 import { FaTimes, FaEdit, FaSave, FaTimesCircle } from "react-icons/fa";
-import { useUpdateMyDataMutation } from "../features/user/userApiSlice";
+import {
+  useUpdateMyDataMutation,
+  useGetMyDataQuery,
+} from "../features/user/userApiSlice";
 
-const UserProfilePopup = ({ userData, isLoading, hasError, errorMessage, onClose }) => {
+const UserProfilePopup = ({ onClose }) => {
+  // Directly fetch user data with RTK Query
+  const { data: userData, isLoading, error } = useGetMyDataQuery();
+
   // Local state
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState({
@@ -12,16 +18,16 @@ const UserProfilePopup = ({ userData, isLoading, hasError, errorMessage, onClose
   });
   const [updateError, setUpdateError] = useState(null);
   const [updateSuccess, setUpdateSuccess] = useState(false);
-  
+
   // Form refs for focus management
   const nameInputRef = useRef(null);
   const emailInputRef = useRef(null);
   const phoneInputRef = useRef(null);
-  
+
   // Get update mutation
   const [updateMyData, { isLoading: isUpdating }] = useUpdateMyDataMutation();
 
-  // Initialize form data when user data changes
+  // Initialize form data when user data changes - only once when data arrives
   useEffect(() => {
     if (userData) {
       setFormData({
@@ -30,16 +36,16 @@ const UserProfilePopup = ({ userData, isLoading, hasError, errorMessage, onClose
         phone: userData.phone || "",
       });
     }
-  }, [userData]);
+  }, [userData?._id]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    
+
     // For phone field, only accept numeric values
     if (name === "phone" && value !== "" && !/^\d+$/.test(value)) {
       return; // Don't update if non-numeric value is entered for phone
     }
-    
+
     setFormData((prev) => ({
       ...prev,
       [name]: value,
@@ -50,7 +56,7 @@ const UserProfilePopup = ({ userData, isLoading, hasError, errorMessage, onClose
     setIsEditing(true);
     setUpdateError(null);
     setUpdateSuccess(false);
-    
+
     // Schedule focus for after the render
     setTimeout(() => {
       if (nameInputRef.current) {
@@ -77,7 +83,7 @@ const UserProfilePopup = ({ userData, isLoading, hasError, errorMessage, onClose
     e.preventDefault();
     setUpdateError(null);
     setUpdateSuccess(false);
-    
+
     try {
       // Create updates object with all changed fields
       const updates = {};
@@ -86,19 +92,19 @@ const UserProfilePopup = ({ userData, isLoading, hasError, errorMessage, onClose
           updates[key] = formData[key];
         }
       });
-      
+
       // Don't submit if nothing changed
       if (Object.keys(updates).length === 0) {
         setIsEditing(false);
         return;
       }
-      
+
       console.log("Updating with:", updates); // Debug log
       const result = await updateMyData(updates).unwrap();
       console.log("Update response:", result); // Debug log
       setUpdateSuccess(true);
       setIsEditing(false);
-      
+
       // Success message will disappear after 3 seconds
       setTimeout(() => {
         setUpdateSuccess(false);
@@ -106,7 +112,8 @@ const UserProfilePopup = ({ userData, isLoading, hasError, errorMessage, onClose
     } catch (error) {
       console.error("Failed to update user data:", error);
       setUpdateError(
-        error?.data?.message || "Failed to update your information. Please try again."
+        error?.data?.message ||
+          "Failed to update your information. Please try again."
       );
     }
   };
@@ -122,10 +129,13 @@ const UserProfilePopup = ({ userData, isLoading, hasError, errorMessage, onClose
         </button>
         <h2 className="text-xl font-bold mb-4 text-black">User Profile</h2>
         {isLoading ? (
-          <div className="text-center py-4 text-black">Loading user data...</div>
-        ) : hasError ? (
+          <div className="text-center py-4 text-black">
+            Loading user data...
+          </div>
+        ) : error ? (
           <div className="text-red-500 text-center py-4 bg-red-50 rounded">
-            Error loading user data: {errorMessage || "Please try again later."}
+            Error loading user data:{" "}
+            {error?.data?.message || "Please try again later."}
           </div>
         ) : userData ? (
           <>
@@ -139,11 +149,13 @@ const UserProfilePopup = ({ userData, isLoading, hasError, errorMessage, onClose
                 {updateError}
               </div>
             )}
-            
+
             {isEditing ? (
               <form onSubmit={handleUpdateSubmit} className="space-y-4">
                 <div>
-                  <label className="block text-sm text-gray-600 mb-1">Name</label>
+                  <label className="block text-sm text-gray-600 mb-1">
+                    Name
+                  </label>
                   <input
                     ref={nameInputRef}
                     type="text"
@@ -155,7 +167,9 @@ const UserProfilePopup = ({ userData, isLoading, hasError, errorMessage, onClose
                   />
                 </div>
                 <div>
-                  <label className="block text-sm text-gray-600 mb-1">Email</label>
+                  <label className="block text-sm text-gray-600 mb-1">
+                    Email
+                  </label>
                   <input
                     ref={emailInputRef}
                     type="email"
@@ -167,7 +181,9 @@ const UserProfilePopup = ({ userData, isLoading, hasError, errorMessage, onClose
                   />
                 </div>
                 <div>
-                  <label className="block text-sm text-gray-600 mb-1">Phone</label>
+                  <label className="block text-sm text-gray-600 mb-1">
+                    Phone
+                  </label>
                   <input
                     ref={phoneInputRef}
                     type="tel"
@@ -230,11 +246,13 @@ const UserProfilePopup = ({ userData, isLoading, hasError, errorMessage, onClose
             )}
           </>
         ) : (
-          <div className="text-center py-4 text-black">No user data available</div>
+          <div className="text-center py-4 text-black">
+            No user data available
+          </div>
         )}
       </div>
     </div>
   );
 };
 
-export default UserProfilePopup; 
+export default UserProfilePopup;

@@ -17,15 +17,16 @@ const transporter = nodemailer.createTransport({
 });
 
 // Configure Handlebars for Nodemailer
-const handlebarOptions = {
-  viewEngine: {
-    extName: ".hbs",
-    defaultLayout: "",
-  },
-  viewPath: path.resolve(__dirname, "emailTemplates"),
-  extName: ".hbs",
-};
+// const handlebarOptions = {
+//   viewEngine: {
+//     extName: ".hbs",
+//     defaultLayout: "",
+//   },
+//   viewPath: path.resolve(__dirname, "emailTemplates"),
+//   extName: ".hbs",
+// };
 
+// transporter.use("compile", handlebars(handlebarOptions));
 // transporter.use("compile", handlebars(handlebarOptions));
 
 function sendEmail(

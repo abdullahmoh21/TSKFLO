@@ -1,58 +1,77 @@
-import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
+import { apiSlice } from "../../app/api/apiSlice";
 
-export const taskApiSlice = createApi({
-  reducerPath: "taskApi",
-  baseQuery: fetchBaseQuery({
-    baseUrl: "http://localhost:3200/api",
-    prepareHeaders: (headers, { getState }) => {
-      // Get the token from the auth state
-      const token = getState().auth.token;
-      if (token) {
-        headers.set("authorization", `Bearer ${token}`);
-      }
-      return headers;
-    },
-  }),
-  tagTypes: ["Task"],
+export const taskApiSlice = apiSlice.injectEndpoints({
   endpoints: (builder) => ({
     getTasks: builder.query({
-      query: () => "/tasks",
-      providesTags: ["Task"],
-    }),
-    getTaskById: builder.query({
-      query: (id) => `/tasks/${id}`,
-      providesTags: ["Task"],
+      query: () => "tasks",
+      providesTags: (result) =>
+        result
+          ? [
+              ...result.map(({ _id }) => ({ type: "Task", id: _id })),
+              { type: "Task", id: "LIST" },
+            ]
+          : [{ type: "Task", id: "LIST" }],
     }),
     createTask: builder.mutation({
-      query: (task) => ({
-        url: "/tasks",
+      query: (taskData) => ({
+        url: "tasks",
         method: "POST",
-        body: task,
+        body: taskData,
       }),
-      invalidatesTags: ["Task"],
+      invalidatesTags: [{ type: "Task", id: "LIST" }],
     }),
     updateTask: builder.mutation({
-      query: ({ taskId, ...update }) => ({
-        url: `/tasks/${taskId}`,
-        method: "PUT",
-        body: update,
+      query: ({ taskId, ...taskData }) => ({
+        url: `tasks/${taskId}`,
+        method: "PATCH",
+        body: taskData,
       }),
-      invalidatesTags: ["Task"],
+      invalidatesTags: (result, error, { taskId }) => [
+        { type: "Task", id: taskId },
+      ],
     }),
     deleteTask: builder.mutation({
       query: (taskId) => ({
-        url: `/tasks/${taskId}`,
+        url: `tasks/${taskId}`,
         method: "DELETE",
       }),
-      invalidatesTags: ["Task"],
+      invalidatesTags: [{ type: "Task", id: "LIST" }],
+    }),
+    getUsers: builder.query({
+      query: () => "users",
+      providesTags: ["Users"],
+    }),
+    addAssignee: builder.mutation({
+      query: ({ taskId, assigneeId }) => ({
+        url: `tasks/${taskId}/assignees`,
+        method: "PATCH",
+        body: { assigneeId },
+      }),
+      invalidatesTags: (result, error, { taskId }) => [
+        { type: "Task", id: taskId },
+        { type: "Task", id: "LIST" },
+      ],
+    }),
+    removeAssignee: builder.mutation({
+      query: ({ taskId, assigneeId }) => ({
+        url: `tasks/${taskId}/assignees`,
+        method: "DELETE",
+        body: { assigneeId },
+      }),
+      invalidatesTags: (result, error, { taskId }) => [
+        { type: "Task", id: taskId },
+        { type: "Task", id: "LIST" },
+      ],
     }),
   }),
 });
 
 export const {
   useGetTasksQuery,
-  useGetTaskByIdQuery,
   useCreateTaskMutation,
   useUpdateTaskMutation,
   useDeleteTaskMutation,
+  useGetUsersQuery,
+  useAddAssigneeMutation,
+  useRemoveAssigneeMutation,
 } = taskApiSlice;

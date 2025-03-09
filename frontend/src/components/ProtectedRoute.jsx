@@ -1,13 +1,48 @@
+import React, { useState, useEffect } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
+import { selectCurrentToken } from '../features/auth/authSlice';
+import { FaSpinner } from 'react-icons/fa';
 
 const ProtectedRoute = ({ children }) => {
-    const token = useSelector((state) => state.auth.token);
+    const token = useSelector(selectCurrentToken);
+    const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+    const [isAuthenticated, setIsAuthenticated] = useState(false);
     
-    if (!token) {
+    useEffect(() => {
+        // Check for token in Redux store first
+        if (token) {
+            setIsAuthenticated(true);
+            setIsCheckingAuth(false);
+            return;
+        }
+        
+        // Check localStorage as a fallback - this shouldn't typically be needed
+        // since we load from localStorage into the Redux store at startup
+        const localToken = localStorage.getItem('token');
+        if (localToken) {
+            setIsAuthenticated(true);
+        }
+        
+        // Authentication check is complete
+        setIsCheckingAuth(false);
+    }, [token]);
+    
+    // Show loading spinner while checking authentication
+    if (isCheckingAuth) {
+        return (
+            <div className="flex h-screen w-full items-center justify-center">
+                <FaSpinner className="animate-spin text-blue-500 text-4xl" />
+            </div>
+        );
+    }
+    
+    // Redirect to login if not authenticated
+    if (!isAuthenticated) {
         return <Navigate to="/login" />;
     }
 
+    // Render the protected content if authenticated
     return children;
 }
 

@@ -1,7 +1,7 @@
 const nodemailer = require("nodemailer");
 const path = require("path");
 const logger = require("../logs/logger");
-// const handlebars = require("nodemailer-express-handlebars").default;
+// const handlebars = require("nodemailer-express-handlebars");
 
 // Create a Nodemailer transporter
 const transporter = nodemailer.createTransport({
@@ -26,6 +26,7 @@ const transporter = nodemailer.createTransport({
 //   extName: ".hbs",
 // };
 
+// transporter.use("compile", handlebars(handlebarOptions));
 // transporter.use("compile", handlebars(handlebarOptions));
 
 function sendEmail(

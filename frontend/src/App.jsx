@@ -20,6 +20,7 @@ import CreateTask from "./pages/CreateTask";
 import EditTask from "./pages/EditTask";
 import AboutPage from "./pages/AboutPage";
 import ProtectedRoute from "./components/ProtectedRoute";
+import AdminRoute from "./components/AdminRoute";
 import AdminPage from "./pages/AdminDashboard";
 import MessagingPage from "./pages/MessagingPage";
 
@@ -135,9 +136,9 @@ function AppContent() {
         <Route
           path="/admindashboard"
           element={
-            <ProtectedRoute>
+            <AdminRoute>
               <AdminPage />
-            </ProtectedRoute>
+            </AdminRoute>
           }
         />
         

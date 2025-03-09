@@ -1,263 +1,440 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { FaTasks, FaCalendarAlt, FaExclamationCircle, FaCheck, FaUsers } from "react-icons/fa";
-import { useCreateTaskMutation } from "../features/tasks/taskApiSlice";
-import { useGetUsersQuery } from "../features/tasks/taskApiSlice";
+import {
+  FaTasks,
+  FaCalendarAlt,
+  FaUser,
+  FaExclamationCircle,
+  FaCheckCircle,
+  FaSearch,
+  FaTimes,
+  FaCheck,
+  FaUsers,
+} from "react-icons/fa";
+import {
+  useCreateTaskMutation,
+  useGetUsersQuery,
+} from "../features/tasks/taskApiSlice";
 
 // Maximum description length as defined by the backend
 const MAX_DESCRIPTION_LENGTH = 500;
 
-const CreateTask = () => {
-    const [task, setTask] = useState({
-        title: "",
-        description: "",
-        dueDate: "",
-        priority: "medium",
-        status: "Incomplete", // Keep for UI, but won't send to API
-        assignees: [] // New field for assignees
-    });
-    
-    const [createTask, { isLoading, isError, error }] = useCreateTaskMutation();
-    const { data: usersData, isLoading: isLoadingUsers } = useGetUsersQuery();
-    const navigate = useNavigate();
-    const [errorMessage, setErrorMessage] = useState('');
-    const [notification, setNotification] = useState(null);
+const CreateTask = ({ isModal = false, onClose }) => {
+  const [createTask, { isLoading }] = useCreateTaskMutation();
+  const { data: usersData, isLoading: isLoadingUsersData } = useGetUsersQuery();
+  const navigate = useNavigate();
 
-    const handleChange = (e) => {
-        const { name, value } = e.target;
-        
-        // If description field, check length limit
-        if (name === 'description' && value.length > MAX_DESCRIPTION_LENGTH) {
-            return; // Don't update if exceeding max length
-        }
-        
-        setTask({ ...task, [name]: value });
+  const [error, setError] = useState(null);
+  const [success, setSuccess] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [users, setUsers] = useState([]);
+  const [selectedUsers, setSelectedUsers] = useState([]);
+  const [showUserDropdown, setShowUserDropdown] = useState(false);
+  const [isLoadingUsers, setIsLoadingUsers] = useState(false);
+  const [notification, setNotification] = useState(null);
+
+  const [task, setTask] = useState({
+    title: "",
+    description: "",
+    dueDate: "",
+    priority: "medium",
+    status: "Incomplete", // For UI only, won't be sent to API
+    assignees: [],
+  });
+
+  // Fetch users when search term changes
+  useEffect(() => {
+    // Only search if we have a search term
+    if (!searchTerm) {
+      setUsers([]);
+      return;
+    }
+
+    const fetchUsers = async () => {
+      setIsLoadingUsers(true);
+      try {
+        const response = await fetch(
+          `http://localhost:3200/user/all?search=${searchTerm}`
+        );
+        const data = await response.json();
+        setUsers(data.users || []);
+      } catch (err) {
+        console.error("Error fetching users:", err);
+        setError("Failed to fetch users");
+      } finally {
+        setIsLoadingUsers(false);
+      }
     };
 
-    // Handle selecting assignees (can be multiple)
-    const handleAssigneeChange = (e) => {
-        const options = e.target.options;
-        const selectedValues = [];
-        for (let i = 0; i < options.length; i++) {
-            if (options[i].selected) {
-                selectedValues.push(options[i].value);
-            }
+    const debounceTimer = setTimeout(fetchUsers, 300);
+    return () => clearTimeout(debounceTimer);
+  }, [searchTerm]);
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+
+    // If description field, check length limit
+    if (name === "description" && value.length > MAX_DESCRIPTION_LENGTH) {
+      return; // Don't update if exceeding max length
+    }
+
+    setTask((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleUserSelect = (user) => {
+    if (!selectedUsers.find((u) => u._id === user._id)) {
+      setSelectedUsers([...selectedUsers, user]);
+      setTask((prev) => ({
+        ...prev,
+        assignees: [...prev.assignees, user._id],
+      }));
+    }
+    setSearchTerm("");
+    setShowUserDropdown(false);
+  };
+
+  const removeUser = (userId) => {
+    setSelectedUsers(selectedUsers.filter((u) => u._id !== userId));
+    setTask((prev) => ({
+      ...prev,
+      assignees: prev.assignees.filter((id) => id !== userId),
+    }));
+  };
+
+  // For the multi-select dropdown (alternative UI)
+  const handleAssigneeChange = (e) => {
+    const options = e.target.options;
+    const selectedValues = [];
+    const newSelectedUsers = [];
+
+    for (let i = 0; i < options.length; i++) {
+      if (options[i].selected) {
+        selectedValues.push(options[i].value);
+
+        // Find and add the corresponding user object
+        const user = usersData?.users?.find((u) => u._id === options[i].value);
+        if (user) {
+          newSelectedUsers.push(user);
         }
-        setTask({ ...task, assignees: selectedValues });
-    };
+      }
+    }
 
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        
-        if (task.description.length > MAX_DESCRIPTION_LENGTH) {
-            setErrorMessage(`Description must be ${MAX_DESCRIPTION_LENGTH} characters or less.`);
-            return;
+    setTask({ ...task, assignees: selectedValues });
+    setSelectedUsers(newSelectedUsers);
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError(null);
+    setSuccess(false);
+
+    // Validate description length
+    if (task.description.length > MAX_DESCRIPTION_LENGTH) {
+      setError(
+        `Description must be ${MAX_DESCRIPTION_LENGTH} characters or less.`
+      );
+      return;
+    }
+
+    // Validate required fields
+    const validationErrors = [];
+    if (!task.title.trim()) {
+      validationErrors.push("Title is required");
+    }
+    if (!task.description.trim()) {
+      validationErrors.push("Description is required");
+    }
+    if (!task.dueDate) {
+      validationErrors.push("Due date is required");
+    }
+
+    if (validationErrors.length > 0) {
+      setError(`Please fix the following: ${validationErrors.join(", ")}`);
+      return;
+    }
+
+    try {
+      // Format task data for API - only include fields the API expects
+      const payload = {
+        title: task.title.trim(),
+        description: task.description.trim(),
+        dueDate: task.dueDate,
+        priority: task.priority.toLowerCase(),
+        assignees: task.assignees,
+      };
+
+      console.log("Submitting task:", payload);
+      await createTask(payload).unwrap();
+
+      // Show success
+      setSuccess(true);
+      setNotification({
+        type: "success",
+        message: "Task created successfully!",
+      });
+
+      // Reset form if in modal mode or navigate to dashboard
+      setTimeout(() => {
+        if (isModal && onClose) {
+          setTask({
+            title: "",
+            description: "",
+            dueDate: "",
+            priority: "medium",
+            status: "Incomplete",
+            assignees: [],
+          });
+          onClose();
+        } else {
+          navigate("/dashboard");
         }
-        
-        try {
-            // Format task data for API - only include fields the API expects
-            // Explicitly omit 'status' as the backend doesn't allow it during creation
-            const payload = {
-                title: task.title,
-                description: task.description,
-                dueDate: task.dueDate,
-                priority: task.priority.toLowerCase(),
-                assignees: task.assignees // Include assignees
-            };
-            
-            console.log('Submitting task:', payload);
-            await createTask(payload).unwrap();
-            
-            // Show success notification
-            setNotification({
-                type: 'success',
-                message: 'Task created successfully!'
-            });
-            
-            // Navigate after a brief delay to show the notification
-            setTimeout(() => {
-                navigate('/dashboard');
-            }, 1500);
-        } catch (err) {
-            console.error('Failed to create task:', err);
-            setErrorMessage(err?.data?.message || 'Failed to create task. Please try again.');
+      }, 1500);
+    } catch (err) {
+      console.error("Failed to create task:", err);
+
+      // User-friendly error message
+      let errorMessage = "Failed to create task. Please try again.";
+
+      if (err.status === 404) {
+        errorMessage =
+          "Server endpoint not found. Please contact the administrator.";
+      } else if (err.status === 400) {
+        // For 400 errors, try to extract the specific validation error
+        if (err.data?.message) {
+          errorMessage = err.data.message;
         }
-    };
+      } else if (err.status === 401 || err.status === 403) {
+        errorMessage = "You don't have permission to create tasks.";
+      }
 
-    // Calculate remaining characters
-    const remainingChars = MAX_DESCRIPTION_LENGTH - task.description.length;
-    const isNearLimit = remainingChars <= 50;
+      setError(errorMessage);
+    }
+  };
 
-    return (
-        <div className="flex justify-center items-center min-h-screen bg-gray-100 p-4">
-            <div className="bg-white shadow-lg rounded-lg p-8 max-w-lg w-full">
-                {/* Header */}
-                <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-2">
-                    <FaTasks className="text-blue-500" />
-                    Create New Task
-                </h2>
+  // Calculate remaining characters
+  const remainingChars = MAX_DESCRIPTION_LENGTH - task.description.length;
+  const isNearLimit = remainingChars <= 50;
 
-                {/* Success Notification */}
-                {notification && (
-                    <div className="fixed top-20 right-4 z-50 rounded-md shadow-md p-4 flex items-center bg-green-100 text-green-800">
-                        <FaCheck className="mr-2" />
-                        <span>{notification.message}</span>
-                    </div>
-                )}
+  return (
+    <div
+      className={`${
+        !isModal
+          ? "flex justify-center items-center min-h-screen bg-gray-100 p-4"
+          : ""
+      }`}
+    >
+      <div
+        className={`bg-white ${
+          !isModal ? "shadow-lg rounded-lg p-8 max-w-lg w-full" : "w-full"
+        }`}
+      >
+        {!isModal && (
+          <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-2">
+            <FaTasks className="text-indigo-500" />
+            Create New Task
+          </h2>
+        )}
 
-                {/* Error Message */}
-                {errorMessage && (
-                    <div className="mb-4 p-3 bg-red-50 text-red-700 border border-red-200 rounded">
-                        {errorMessage}
-                    </div>
-                )}
+        {error && (
+          <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-600 rounded-md">
+            {error}
+          </div>
+        )}
 
-                {/* Task Form */}
-                <form onSubmit={handleSubmit} className="flex flex-col gap-5">
-                    {/* Task Title */}
-                    <div className="flex flex-col">
-                        <label htmlFor="title" className="text-gray-700 font-medium">
-                            Task Title
-                        </label>
-                        <input
-                            type="text"
-                            id="title"
-                            name="title"
-                            placeholder="Enter task title"
-                            value={task.title}
-                            onChange={handleChange}
-                            className="border rounded-lg p-3 w-full focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                            required
-                        />
-                    </div>
+        {success && (
+          <div className="mb-4 p-3 bg-green-50 border border-green-200 text-green-600 rounded-md flex items-center">
+            <FaCheckCircle className="mr-2" />
+            Task created successfully!
+          </div>
+        )}
 
-                    {/* Description */}
-                    <div className="flex flex-col">
-                        <label htmlFor="description" className="text-gray-700 font-medium">
-                            Description
-                        </label>
-                        <textarea
-                            id="description"
-                            name="description"
-                            placeholder="Enter task description"
-                            value={task.description}
-                            onChange={handleChange}
-                            className={`border rounded-lg p-3 w-full focus:ring-2 focus:outline-none ${
-                                isNearLimit ? "focus:ring-yellow-500 border-yellow-300" : "focus:ring-blue-500"
-                            }`}
-                            required
-                            rows="4"
-                        />
-                        <div className={`text-right text-sm mt-1 ${
-                            isNearLimit ? "text-yellow-600" : "text-gray-500"
-                        }`}>
-                            {remainingChars} characters remaining
-                        </div>
-                    </div>
+        {notification && (
+          <div className="fixed top-20 right-4 z-50 rounded-md shadow-md p-4 flex items-center bg-green-100 text-green-800">
+            <FaCheck className="mr-2" />
+            <span>{notification.message}</span>
+          </div>
+        )}
 
-                    {/* Due Date */}
-                    <div className="relative flex flex-col">
-                        <label htmlFor="dueDate" className="text-gray-700 font-medium">
-                            Due Date
-                        </label>
-                        <div className="relative">
-                            <FaCalendarAlt className="absolute left-3 top-3 text-gray-400" />
-                            <input
-                                type="date"
-                                id="dueDate"
-                                name="dueDate"
-                                value={task.dueDate}
-                                onChange={handleChange}
-                                className="border rounded-lg p-3 pl-10 w-full focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                                required
-                            />
-                        </div>
-                    </div>
+        <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+          <div className="flex flex-col">
+            <label htmlFor="title" className="text-gray-700 font-medium">
+              Task Title
+            </label>
+            <input
+              type="text"
+              id="title"
+              name="title"
+              placeholder="Enter task title"
+              value={task.title}
+              onChange={handleChange}
+              className="border rounded-lg p-3 w-full focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+              required
+            />
+          </div>
 
-                    {/* Assignees - New Field */}
-                    <div className="relative flex flex-col">
-                        <label htmlFor="assignees" className="text-gray-700 font-medium">
-                            Assign To
-                        </label>
-                        <div className="relative">
-                            <FaUsers className="absolute left-3 top-3 text-gray-400" />
-                            <select
-                                id="assignees"
-                                name="assignees"
-                                multiple
-                                value={task.assignees}
-                                onChange={handleAssigneeChange}
-                                className="border rounded-lg p-3 pl-10 w-full focus:ring-2 focus:ring-blue-500 focus:outline-none min-h-[100px]"
-                            >
-                                {isLoadingUsers ? (
-                                    <option disabled>Loading users...</option>
-                                ) : (
-                                    usersData?.users?.map(user => (
-                                        <option key={user._id} value={user._id}>
-                                            {user.name} ({user.email})
-                                        </option>
-                                    ))
-                                )}
-                            </select>
-                            <p className="text-xs text-gray-500 mt-1">
-                                Hold Ctrl/Cmd to select multiple users
-                            </p>
-                        </div>
-                    </div>
-
-                    {/* Priority */}
-                    <div className="relative flex flex-col">
-                        <label htmlFor="priority" className="text-gray-700 font-medium">
-                            Priority
-                        </label>
-                        <div className="relative">
-                            <FaExclamationCircle className="absolute left-3 top-3 text-gray-400" />
-                            <select
-                                name="priority"
-                                value={task.priority}
-                                onChange={handleChange}
-                                className="border rounded-lg p-3 pl-10 w-full bg-white text-gray-700 focus:ring-2 focus:ring-blue-500 focus:outline-none appearance-none"
-                            >
-                                <option value="low">Low</option>
-                                <option value="medium">Medium</option>
-                                <option value="high">High</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    {/* Status (Keep UI, but won't be sent in API) */}
-                    <div className="flex flex-col">
-                        <label htmlFor="status" className="text-gray-700 font-medium">
-                            Status
-                        </label>
-                        <select
-                            id="status"
-                            name="status"
-                            value={task.status}
-                            onChange={handleChange}
-                            className="border rounded-lg p-3 w-full bg-white text-gray-700 focus:ring-2 focus:ring-blue-500 focus:outline-none appearance-none"
-                            disabled
-                        >
-                            <option value="Incomplete">To Do</option>
-                            <option value="Complete">Done</option>
-                        </select>
-                        <p className="text-xs text-gray-500 mt-1">
-                            Note: New tasks are automatically set to "To Do" status
-                        </p>
-                    </div>
-
-                    {/* Submit Button */}
-                    <button
-                        type="submit"
-                        disabled={isLoading}
-                        className="bg-blue-500 text-white font-semibold p-3 rounded-lg hover:bg-blue-600 transition duration-300 disabled:bg-blue-300"
-                    >
-                        {isLoading ? "Creating..." : "Create Task"}
-                    </button>
-                </form>
+          <div className="flex flex-col">
+            <label htmlFor="description" className="text-gray-700 font-medium">
+              Description
+            </label>
+            <textarea
+              id="description"
+              name="description"
+              placeholder="Enter task description"
+              value={task.description}
+              onChange={handleChange}
+              className={`border rounded-lg p-3 w-full focus:ring-2 focus:outline-none ${
+                isNearLimit
+                  ? "focus:ring-yellow-500 border-yellow-300"
+                  : "focus:ring-indigo-500"
+              }`}
+              required
+              rows="4"
+            />
+            <div
+              className={`text-right text-sm mt-1 ${
+                isNearLimit ? "text-yellow-600" : "text-gray-500"
+              }`}
+            >
+              {remainingChars} characters remaining
             </div>
-        </div>
-    );
+          </div>
+
+          <div className="relative flex flex-col">
+            <label htmlFor="dueDate" className="text-gray-700 font-medium">
+              Due Date
+            </label>
+            <div className="relative">
+              <FaCalendarAlt className="absolute left-3 top-3 text-gray-400" />
+              <input
+                type="date"
+                id="dueDate"
+                name="dueDate"
+                value={task.dueDate}
+                onChange={handleChange}
+                className="border rounded-lg p-3 pl-10 w-full focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                required
+              />
+            </div>
+          </div>
+
+          <div className="relative flex flex-col">
+            <label className="text-gray-700 font-medium mb-2">
+              Assign Users
+            </label>
+            <div className="relative">
+              <div className="flex flex-wrap gap-2 mb-2">
+                {selectedUsers.map((user) => (
+                  <div
+                    key={user._id}
+                    className="bg-indigo-100 text-indigo-700 px-3 py-1 rounded-full flex items-center gap-2"
+                  >
+                    <span>{user.name}</span>
+                    <button
+                      type="button"
+                      onClick={() => removeUser(user._id)}
+                      className="text-indigo-500 hover:text-indigo-700"
+                    >
+                      <FaTimes size={12} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <div className="relative">
+                <FaSearch className="absolute left-3 top-3 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Search users..."
+                  value={searchTerm}
+                  onChange={(e) => {
+                    setSearchTerm(e.target.value);
+                    setShowUserDropdown(true);
+                  }}
+                  onFocus={() => setShowUserDropdown(true)}
+                  className="border rounded-lg p-3 pl-10 w-full focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                />
+              </div>
+              {showUserDropdown && (searchTerm || users.length > 0) && (
+                <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto">
+                  {isLoadingUsers ? (
+                    <div className="p-3 text-center text-gray-500">
+                      Loading users...
+                    </div>
+                  ) : users.length > 0 ? (
+                    users.map((user) => (
+                      <div
+                        key={user._id}
+                        className="p-3 hover:bg-gray-50 cursor-pointer flex items-center gap-2"
+                        onClick={() => handleUserSelect(user)}
+                      >
+                        <FaUser className="text-gray-400" />
+                        <span>{user.name}</span>
+                      </div>
+                    ))
+                  ) : searchTerm ? (
+                    <div className="p-3 text-center text-gray-500">
+                      No users found
+                    </div>
+                  ) : null}
+                </div>
+              )}
+            </div>
+            <p className="text-xs text-gray-500 mt-1">
+              Search for users above or use dropdown to select multiple users
+            </p>
+          </div>
+
+          <div className="relative flex flex-col">
+            <label htmlFor="priority" className="text-gray-700 font-medium">
+              Priority
+            </label>
+            <div className="relative">
+              <FaExclamationCircle className="absolute left-3 top-3 text-gray-400" />
+              <select
+                name="priority"
+                value={task.priority}
+                onChange={handleChange}
+                className="border rounded-lg p-3 pl-10 w-full bg-white text-gray-700 focus:ring-2 focus:ring-indigo-500 focus:outline-none appearance-none"
+              >
+                <option value="low">Low</option>
+                <option value="medium">Medium</option>
+                <option value="high">High</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="flex flex-col">
+            <label htmlFor="status" className="text-gray-700 font-medium">
+              Status
+            </label>
+            <select
+              id="status"
+              name="status"
+              value={task.status}
+              onChange={handleChange}
+              className="border rounded-lg p-3 w-full bg-white text-gray-700 focus:ring-2 focus:ring-indigo-500 focus:outline-none appearance-none"
+              disabled
+            >
+              <option value="Incomplete">To Do</option>
+              <option value="Complete">Done</option>
+            </select>
+            <p className="text-xs text-gray-500 mt-1">
+              Note: New tasks are automatically set to "To Do" status
+            </p>
+          </div>
+
+          <button
+            type="submit"
+            disabled={isLoading}
+            className={`bg-gradient-to-r from-indigo-500 to-indigo-600 text-white font-semibold p-3 rounded-lg hover:from-indigo-600 hover:to-indigo-700 transition duration-300 ${
+              isLoading ? "opacity-50 cursor-not-allowed" : ""
+            }`}
+          >
+            {isLoading ? "Creating Task..." : "Create Task"}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
 };
 
 export default CreateTask;

@@ -17,6 +17,12 @@ import {
   FaCalendarAlt,
   FaExclamationCircle,
   FaUsers,
+  FaChartLine,
+  FaClipboardList,
+  FaChevronDown,
+  FaChevronUp,
+  FaArrowUp,
+  FaStar,
 } from "react-icons/fa";
 import {
   useGetTasksQuery,
@@ -29,6 +35,7 @@ import {
   selectCurrentUserName,
 } from "../features/auth/authSlice";
 import { setUserData } from "../features/auth/authSlice";
+import EditTaskModal from "../components/EditTaskModal";
 
 const UserDashboard = () => {
   const dispatch = useDispatch();
@@ -48,6 +55,14 @@ const UserDashboard = () => {
   // State for task detail modal
   const [selectedTask, setSelectedTask] = useState(null);
   const [showTaskModal, setShowTaskModal] = useState(false);
+  
+  // Animation state
+  const [isLoaded, setIsLoaded] = useState(false);
+  const [hoveredTask, setHoveredTask] = useState(null);
+
+  // State for edit task modal
+  const [editTaskData, setEditTaskData] = useState(null);
+  const [showEditModal, setShowEditModal] = useState(false);
 
   // Trigger user profile fetch
   const { data: userData, isLoading: isLoadingProfile } = useGetMyDataQuery();
@@ -76,6 +91,15 @@ const UserDashboard = () => {
       );
     }
   }, [userData, dispatch]);
+  
+  useEffect(() => {
+    // Trigger animation after component mounts
+    const timer = setTimeout(() => {
+      setIsLoaded(true);
+    }, 100);
+    
+    return () => clearTimeout(timer);
+  }, []);
 
   // Delete task mutation
   const [deleteTask, { isLoading: isDeleting }] = useDeleteTaskMutation();
@@ -100,40 +124,22 @@ const UserDashboard = () => {
     if (window.confirm("Are you sure you want to delete this task?")) {
       try {
         await deleteTask(taskId).unwrap();
-
-        // Close modal if the deleted task was being viewed
-        if (selectedTask && selectedTask._id === taskId) {
-          setShowTaskModal(false);
-          setSelectedTask(null);
-        }
-
-        // Show success notification
         setNotification({
           type: "success",
-          message: "Task deleted successfully!",
+          message: "Task deleted successfully",
         });
-
-        // Hide notification after 3 seconds
-        setTimeout(() => {
-          setNotification(null);
-        }, 3000);
+        setTimeout(() => setNotification(null), 3000);
       } catch (err) {
-        console.error("Failed to delete task:", err);
-
-        // Show error notification
         setNotification({
           type: "error",
-          message: err?.data?.message || "Failed to delete task",
+          message: err?.data?.message || "Error deleting task",
         });
-
-        // Hide error notification after 3 seconds
-        setTimeout(() => {
-          setNotification(null);
-        }, 3000);
+        setTimeout(() => setNotification(null), 3000);
       }
     }
   };
 
+  // Handle click on a task to view details
   const openTaskDetail = (task) => {
     setSelectedTask(task);
     setShowTaskModal(true);
@@ -141,12 +147,31 @@ const UserDashboard = () => {
 
   const closeTaskModal = () => {
     setShowTaskModal(false);
-    // Wait for animation to complete before clearing data
     setTimeout(() => {
       setSelectedTask(null);
-    }, 300);
+    }, 200); // small delay to allow exit animation
   };
 
+  // Function to open edit modal instead of navigating
+  const openEditTaskModal = (task) => {
+    setEditTaskData(task);
+    setShowEditModal(true);
+  };
+  
+  // Function to close edit modal
+  const closeEditTaskModal = () => {
+    setShowEditModal(false);
+    setEditTaskData(null);
+  };
+  
+  // Handle successful task update
+  const handleTaskUpdated = () => {
+    closeEditTaskModal();
+    refetch(); // Refresh the tasks list
+  };
+
+  // Helper functions
+  // Format priority to display
   const formatPriority = (priority) => {
     return priority.charAt(0).toUpperCase() + priority.slice(1);
   };
@@ -155,98 +180,85 @@ const UserDashboard = () => {
     return status === "Complete" ? "Done" : "To Do";
   };
 
-  // Function to determine the task relationship label (updated for populated fields)
   const getTaskRelationshipLabel = (task) => {
-    if (task.owner && task.owner._id === userId) {
-      return (
-        <div className="text-xs text-blue-600 font-medium mb-1 flex items-center gap-1">
-          <FaUser className="text-blue-500" size={10} />
-          Created by you
-        </div>
-      );
-    } else if (
-      task.assignees &&
-      task.assignees.some((assignee) => assignee._id === userId)
-    ) {
-      return (
-        <div className="text-xs text-purple-600 font-medium mb-1 flex items-center gap-1">
-          <FaUsers className="text-purple-500" size={10} />
-          Assigned to you by {task.owner?.name || "Unknown"}
-        </div>
-      );
-    } else if (task.assignees && task.assignees.length > 0) {
-      return (
-        <div className="text-xs text-gray-600 font-medium mb-1 flex items-center gap-1">
-          <FaUsers className="text-gray-500" size={10} />
-          Created by {task.owner?.name || "Unknown"}
-        </div>
-      );
+    const isOwner = task.owner && task.owner._id === userId;
+    const isAssignee =
+      task.assignees && task.assignees.some((a) => a._id === userId);
+
+    if (isOwner && isAssignee) {
+      return "You're both the creator and assignee";
+    } else if (isOwner) {
+      return "You created this task";
+    } else if (isAssignee) {
+      return "Assigned to you";
+    } else {
+      return "Observer"; // fallback, should not happen in most cases
     }
-    return null;
   };
 
+  // Check if a task is overdue
   const isOverdue = (dueDate) => {
     if (!dueDate) return false;
-    return new Date(dueDate) < new Date();
+    const now = new Date();
+    const due = new Date(dueDate);
+    return due < now && due.toDateString() !== now.toDateString();
   };
 
-  // Check if due date is approaching (within next 3 days)
+  // Check if a task is approaching due date (within 3 days)
   const isApproachingDueDate = (dueDate) => {
     if (!dueDate) return false;
-    if (isOverdue(dueDate)) return false; // Already overdue
-
-    const today = new Date();
+    const now = new Date();
     const due = new Date(dueDate);
-    const diffTime = due - today;
+    const diffTime = due - now;
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-    return diffDays <= 3 && diffDays >= 0;
+    // Return true if due date is within 3 days and not overdue
+    return diffDays > 0 && diffDays <= 3;
   };
 
-  // Style helpers
+  // Get priority color
   const getPriorityColor = (priority) => {
     switch (priority.toLowerCase()) {
       case "high":
-        return "text-red-600 bg-red-50 border-red-100";
+        return "text-danger-500 dark:text-danger-400";
       case "medium":
-        return "text-yellow-600 bg-yellow-50 border-yellow-100";
+        return "text-warning-500 dark:text-warning-400";
       case "low":
-        return "text-green-600 bg-green-50 border-green-100";
+        return "text-success-500 dark:text-success-400";
       default:
-        return "text-gray-600 bg-gray-50 border-gray-100";
+        return "text-secondary-500 dark:text-secondary-400";
     }
   };
 
+  // Get status color
   const getStatusColor = (status) => {
     switch (status) {
       case "Complete":
-        return "text-green-600 bg-green-50 border-green-100";
+        return "text-success-600 dark:text-success-400 bg-success-50 dark:bg-success-900/20";
       case "Incomplete":
-        return "text-gray-600 bg-gray-50 border-gray-100";
+        return "text-secondary-600 dark:text-secondary-400 bg-secondary-50 dark:bg-secondary-900/20";
       default:
-        return "text-gray-600 bg-gray-50 border-gray-100";
+        return "text-secondary-600 dark:text-secondary-400";
     }
   };
 
-  // Get card background color based on task status and due date
+  // Get card background based on task properties
   const getCardBackground = (task) => {
-    if (task.status === "Complete") {
-      return "bg-green-50 border-green-200";
-    }
     if (isOverdue(task.dueDate)) {
-      return "bg-red-50 border-red-200";
+      return "border-l-4 border-danger-500 dark:border-danger-600 bg-white dark:bg-secondary-800";
     }
     if (isApproachingDueDate(task.dueDate)) {
-      return "bg-yellow-50 border-yellow-200";
+      return "border-l-4 border-warning-500 dark:border-warning-600 bg-white dark:bg-secondary-800";
     }
-    return "bg-white border-gray-100";
+    if (task.status === "Complete") {
+      return "border-l-4 border-success-500 dark:border-success-600 bg-white dark:bg-secondary-800";
+    }
+    return "border-l border-primary-200 dark:border-primary-800 bg-white dark:bg-secondary-800";
   };
 
   // Format date for display
   const formatDate = (dateString) => {
-    if (!dateString) return "No date set";
-    const date = new Date(dateString);
-    return date.toLocaleDateString("en-US", {
+    if (!dateString) return "No due date";
+    return new Date(dateString).toLocaleDateString("en-US", {
       weekday: "long",
       year: "numeric",
       month: "long",
@@ -314,27 +326,81 @@ const UserDashboard = () => {
   // Get unique values for filter options
   const statusOptions = ["To Do", "Done"];
   const priorityOptions = ["High", "Medium", "Low"];
+  
+  // Count tasks by priority for stats
+  const highPriorityCount = filteredTasks.filter(t => t.priority === "high").length;
+  const mediumPriorityCount = filteredTasks.filter(t => t.priority === "medium").length;
+  const lowPriorityCount = filteredTasks.filter(t => t.priority === "low").length;
+  
+  // Count tasks by status for stats
+  const todoCount = filteredTasks.filter(t => t.status === "Incomplete").length;
+  const doneCount = filteredTasks.filter(t => t.status === "Complete").length;
+  
+  // Calculate completion rate
+  const completionRate = filteredTasks.length > 0 
+    ? Math.round((doneCount / filteredTasks.length) * 100) 
+    : 0;
 
   return (
-    <div className="min-h-screen bg-gray-50 pt-16 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-secondary-50 dark:bg-secondary-900 pt-20 px-4 sm:px-6 lg:px-8 transition-colors duration-300">
       <div className="max-w-7xl mx-auto">
-        {/* Welcome Section */}
-        <div className="bg-white rounded-lg shadow-sm p-6 mb-6 mt-6">
-          <h1 className="text-2xl font-bold text-gray-900">
-            Welcome back{userName ? `, ${userName}!` : "!"}
-          </h1>
-          <p className="mt-1 text-sm text-gray-500">
-            Here's an overview of your tasks and progress
-          </p>
+        {/* Welcome Section with Overview Stats */}
+        <div className={`grid grid-cols-1 md:grid-cols-4 gap-4 mb-6 transform transition-all duration-700 ease-out ${isLoaded ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0'}`}>
+          {/* Welcome Card */}
+          <div className="md:col-span-2 bg-gradient-to-br from-primary-600 to-primary-800 dark:from-primary-800 dark:to-primary-900 rounded-xl shadow-md p-6 text-white relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-white opacity-10 rounded-bl-full"></div>
+            <h1 className="text-2xl font-bold mb-2">
+              Welcome back{userName ? `, ${userName}!` : "!"}
+            </h1>
+            <p className="text-primary-100 mb-4">
+              You have {todoCount} tasks to complete and {doneCount} completed tasks
+            </p>
+            <Link 
+              to="/create-task" 
+              className="inline-flex items-center px-4 py-2 bg-white text-primary-700 rounded-lg font-medium hover:bg-primary-50 transition-all shadow-sm hover-lift"
+            >
+              <FaPlus className="mr-2" /> Create New Task
+            </Link>
+          </div>
+          
+          {/* Stats Cards */}
+          <div className="glass-morphism rounded-xl p-4 shadow-md flex flex-col justify-between transform transition-all duration-700 delay-100">
+            <div className="text-sm text-secondary-500 dark:text-secondary-400 mb-1">Completion Rate</div>
+            <div className="flex items-end justify-between">
+              <div className="text-3xl font-bold text-secondary-900 dark:text-white">{completionRate}%</div>
+              <FaChartLine className="text-primary-500 text-xl" />
+            </div>
+            <div className="w-full bg-secondary-200 dark:bg-secondary-700 rounded-full h-2.5 mt-3">
+              <div className="bg-primary-500 h-2.5 rounded-full" style={{ width: `${completionRate}%` }}></div>
+            </div>
+          </div>
+          
+          <div className="glass-morphism rounded-xl p-4 shadow-md flex flex-col justify-between transform transition-all duration-700 delay-200">
+            <div className="text-sm text-secondary-500 dark:text-secondary-400 mb-1">Priority Breakdown</div>
+            <div className="grid grid-cols-3 gap-2 mt-2">
+              <div className="text-center">
+                <div className="text-xs text-secondary-600 dark:text-secondary-400">High</div>
+                <div className="text-xl font-medium text-danger-600 dark:text-danger-400">{highPriorityCount}</div>
+              </div>
+              <div className="text-center">
+                <div className="text-xs text-secondary-600 dark:text-secondary-400">Medium</div>
+                <div className="text-xl font-medium text-warning-600 dark:text-warning-400">{mediumPriorityCount}</div>
+              </div>
+              <div className="text-center">
+                <div className="text-xs text-secondary-600 dark:text-secondary-400">Low</div>
+                <div className="text-xl font-medium text-success-600 dark:text-success-400">{lowPriorityCount}</div>
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Notification Toast */}
         {notification && (
           <div
-            className={`fixed top-20 right-4 z-50 rounded-md shadow-md p-4 flex items-center ${
+            className={`fixed top-20 right-4 z-50 rounded-lg shadow-lg p-4 flex items-center animate-slide-in-right ${
               notification.type === "success"
-                ? "bg-green-100 text-green-800"
-                : "bg-red-100 text-red-800"
+                ? "bg-success-50 text-success-800 dark:bg-success-900/80 dark:text-success-200"
+                : "bg-danger-50 text-danger-800 dark:bg-danger-900/80 dark:text-danger-200"
             }`}
           >
             {notification.type === "success" ? (
@@ -348,24 +414,24 @@ const UserDashboard = () => {
 
         {/* Loading & Error States */}
         {isLoading && (
-          <div className="bg-white rounded-lg shadow-sm p-8 mb-6 text-center">
-            <FaSpinner className="animate-spin text-blue-500 text-3xl mx-auto mb-4" />
-            <p>Loading your tasks...</p>
+          <div className="glass-morphism rounded-xl shadow-md p-8 mb-6 text-center transform transition-all duration-500 animate-pulse">
+            <FaSpinner className="animate-spin text-primary-500 dark:text-primary-400 text-3xl mx-auto mb-4" />
+            <p className="text-secondary-600 dark:text-secondary-300">Loading your tasks...</p>
           </div>
         )}
 
         {isError && (
-          <div className="bg-white rounded-lg shadow-sm p-8 mb-6 text-center">
-            <div className="text-red-500 mb-4">
+          <div className="glass-morphism rounded-xl shadow-md p-8 mb-6 text-center">
+            <div className="text-danger-500 dark:text-danger-400 mb-4">
               <FaTimes className="text-3xl mx-auto" />
             </div>
-            <p className="text-red-600">
+            <p className="text-danger-600 dark:text-danger-300 mb-4">
               Error loading tasks:{" "}
               {error?.data?.message || "Something went wrong"}
             </p>
             <button
               onClick={refetch}
-              className="mt-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+              className="px-4 py-2 bg-primary-500 hover:bg-primary-600 text-white rounded-lg font-medium shadow-md hover:shadow-lg transition-all hover:-translate-y-1"
             >
               Try Again
             </button>
@@ -374,133 +440,99 @@ const UserDashboard = () => {
 
         {/* Actions Bar */}
         {!isLoading && !isError && (
-          <div className="bg-white rounded-lg shadow-sm p-4 mb-6">
-            <div className="flex justify-between items-center">
-              <div className="flex items-center gap-4">
-                <h2 className="text-lg font-semibold text-gray-900">Tasks</h2>
+          <div className={`glass-morphism rounded-xl shadow-md p-4 mb-6 transform transition-all duration-700 delay-300 ${isLoaded ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0'}`}>
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+              <div className="flex items-center gap-3">
+                <h2 className="text-xl font-bold text-secondary-900 dark:text-white flex items-center">
+                  <FaClipboardList className="mr-2 text-primary-500 dark:text-primary-400" />
+                  Tasks
+                </h2>
                 <div className="flex gap-2">
-                  <span className="px-3 py-1 rounded-full text-xs font-medium bg-blue-50 text-blue-700">
+                  <span className="px-3 py-1 rounded-full text-xs font-medium bg-primary-50 text-primary-700 dark:bg-primary-900/30 dark:text-primary-300">
                     Total: {filteredTasks.length}
                   </span>
-                  <span className="px-3 py-1 rounded-full text-xs font-medium bg-yellow-50 text-yellow-700">
-                    To Do:{" "}
-                    {
-                      filteredTasks.filter((t) => t.status === "Incomplete")
-                        .length
-                    }
+                  <span className="px-3 py-1 rounded-full text-xs font-medium bg-warning-50 text-warning-700 dark:bg-warning-900/30 dark:text-warning-300">
+                    To Do: {todoCount}
                   </span>
-                  <span className="px-3 py-1 rounded-full text-xs font-medium bg-green-50 text-green-700">
-                    Done:{" "}
-                    {
-                      filteredTasks.filter((t) => t.status === "Complete")
-                        .length
-                    }
+                  <span className="px-3 py-1 rounded-full text-xs font-medium bg-success-50 text-success-700 dark:bg-success-900/30 dark:text-success-300">
+                    Done: {doneCount}
                   </span>
                 </div>
               </div>
-              <div className="flex gap-2">
+              
+              <div className="flex items-center gap-3 w-full sm:w-auto">
                 <button
                   onClick={() => setHideCompleted(!hideCompleted)}
-                  className={`flex items-center px-3 py-2 rounded-md text-sm font-medium transition-colors duration-200 ${
-                    hideCompleted
-                      ? "bg-blue-50 text-blue-700"
-                      : "bg-gray-50 text-gray-700 hover:bg-gray-100"
-                  }`}
+                  className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors hover:bg-secondary-100 dark:hover:bg-secondary-800"
                 >
-                  {hideCompleted ? (
-                    <FaEyeSlash className="mr-2" />
-                  ) : (
-                    <FaEye className="mr-2" />
-                  )}
-                  {hideCompleted ? "Show Completed" : "Hide Completed"}
+                  {hideCompleted ? <FaEye className="text-primary-500" /> : <FaEyeSlash className="text-secondary-500" />}
+                  <span>{hideCompleted ? "Show Completed" : "Hide Completed"}</span>
                 </button>
+                
                 <button
                   onClick={() => setShowFilters(!showFilters)}
-                  className={`flex items-center px-3 py-2 rounded-md text-sm font-medium transition-colors duration-200 ${
-                    showFilters
-                      ? "bg-blue-50 text-blue-700"
-                      : "bg-gray-50 text-gray-700 hover:bg-gray-100"
-                  }`}
+                  className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors hover:bg-secondary-100 dark:hover:bg-secondary-800"
                 >
-                  <FaFilter className="mr-2" />
-                  Filter
+                  <FaFilter className={showFilters ? "text-primary-500" : "text-secondary-500"} />
+                  <span>Filter</span>
+                  {showFilters ? <FaChevronUp className="ml-1" /> : <FaChevronDown className="ml-1" />}
                 </button>
-                <Link
-                  to="/create-task"
-                  className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors duration-200"
-                >
-                  <FaPlus className="mr-2" />
-                  New Task
-                </Link>
               </div>
             </div>
 
-            {/* Filter Panel */}
+            {/* Filter Section */}
             {showFilters && (
-              <div className="mt-4 pt-4 border-t border-gray-100">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-sm font-medium text-gray-700">Filters</h3>
-                  {(filters.status ||
-                    filters.priority ||
-                    filters.taskRelation) && (
-                    <button
-                      onClick={clearFilters}
-                      className="text-sm text-red-600 hover:text-red-700 flex items-center"
-                    >
-                      <FaTimes className="mr-1" />
-                      Clear filters
-                    </button>
-                  )}
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="mt-4 pt-4 border-t border-secondary-200 dark:border-secondary-700 animate-fade-in">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  {/* Status Filter */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">
                       Status
                     </label>
                     <select
                       value={filters.status}
-                      onChange={(e) =>
-                        handleFilterChange("status", e.target.value)
-                      }
-                      className="w-full rounded-md border-gray-200 text-sm focus:border-blue-500 focus:ring-blue-500"
+                      onChange={(e) => handleFilterChange("status", e.target.value)}
+                      className="w-full p-2 border border-secondary-300 dark:border-secondary-700 rounded-lg bg-white dark:bg-secondary-800 text-secondary-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
                     >
                       <option value="">All Statuses</option>
-                      {statusOptions.map((status) => (
-                        <option key={status} value={status}>
-                          {status}
+                      {statusOptions.map((option) => (
+                        <option key={option} value={option}>
+                          {option}
                         </option>
                       ))}
                     </select>
                   </div>
+
+                  {/* Priority Filter */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">
                       Priority
                     </label>
                     <select
                       value={filters.priority}
-                      onChange={(e) =>
-                        handleFilterChange("priority", e.target.value)
-                      }
-                      className="w-full rounded-md border-gray-200 text-sm focus:border-blue-500 focus:ring-blue-500"
+                      onChange={(e) => handleFilterChange("priority", e.target.value)}
+                      className="w-full p-2 border border-secondary-300 dark:border-secondary-700 rounded-lg bg-white dark:bg-secondary-800 text-secondary-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
                     >
                       <option value="">All Priorities</option>
-                      {priorityOptions.map((priority) => (
-                        <option key={priority} value={priority}>
-                          {priority}
+                      {priorityOptions.map((option) => (
+                        <option key={option} value={option}>
+                          {option}
                         </option>
                       ))}
                     </select>
                   </div>
+
+                  {/* Task Relationship Filter */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Task Relation
+                    <label className="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">
+                      Relationship
                     </label>
                     <select
                       value={filters.taskRelation}
                       onChange={(e) =>
                         handleFilterChange("taskRelation", e.target.value)
                       }
-                      className="w-full rounded-md border-gray-200 text-sm focus:border-blue-500 focus:ring-blue-500"
+                      className="w-full p-2 border border-secondary-300 dark:border-secondary-700 rounded-lg bg-white dark:bg-secondary-800 text-secondary-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
                     >
                       <option value="">All Tasks</option>
                       <option value="created">Created by me</option>
@@ -508,169 +540,127 @@ const UserDashboard = () => {
                     </select>
                   </div>
                 </div>
+
+                <div className="mt-4 flex justify-end">
+                  <button
+                    onClick={clearFilters}
+                    className="px-4 py-2 text-sm font-medium text-secondary-600 dark:text-secondary-400 hover:text-primary-600 dark:hover:text-primary-400 transition-colors"
+                  >
+                    Clear Filters
+                  </button>
+                </div>
               </div>
             )}
           </div>
         )}
 
-        {/* Task Grid */}
+        {/* Tasks Grid/List */}
         {!isLoading && !isError && (
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 mb-6">
-            {filteredTasks.length > 0 ? (
-              sortedTasks.map((task) => (
-                <div
-                  key={task._id}
-                  className={`rounded-lg shadow-sm overflow-hidden border hover:shadow-md transition-shadow duration-200 ${getCardBackground(
-                    task
-                  )} cursor-pointer`}
-                  onClick={() => openTaskDetail(task)}
+          <div className={`mb-8 transform transition-all duration-700 delay-500 ${isLoaded ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0'}`}>
+            {sortedTasks.length === 0 ? (
+              <div className="glass-morphism rounded-xl shadow-md p-8 text-center">
+                <FaClipboardList className="text-4xl mx-auto mb-4 text-secondary-400 dark:text-secondary-600" />
+                <h3 className="text-xl font-medium text-secondary-900 dark:text-white mb-2">No tasks found</h3>
+                <p className="text-secondary-600 dark:text-secondary-400 mb-4">
+                  {filters.status || filters.priority || filters.taskRelation
+                    ? "Try adjusting your filters"
+                    : "You don't have any tasks yet"}
+                </p>
+                <Link
+                  to="/create-task"
+                  className="inline-flex items-center px-4 py-2 bg-primary-500 hover:bg-primary-600 text-white rounded-lg shadow-md hover:shadow-lg transition-all hover:-translate-y-1"
                 >
-                  <div className="p-6">
-                    <div className="flex justify-between items-start mb-3">
-                      <h3
-                        className={`text-lg font-semibold mb-1 ${
-                          task.status === "Complete"
-                            ? "line-through text-gray-500"
-                            : "text-gray-900"
-                        }`}
-                      >
-                        {task.title}
-                      </h3>
-                      <div
-                        className="flex items-center gap-2"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <Link
-                          to={`/edit-task/${task._id}`}
-                          className="p-1 text-blue-500 hover:text-blue-700 transition-colors duration-200"
-                        >
-                          <FaEdit className="text-sm" />
-                        </Link>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDeleteTask(task._id);
-                          }}
-                          className="p-1 text-red-500 hover:text-red-700 transition-colors duration-200"
-                          disabled={isDeleting}
-                        >
-                          <FaTrash className="text-sm" />
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Task Relationship - Updated for populated fields */}
-                    {getTaskRelationshipLabel(task)}
-
-                    <p
-                      className={`text-gray-600 text-sm mb-4 line-clamp-2 min-h-[40px] ${
-                        task.status === "Complete"
-                          ? "line-through text-gray-400"
-                          : ""
-                      }`}
-                    >
-                      {task.description}
-                    </p>
-                    <div className="flex flex-wrap gap-2 mb-3">
-                      <span
-                        className={`px-2 py-1 rounded-full text-xs font-medium flex items-center ${getStatusColor(
-                          task.status
-                        )}`}
-                      >
-                        {task.status === "Complete" ? (
-                          <FaCheckCircle className="mr-1" />
-                        ) : null}
-                        {formatStatus(task.status)}
-                      </span>
-                      <span
-                        className={`px-2 py-1 rounded-full text-xs font-medium ${getPriorityColor(
-                          task.priority
-                        )}`}
-                      >
-                        {formatPriority(task.priority)}
-                      </span>
-                      {task.dueDate && (
-                        <span
-                          className={`px-2 py-1 rounded-full text-xs font-medium flex items-center ${
-                            isOverdue(task.dueDate)
-                              ? "bg-red-100 text-red-700"
-                              : isApproachingDueDate(task.dueDate)
-                              ? "bg-yellow-100 text-yellow-700"
-                              : "bg-blue-50 text-blue-700"
-                          }`}
-                        >
-                          {isOverdue(task.dueDate) ? (
-                            <FaExclamationTriangle className="mr-1" />
-                          ) : (
-                            <FaClock className="mr-1" />
-                          )}
-                          {new Date(task.dueDate).toLocaleDateString()}
-                          {isOverdue(task.dueDate) && (
-                            <span className="ml-1 font-bold">(Overdue)</span>
-                          )}
-                          {isApproachingDueDate(task.dueDate) && (
-                            <span className="ml-1">(Soon)</span>
-                          )}
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Assignees - Updated for populated fields */}
-                    {task.assignees && task.assignees.length > 0 && (
-                      <div className="mt-2">
-                        <div className="flex flex-wrap gap-1">
-                          {task.assignees.slice(0, 3).map((assignee) => (
-                            <span
-                              key={assignee._id}
-                              className="bg-blue-100 text-blue-800 text-xs font-medium px-2 py-0.5 rounded"
-                            >
-                              {assignee.name || "User"}
-                            </span>
-                          ))}
-                          {task.assignees.length > 3 && (
-                            <span className="bg-gray-100 text-gray-800 text-xs font-medium px-2 py-0.5 rounded">
-                              +{task.assignees.length - 3} more
-                            </span>
-                          )}
+                  <FaPlus className="mr-2" /> Create New Task
+                </Link>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                {sortedTasks.map((task, index) => (
+                  <div 
+                    key={task._id}
+                    className={`${getCardBackground(task)} rounded-xl shadow-md overflow-hidden transition-all duration-300 transform hover:shadow-lg hover:-translate-y-1 ${
+                      hoveredTask === task._id ? 'ring-2 ring-primary-500 dark:ring-primary-400' : ''
+                    } transform transition-all duration-700 delay-${(index % 9) * 100}`}
+                    onMouseEnter={() => setHoveredTask(task._id)}
+                    onMouseLeave={() => setHoveredTask(null)}
+                  >
+                    <div className="p-5">
+                      <div className="flex justify-between items-start mb-3">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            {task.priority === "high" && (
+                              <span className="text-danger-500 dark:text-danger-400">
+                                <FaArrowUp />
+                              </span>
+                            )}
+                            {isOverdue(task.dueDate) && (
+                              <span className="text-danger-500 dark:text-danger-400">
+                                <FaExclamationCircle />
+                              </span>
+                            )}
+                            <h3 className="text-lg font-semibold text-secondary-900 dark:text-white">{task.title}</h3>
+                          </div>
+                          <div className="text-sm text-secondary-500 dark:text-secondary-400 mt-1">
+                            {getTaskRelationshipLabel(task)}
+                          </div>
+                        </div>
+                        <div className="flex gap-1">
+                          <span className={`px-2.5 py-1 rounded-lg text-xs font-medium ${getStatusColor(task.status)}`}>
+                            {formatStatus(task.status)}
+                          </span>
+                          <span className={`px-2.5 py-1 rounded-lg text-xs font-medium bg-white/50 dark:bg-secondary-700/50 ${getPriorityColor(task.priority)}`}>
+                            {formatPriority(task.priority)}
+                          </span>
                         </div>
                       </div>
-                    )}
+                      
+                      <p className="text-secondary-700 dark:text-secondary-300 mb-4 line-clamp-2">
+                        {task.description || "No description provided"}
+                      </p>
+                      
+                      <div className="flex justify-between items-center">
+                        <div className="flex items-center gap-1.5 text-sm text-secondary-600 dark:text-secondary-400">
+                          <FaCalendarAlt className="text-primary-500 dark:text-primary-400" />
+                          <span className={
+                            isOverdue(task.dueDate) 
+                              ? "text-danger-600 dark:text-danger-400" 
+                              : isApproachingDueDate(task.dueDate) 
+                                ? "text-warning-600 dark:text-warning-400" 
+                                : ""
+                          }>
+                            {task.dueDate 
+                              ? new Date(task.dueDate).toLocaleDateString() 
+                              : "No due date"}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => openTaskDetail(task)}
+                            className="p-1.5 rounded-full text-secondary-500 hover:text-primary-500 dark:text-secondary-400 dark:hover:text-primary-400 hover:bg-secondary-100 dark:hover:bg-secondary-700/50 transition-colors"
+                            aria-label="View task details"
+                          >
+                            <FaEye />
+                          </button>
+                          <button
+                            onClick={() => openEditTaskModal(task)}
+                            className="p-1.5 rounded-full text-secondary-500 hover:text-primary-500 dark:text-secondary-400 dark:hover:text-primary-400 hover:bg-secondary-100 dark:hover:bg-secondary-700/50 transition-colors"
+                            aria-label="Edit task"
+                          >
+                            <FaEdit />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteTask(task._id)}
+                            className="p-1.5 rounded-full text-secondary-500 hover:text-danger-500 dark:text-secondary-400 dark:hover:text-danger-400 hover:bg-secondary-100 dark:hover:bg-secondary-700/50 transition-colors"
+                            aria-label="Delete task"
+                            disabled={isDeleting}
+                          >
+                            <FaTrash />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                </div>
-              ))
-            ) : (
-              <div className="md:col-span-2 lg:col-span-3 bg-white rounded-lg shadow-sm p-8 text-center">
-                <div className="text-gray-400 mb-3">
-                  <FaCheckCircle className="text-5xl mx-auto" />
-                </div>
-                <h3 className="text-xl font-medium text-gray-800 mb-1">
-                  No tasks found
-                </h3>
-                <p className="text-gray-500 mb-4">
-                  {hideCompleted
-                    ? "All tasks are completed. Unhide completed tasks or create new ones."
-                    : Object.values(filters).some((f) => f !== "")
-                    ? "Try changing your filters"
-                    : "Create your first task to get started"}
-                </p>
-                <div className="flex justify-center gap-4">
-                  {hideCompleted && (
-                    <button
-                      onClick={() => setHideCompleted(false)}
-                      className="inline-flex items-center px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors duration-200"
-                    >
-                      <FaEye className="mr-2" />
-                      Show Completed
-                    </button>
-                  )}
-                  <Link
-                    to="/create-task"
-                    className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors duration-200"
-                  >
-                    <FaPlus className="mr-2" />
-                    New Task
-                  </Link>
-                </div>
+                ))}
               </div>
             )}
           </div>
@@ -678,219 +668,126 @@ const UserDashboard = () => {
 
         {/* Task Detail Modal */}
         {showTaskModal && selectedTask && (
-          <div
-            className="fixed inset-0 z-50 overflow-y-auto"
-            aria-labelledby="modal-title"
-            role="dialog"
-            aria-modal="true"
-          >
-            <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-              {/* Background overlay */}
-              <div
-                className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity"
-                aria-hidden="true"
-                onClick={closeTaskModal}
-              ></div>
-
-              {/* Modal panel */}
-              <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
-                <div className={`${getCardBackground(selectedTask)} p-6`}>
-                  {/* Modal header */}
-                  <div className="flex justify-between items-start mb-4">
-                    <h3
-                      className={`text-xl font-semibold ${
-                        selectedTask.status === "Complete"
-                          ? "line-through text-gray-500"
-                          : "text-gray-900"
-                      }`}
-                      id="modal-title"
-                    >
-                      {selectedTask.title}
-                    </h3>
-                    <button
-                      type="button"
-                      className="text-gray-400 hover:text-gray-500"
-                      onClick={closeTaskModal}
-                    >
-                      <FaTimes />
-                    </button>
-                  </div>
-
-                  {/* Task Relationship - Updated for populated fields */}
-                  {getTaskRelationshipLabel(selectedTask)}
-
-                  {/* Task details */}
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
+            <div className="bg-white dark:bg-secondary-800 rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto animate-scale-in">
+              <div className="p-6">
+                <div className="flex justify-between items-start mb-4">
+                  <h2 className="text-2xl font-bold text-secondary-900 dark:text-white">{selectedTask.title}</h2>
+                  <button
+                    onClick={closeTaskModal}
+                    className="p-2 rounded-full hover:bg-secondary-100 dark:hover:bg-secondary-700 text-secondary-500 dark:text-secondary-400"
+                  >
+                    <FaTimes />
+                  </button>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                   <div className="space-y-4">
-                    {/* Description */}
-                    <div className="pt-2 border-t border-gray-200">
-                      <h4 className="text-sm font-medium text-gray-500 mb-1">
-                        Description
-                      </h4>
-                      <p
-                        className={`text-gray-700 ${
-                          selectedTask.status === "Complete"
-                            ? "line-through text-gray-400"
-                            : ""
-                        }`}
-                      >
-                        {selectedTask.description || "No description provided."}
+                    <div>
+                      <h3 className="text-sm text-secondary-500 dark:text-secondary-400 mb-1">Description</h3>
+                      <p className="text-secondary-800 dark:text-secondary-200">
+                        {selectedTask.description || "No description provided"}
                       </p>
                     </div>
-
-                    {/* Status and Priority */}
-                    <div className="pt-2 border-t border-gray-200">
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <h4 className="text-sm font-medium text-gray-500 mb-2">
-                            Status
-                          </h4>
-                          <span
-                            className={`px-3 py-1 rounded-full text-sm font-medium inline-flex items-center ${getStatusColor(
-                              selectedTask.status
-                            )}`}
-                          >
-                            {selectedTask.status === "Complete" ? (
-                              <FaCheckCircle className="mr-1" />
-                            ) : null}
-                            {formatStatus(selectedTask.status)}
+                    
+                    <div>
+                      <h3 className="text-sm text-secondary-500 dark:text-secondary-400 mb-1">Due Date</h3>
+                      <p className="text-secondary-800 dark:text-secondary-200 flex items-center gap-2">
+                        <FaCalendarAlt className={
+                          isOverdue(selectedTask.dueDate) 
+                            ? "text-danger-500" 
+                            : isApproachingDueDate(selectedTask.dueDate)
+                              ? "text-warning-500"
+                              : "text-primary-500"
+                        } />
+                        {selectedTask.dueDate ? formatDate(selectedTask.dueDate) : "No due date"}
+                        {isOverdue(selectedTask.dueDate) && (
+                          <span className="text-danger-500 dark:text-danger-400 text-sm bg-danger-50 dark:bg-danger-900/30 px-2 py-0.5 rounded-full">
+                            Overdue
                           </span>
-                        </div>
-                        <div>
-                          <h4 className="text-sm font-medium text-gray-500 mb-2">
-                            Priority
-                          </h4>
-                          <span
-                            className={`px-3 py-1 rounded-full text-sm font-medium inline-flex items-center ${getPriorityColor(
-                              selectedTask.priority
-                            )}`}
-                          >
-                            <FaExclamationCircle className="mr-1" />
-                            {formatPriority(selectedTask.priority)}
+                        )}
+                        {isApproachingDueDate(selectedTask.dueDate) && (
+                          <span className="text-warning-500 dark:text-warning-400 text-sm bg-warning-50 dark:bg-warning-900/30 px-2 py-0.5 rounded-full">
+                            Due soon
                           </span>
-                        </div>
-                      </div>
+                        )}
+                      </p>
                     </div>
-
-                    {/* Due Date */}
-                    <div className="pt-2 border-t border-gray-200">
-                      <h4 className="text-sm font-medium text-gray-500 mb-2">
-                        Due Date
-                      </h4>
-                      {selectedTask.dueDate ? (
-                        <div
-                          className={`p-2 rounded-md text-sm ${
-                            isOverdue(selectedTask.dueDate)
-                              ? "bg-red-50 text-red-700"
-                              : isApproachingDueDate(selectedTask.dueDate)
-                              ? "bg-yellow-50 text-yellow-700"
-                              : "bg-blue-50 text-blue-700"
-                          }`}
-                        >
-                          <div className="flex items-center">
-                            <FaCalendarAlt className="mr-2" />
-                            <span>{formatDate(selectedTask.dueDate)}</span>
-                          </div>
-                          {isOverdue(selectedTask.dueDate) && (
-                            <div className="flex items-center mt-1 font-medium">
-                              <FaExclamationTriangle className="mr-1" />
-                              <span>This task is overdue!</span>
-                            </div>
-                          )}
-                          {isApproachingDueDate(selectedTask.dueDate) && (
-                            <div className="flex items-center mt-1 font-medium">
-                              <FaClock className="mr-1" />
-                              <span>Due soon!</span>
-                            </div>
-                          )}
-                        </div>
-                      ) : (
-                        <span className="text-gray-500">No due date set</span>
-                      )}
+                  </div>
+                  
+                  <div className="space-y-4">
+                    <div>
+                      <h3 className="text-sm text-secondary-500 dark:text-secondary-400 mb-1">Status</h3>
+                      <p className={`inline-flex px-3 py-1 rounded-lg text-sm font-medium ${getStatusColor(selectedTask.status)}`}>
+                        {formatStatus(selectedTask.status)}
+                      </p>
                     </div>
-
-                    {/* Assignees Section - Updated for populated fields */}
-                    <div className="pt-2 border-t border-gray-200">
-                      <h4 className="text-sm font-medium text-gray-500 mb-2">
-                        Assignees
-                      </h4>
-                      {selectedTask.assignees &&
-                      selectedTask.assignees.length > 0 ? (
+                    
+                    <div>
+                      <h3 className="text-sm text-secondary-500 dark:text-secondary-400 mb-1">Priority</h3>
+                      <p className={`inline-flex px-3 py-1 rounded-lg text-sm font-medium bg-white dark:bg-secondary-700 ${getPriorityColor(selectedTask.priority)}`}>
+                        {formatPriority(selectedTask.priority)}
+                      </p>
+                    </div>
+                    
+                    <div>
+                      <h3 className="text-sm text-secondary-500 dark:text-secondary-400 mb-1">Created By</h3>
+                      <p className="text-secondary-800 dark:text-secondary-200 flex items-center gap-1.5">
+                        <FaUser className="text-primary-500" />
+                        {selectedTask.owner ? selectedTask.owner.name : "Unknown"}
+                      </p>
+                    </div>
+                    
+                    <div>
+                      <h3 className="text-sm text-secondary-500 dark:text-secondary-400 mb-1">Assigned To</h3>
+                      {selectedTask.assignees && selectedTask.assignees.length > 0 ? (
                         <div className="flex flex-wrap gap-2">
                           {selectedTask.assignees.map((assignee) => (
-                            <span
-                              key={assignee._id}
-                              className="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-1 rounded"
+                            <span 
+                              key={assignee._id} 
+                              className="inline-flex items-center gap-1 px-2 py-1 bg-primary-50 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300 rounded-lg text-sm"
                             >
-                              {assignee.name || "Unknown User"}
+                              <FaUser className="text-xs" /> {assignee.name}
                             </span>
                           ))}
                         </div>
                       ) : (
-                        <p className="text-gray-500">No assignees</p>
+                        <p className="text-secondary-800 dark:text-secondary-200">No assignees</p>
                       )}
                     </div>
-
-                    {/* Creation Date */}
-                    {selectedTask.createdAt && (
-                      <div className="pt-2 border-t border-gray-200">
-                        <h4 className="text-sm font-medium text-gray-500 mb-1">
-                          Created
-                        </h4>
-                        <div className="text-gray-700 flex items-center">
-                          <FaCalendarAlt className="mr-2 text-gray-400" />
-                          {formatDate(selectedTask.createdAt)}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Update Date if available */}
-                    {selectedTask.updatedAt &&
-                      selectedTask.updatedAt !== selectedTask.createdAt && (
-                        <div className="pt-2 border-t border-gray-200">
-                          <h4 className="text-sm font-medium text-gray-500 mb-1">
-                            Last Updated
-                          </h4>
-                          <div className="text-gray-700 flex items-center">
-                            <FaCalendarAlt className="mr-2 text-gray-400" />
-                            {formatDate(selectedTask.updatedAt)}
-                          </div>
-                        </div>
-                      )}
                   </div>
-
-                  {/* Action buttons */}
-                  <div className="mt-6 pt-4 border-t border-gray-200 flex justify-end gap-3">
-                    <button
-                      type="button"
-                      className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
-                      onClick={closeTaskModal}
-                    >
-                      Close
-                    </button>
-                    <Link
-                      to={`/edit-task/${selectedTask._id}`}
-                      className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
-                    >
-                      <FaEdit className="inline mr-1" />
-                      Edit
-                    </Link>
-                    <button
-                      onClick={() => handleDeleteTask(selectedTask._id)}
-                      className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700"
-                      disabled={isDeleting}
-                    >
-                      {isDeleting ? (
-                        <FaSpinner className="animate-spin mr-2" />
-                      ) : (
-                        <FaTrash className="inline mr-1" />
-                      )}
-                      Delete
-                    </button>
-                  </div>
+                </div>
+                
+                <div className="mt-4 flex justify-end space-x-3">
+                  <button
+                    onClick={() => {
+                      closeTaskModal();
+                      openEditTaskModal(selectedTask);
+                    }}
+                    className="flex items-center px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg transition-colors"
+                  >
+                    <FaEdit className="mr-2" /> Edit Task
+                  </button>
+                  <button
+                    onClick={closeTaskModal}
+                    className="px-4 py-2 bg-secondary-100 dark:bg-secondary-800 hover:bg-secondary-200 dark:hover:bg-secondary-700 text-secondary-700 dark:text-secondary-300 rounded-lg font-medium transition-all"
+                  >
+                    Close
+                  </button>
                 </div>
               </div>
             </div>
           </div>
+        )}
+
+        {/* EditTaskModal */}
+        {editTaskData && (
+          <EditTaskModal
+            task={editTaskData}
+            isOpen={showEditModal}
+            onClose={closeEditTaskModal}
+            onSuccess={handleTaskUpdated}
+          />
         )}
       </div>
     </div>

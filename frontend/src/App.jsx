@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import {
   BrowserRouter as Router,
   Routes,
@@ -6,8 +6,8 @@ import {
   useLocation,
   Navigate,
 } from "react-router-dom";
-import { useSelector } from "react-redux";
-import { selectCurrentToken } from "./features/auth/authSlice";
+import { useSelector, useDispatch } from "react-redux";
+import { selectCurrentToken, selectCurrentUserRole } from "./features/auth/authSlice";
 import HomeNavBar from "./components/homeNavBar";
 import UserNavbar from "./components/userNavBar";
 import AdminNavbar from "./components/adminNavbar";
@@ -22,22 +22,22 @@ import AdminPage from "./pages/AdminDashboard";
 import MessagingPage from "./pages/MessagingPage";
 import PersistLogin from "./components/PersistLogin";
 import SocketInitializer from "./features/socket/SocketInitializer";
-import EditTask from "./pages/EditTask";
 
 // Create a wrapper component that uses location
 function AppContent() {
   const location = useLocation();
   const token = useSelector(selectCurrentToken);
+  const userRole = useSelector(selectCurrentUserRole);
+  const isAdmin = userRole === 'admin';
 
-  // Decide which Navbar to show based on the current path
+  // Decide which Navbar to show based on the current path and user role
   let NavbarComponent;
-  if (location.pathname.startsWith("/admindashboard")) {
+  if (isAdmin && (location.pathname.startsWith("/admindashboard") || location.pathname.startsWith("/messaging"))) {
     NavbarComponent = AdminNavbar;
   } else if (
     location.pathname.startsWith("/dashboard") ||
     location.pathname.startsWith("/create-task") ||
-    location.pathname.startsWith("/edit-task") ||
-    location.pathname.startsWith("/messaging")
+    (!isAdmin && location.pathname.startsWith("/messaging"))
   ) {
     NavbarComponent = UserNavbar;
   } else {
@@ -71,14 +71,6 @@ function AppContent() {
             }
           />
           <Route
-            path="/edit-task/:taskId"
-            element={
-              <ProtectedRoute>
-                <EditTask />
-              </ProtectedRoute>
-            }
-          />
-          <Route
             path="/admindashboard"
             element={
               <AdminRoute>
@@ -106,10 +98,25 @@ function AppContent() {
 function App() {
   return (
     <Router>
+      <AuthCheck />
       <SocketInitializer />
       <AppContent />
     </Router>
   );
+}
+
+// Add this new component for auth checking
+function AuthCheck() {
+  const token = useSelector(selectCurrentToken);
+  const dispatch = useDispatch();
+
+  useEffect(() => {
+    console.log("Auth check on application start");
+    // Token existence is now handled by the loadAuthState in authSlice
+    // This component is a hook point for any additional auth checks or initializations
+  }, []);
+
+  return null; // This component doesn't render anything
 }
 
 export default App;

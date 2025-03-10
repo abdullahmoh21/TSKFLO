@@ -16,11 +16,13 @@ import LoginPage from "./pages/LoginPage";
 import UserDashboard from "./pages/UserDashboard";
 import CreateTask from "./pages/CreateTask";
 import AboutPage from "./pages/AboutPage";
+import ProtectedRoute from "./components/ProtectedRoute";
+import AdminRoute from "./components/AdminRoute";
 import AdminPage from "./pages/AdminDashboard";
 import MessagingPage from "./pages/MessagingPage";
-import ProtectedRoute from "./components/ProtectedRoute";
 import PersistLogin from "./components/PersistLogin";
 import SocketInitializer from "./features/socket/SocketInitializer";
+import EditTask from "./pages/EditTask";
 
 // Create a wrapper component that uses location
 function AppContent() {
@@ -69,11 +71,19 @@ function AppContent() {
             }
           />
           <Route
-            path="/admindashboard"
+            path="/edit-task/:taskId"
             element={
               <ProtectedRoute>
-                <AdminPage />
+                <EditTask />
               </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admindashboard"
+            element={
+              <AdminRoute>
+                <AdminPage />
+              </AdminRoute>
             }
           />
           <Route
@@ -85,6 +95,8 @@ function AppContent() {
             }
           />
         </Route>
+        
+        {/* Fallback route */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </>

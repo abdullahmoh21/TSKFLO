@@ -14,6 +14,6 @@ router
 router
   .route("/:conversationId/messages")
   .get(conversationController.getMessages)
-  .post(conversationController.createMessage); // will also create a conversation
+  .post(conversationController.createMessage);
 
 module.exports = router;

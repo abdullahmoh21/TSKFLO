@@ -211,7 +211,7 @@ const UserDashNavbar = () => {
                 {darkMode ? (
                   <FaSun className="h-5 w-5 text-warning-400" />
                 ) : (
-                  <FaMoon className="h-5 w-5" />
+                  <FaMoon className="h-5 w-5 text-secondary-600 hover:text-primary-600" />
                 )}
               </button>
               

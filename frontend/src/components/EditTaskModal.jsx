@@ -92,7 +92,7 @@ const EditTaskModal = ({ task, isOpen, onClose, onSuccess }) => {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm overflow-y-auto animate-fade-in">
-      <div className="glass-morphism rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto animate-scale-in">
+      <div className="bg-white dark:bg-secondary-800 rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto animate-scale-in">
         <div className="p-6">
           <div className="flex justify-between items-start mb-4">
             <h2 className="text-2xl font-bold text-secondary-900 dark:text-white flex items-center">

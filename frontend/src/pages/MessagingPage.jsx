@@ -771,7 +771,7 @@ const MessagingPage = () => {
                 </div>
               </div>
             ) : (
-              <div className="flex-1 flex items-center justify-center bg-white dark:bg-secondary-800 bg-opacity-75 animate-fade-in">
+              <div className="flex-1 flex items-center justify-center bg-secondary-100 dark:bg-secondary-900 animate-fade-in">
                 <div className="text-center p-6 max-w-md">
                   <div className="mx-auto w-16 h-16 bg-primary-100 dark:bg-primary-900/30 rounded-full flex items-center justify-center text-primary-600 dark:text-primary-400 mb-4">
                     <FaCommentMedical size={28} />

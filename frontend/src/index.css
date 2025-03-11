@@ -1,139 +1,38 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@100;200;300;400;500;600;700;800;900&display=swap');
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
-  /* CSS Variables for design system */
-  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -1px rgb(0 0 0 / 0.1);
-  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -2px rgb(0 0 0 / 0.1);
-  --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
-  
-  /* Light mode colors */
-  --bg-primary: #ffffff;
-  --bg-secondary: #f8fafc;
-  --bg-tertiary: #f1f5f9;
-  --text-primary: #1e293b;
-  --text-secondary: #475569;
-  --text-tertiary: #64748b;
-  --text-inverted: #ffffff;
-  --accent-primary: #4f46e5;
-  --accent-secondary: #6366f1;
-  --accent-tertiary: #818cf8;
-  --divider: #e2e8f0;
-
-  /* System Defaults */
-  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
   font-weight: 400;
+
+  color-scheme: light dark;
+  color: rgba(255, 255, 255, 0.87);
+  background-color: #ffffff;
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  
-  background-color: var(--bg-primary);
-  color: var(--text-primary);
-  scroll-behavior: smooth;
-  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
-.dark {
-  /* Dark mode colors */
-  --bg-primary: #0f172a;
-  --bg-secondary: #1e293b;
-  --bg-tertiary: #334155;
-  --text-primary: #f8fafc;
-  --text-secondary: #e2e8f0;
-  --text-tertiary: #cbd5e1;
-  --text-inverted: #0f172a;
-  --accent-primary: #818cf8;
-  --accent-secondary: #a5b4fc;
-  --accent-tertiary: #c7d2fe;
-  --divider: #334155;
+a {
+  font-weight: 500;
+  color: #646cff;
+  text-decoration: inherit;
+}
+a:hover {
+  color: #535bf2;
 }
 
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
+
+
+h1 {
+  font-size: 3.2em;
+  line-height: 1.1;
 }
 
-/* Glass morphism effect */
-.glass-morphism {
-  background: rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.2);
-}
-
-.dark .glass-morphism {
-  background: rgba(15, 23, 42, 0.6);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-/* Scrollbar styling */
-::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-
-::-webkit-scrollbar-track {
-  background: var(--bg-secondary);
-}
-
-::-webkit-scrollbar-thumb {
-  background: var(--text-tertiary);
-  border-radius: 4px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: var(--accent-tertiary);
-}
-
-/* Animation utility classes */
-@layer utilities {
-  .animated-border {
-    position: relative;
-    overflow: hidden;
-  }
-  
-  .animated-border::after {
-    content: '';
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    width: 0;
-    height: 2px;
-    background-color: var(--accent-primary);
-    transition: width 0.3s ease;
-  }
-  
-  .animated-border:hover::after {
-    width: 100%;
-  }
-  
-  .hover-lift {
-    transition: transform 0.2s ease-out;
-  }
-  
-  .hover-lift:hover {
-    transform: translateY(-4px);
-  }
-  
-  .hover-scale {
-    transition: transform 0.2s ease-out;
-  }
-  
-  .hover-scale:hover {
-    transform: scale(1.03);
-  }
-}
-
-/* Button styles */
 button {
   border-radius: 8px;
   border: 1px solid transparent;
@@ -141,40 +40,29 @@ button {
   font-size: 1em;
   font-weight: 500;
   font-family: inherit;
-  background-color: var(--bg-tertiary);
+  background-color: #ffffff;
   cursor: pointer;
-  transition: all 0.25s;
+  transition: border-color 0.25s;
 }
-
 button:hover {
-  background-color: var(--accent-tertiary);
-  color: var(--text-inverted);
-  border-color: var(--accent-tertiary);
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-md);
+  border-color: #646cff;
 }
-
 button:focus,
 button:focus-visible {
-  outline: 2px solid var(--accent-primary);
-  outline-offset: 2px;
+  outline: 4px auto -webkit-focus-ring-color;
 }
 
-/* Base styles for links */
-a {
-  font-weight: 500;
-  color: var(--accent-primary);
-  text-decoration: none;
-  transition: all 0.25s;
-}
+@media (prefers-color-scheme: light) {
+  :root {
+    color: #213547;
+    background-color: #ffffff;
+  }
+  a:hover {
+    color: #747bff;
+  }
+  button {
+    background-color: #f9f9f9;
+  }
 
-a:hover {
-  color: var(--accent-secondary);
-  text-decoration: underline;
-}
-
-h1, h2, h3, h4, h5, h6 {
-  line-height: 1.2;
-  margin-bottom: 0.5em;
-  font-weight: 600;
+  
 }

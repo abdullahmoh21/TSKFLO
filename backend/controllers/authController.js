@@ -34,7 +34,7 @@ const login = asyncHandler(async (req, res) => {
   const accessToken = jwt.sign(
     {
       user: {
-        id: foundUser._id.toString(),
+        id: foundUser._id,
         role: foundUser.role,
       },
     },
@@ -45,7 +45,7 @@ const login = asyncHandler(async (req, res) => {
   const refreshToken = jwt.sign(
     {
       user: {
-        id: foundUser._id.toString(),
+        id: foundUser._id,
         role: foundUser.role,
       },
     },
@@ -105,7 +105,7 @@ const refresh = asyncHandler(async (req, res) => {
   const accessToken = jwt.sign(
     {
       user: {
-        id: foundUser._id.toString(),
+        id: foundUser._id,
         role: foundUser.role,
       },
     },

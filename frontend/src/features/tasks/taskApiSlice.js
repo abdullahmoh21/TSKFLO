@@ -4,13 +4,13 @@ export const taskApiSlice = apiSlice.injectEndpoints({
   endpoints: (builder) => ({
     getTasks: builder.query({
       query: () => "tasks",
-      providesTags: (result) => 
-        result 
+      providesTags: (result) =>
+        result
           ? [
-              ...result.map(({ _id }) => ({ type: 'Task', id: _id })),
-              { type: 'Task', id: 'LIST' },
+              ...result.map(({ _id }) => ({ type: "Task", id: _id })),
+              { type: "Task", id: "LIST" },
             ]
-          : [{ type: 'Task', id: 'LIST' }],
+          : [{ type: "Task", id: "LIST" }],
     }),
     createTask: builder.mutation({
       query: (taskData) => ({
@@ -39,7 +39,7 @@ export const taskApiSlice = apiSlice.injectEndpoints({
     }),
     getUsers: builder.query({
       query: () => "users",
-      providesTags: ['Users'],
+      providesTags: ["Users"],
     }),
     addAssignee: builder.mutation({
       query: ({ taskId, assigneeId }) => ({
@@ -74,4 +74,4 @@ export const {
   useGetUsersQuery,
   useAddAssigneeMutation,
   useRemoveAssigneeMutation,
-} = taskApiSlice; 
+} = taskApiSlice;

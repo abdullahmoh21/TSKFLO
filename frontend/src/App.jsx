@@ -8,11 +8,14 @@ import {
 } from "react-router-dom";
 import { useSelector, useDispatch } from "react-redux";
 import { selectCurrentToken, selectCurrentUserRole } from "./features/auth/authSlice";
+import { ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 import HomeNavBar from "./components/homeNavBar";
 import UserNavbar from "./components/userNavBar";
 import AdminNavbar from "./components/adminNavbar";
 import HomePage from "./pages/HomePage";
 import LoginPage from "./pages/LoginPage";
+import RegisterPage from "./pages/RegisterPage";
 import UserDashboard from "./pages/UserDashboard";
 import CreateTask from "./pages/CreateTask";
 import AboutPage from "./pages/AboutPage";
@@ -51,6 +54,7 @@ function AppContent() {
         {/* Public routes */}
         <Route path="/" element={<HomePage />} />
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/register/:token" element={<RegisterPage />} />
         <Route path="/about" element={<AboutPage />} />
 
         <Route element={<PersistLogin />}>
@@ -98,6 +102,7 @@ function AppContent() {
 function App() {
   return (
     <Router>
+      <ToastContainer />
       <AuthCheck />
       <SocketInitializer />
       <AppContent />

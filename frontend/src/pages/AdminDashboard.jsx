@@ -158,20 +158,12 @@ const AdminPage = () => {
         upcomingDeadlines: 0,
         tasksByStatus: [0, 0, 0], // To Do, In Progress, Completed
         tasksByPriority: [0, 0, 0], // Low, Medium, High
-        weeklyTaskCompletion: Array(7).fill(0),
         teamPerformance: { labels: [], data: [] },
       };
     }
 
-    // Get the current date and day of week (0 = Sunday, 6 = Saturday)
+    // Get the current date
     const today = new Date();
-    const currentDayOfWeek = today.getDay();
-    
-    // Calculate date ranges
-    const startOfWeek = new Date(today);
-    startOfWeek.setDate(today.getDate() - currentDayOfWeek);
-    startOfWeek.setHours(0, 0, 0, 0);
-    
     const endOfToday = new Date(today);
     endOfToday.setHours(23, 59, 59, 999);
     
@@ -210,19 +202,7 @@ const AdminPage = () => {
       tasks.filter(task => task?.priority?.toLowerCase() === 'high').length
     ];
     
-    // Calculate weekly task completion
-    const weeklyTaskCompletion = Array(7).fill(0);
-    
-    recentlyCompletedTasks.forEach(task => {
-      if (!task.updatedAt) return;
-      const completedDate = new Date(task.updatedAt);
-      if (completedDate >= startOfWeek && completedDate <= endOfToday) {
-        const dayOfWeek = completedDate.getDay();
-        weeklyTaskCompletion[dayOfWeek]++;
-      }
-    });
-    
-    // Calculate team performance (top 5 users by completed tasks)
+    // Calculate user performance (top 5 users by completed tasks)
     const userTaskCounts = {};
     
     tasks.forEach(task => {
@@ -262,7 +242,6 @@ const AdminPage = () => {
       upcomingDeadlines,
       tasksByStatus,
       tasksByPriority,
-      weeklyTaskCompletion,
       teamPerformance: {
         labels: teamLabels,
         data: teamData,
@@ -361,39 +340,6 @@ const AdminPage = () => {
         setLockTaskId(null);
       }, 3000);
     }
-  };
-
-  // Chart data for weekly task completion
-  const chartData = {
-    labels: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
-    datasets: [
-      {
-        label: "Tasks Completed",
-        data: metrics.weeklyTaskCompletion,
-        fill: false,
-        borderColor: "rgb(99, 102, 241)",
-        tension: 0.1,
-        backgroundColor: "rgba(99, 102, 241, 0.5)",
-      },
-    ],
-  };
-
-  const chartOptions = {
-    responsive: true,
-    plugins: {
-      legend: {
-        position: "top",
-      },
-      title: {
-        display: true,
-        text: "Weekly Task Completion",
-      },
-    },
-    scales: {
-      y: {
-        beginAtZero: true,
-      },
-    },
   };
 
   const handleSort = (key) => {
@@ -1357,79 +1303,54 @@ const AdminPage = () => {
                   </div>
                 </div>
 
-                {/* Weekly Task Completion Chart */}
+                {/* User Performance */}
                 <div className="mt-6 bg-gray-50 dark:bg-gray-800 rounded-lg p-6">
                   <h3 className="text-sm font-medium text-gray-500 mb-4">
-                    Weekly Progress
+                    User Performance
                   </h3>
-                  <div className="h-64">
-                    <Line 
-                      data={{
-                        labels: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
-                        datasets: [
-                          {
-                            label: 'Tasks Completed',
-                            data: metrics.weeklyTaskCompletion,
-                            fill: false,
-                            borderColor: 'rgb(75, 192, 192)',
-                            tension: 0.1,
-                            backgroundColor: 'rgba(75, 192, 192, 0.2)',
-                          },
-                        ],
-                      }} 
-                      options={chartOptions} 
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Team Performance */}
-              <div className="mt-6 bg-gray-50 dark:bg-gray-800 rounded-lg p-6">
-                <h3 className="text-sm font-medium text-gray-500 mb-4">
-                  Team Performance
-                </h3>
-                {metrics.teamPerformance.labels.length > 0 ? (
-                  <div className="h-64">
-                    <BarChart
-                      data={{
-                        labels: metrics.teamPerformance.labels,
-                        datasets: [
-                          {
-                            label: 'Completion Rate (%)',
-                            data: metrics.teamPerformance.data,
-                            backgroundColor: 'rgba(66, 153, 225, 0.7)',
-                            borderColor: 'rgba(66, 153, 225, 1)',
-                            borderWidth: 1,
-                          },
-                        ],
-                      }}
-                      options={{
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        indexAxis: 'y',
-                        plugins: {
-                          legend: {
-                            display: false,
-                          },
-                        },
-                        scales: {
-                          x: {
-                            min: 0,
-                            max: 100,
-                            title: {
-                              display: true,
-                              text: 'Completion Rate (%)',
+                  {metrics.teamPerformance.labels.length > 0 ? (
+                    <div className="h-64">
+                      <BarChart
+                        data={{
+                          labels: metrics.teamPerformance.labels,
+                          datasets: [
+                            {
+                              label: 'Completion Rate (%)',
+                              data: metrics.teamPerformance.data,
+                              backgroundColor: 'rgba(66, 153, 225, 0.7)',
+                              borderColor: 'rgba(66, 153, 225, 1)',
+                              borderWidth: 1,
+                            },
+                          ],
+                        }}
+                        options={{
+                          responsive: true,
+                          maintainAspectRatio: false,
+                          indexAxis: 'y',
+                          plugins: {
+                            legend: {
+                              display: false,
                             },
                           },
-                        },
-                      }}
-                    />
-                  </div>
-                ) : (
-                  <div className="h-64 flex items-center justify-center">
-                    <p className="text-gray-500">No team performance data available</p>
-                  </div>
-                )}
+                          scales: {
+                            x: {
+                              min: 0,
+                              max: 100,
+                              title: {
+                                display: true,
+                                text: 'Completion Rate (%)',
+                              },
+                            },
+                          },
+                        }}
+                      />
+                    </div>
+                  ) : (
+                    <div className="h-64 flex items-center justify-center">
+                      <p className="text-gray-500">No team performance data available</p>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           )}

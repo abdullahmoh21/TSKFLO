@@ -1,9 +1,15 @@
 import React, { useState } from "react";
-import { FaUser, FaPaperPlane } from "react-icons/fa";
+import { FaUser, FaPaperPlane, FaCommentMedical, FaSearch, FaTimes } from "react-icons/fa";
+import { useSelector } from "react-redux";
+import { selectCurrentUserId, selectCurrentUserName } from "../features/auth/authSlice";
+import { useSearchUsersQuery } from "../features/user/userApiSlice";
 
 const MessagingPage = () => {
+  const currentUserId = useSelector(selectCurrentUserId);
+  const currentUserName = useSelector(selectCurrentUserName);
   const [selectedConversation, setSelectedConversation] = useState(0);
   const [messageInput, setMessageInput] = useState("");
+  
   // Create a state to store conversations so we can update them
   const [conversationList, setConversationList] = useState([
     {
@@ -25,181 +31,149 @@ const MessagingPage = () => {
       messages: [
         { id: 1, sender: "Adam", text: "Hi there!", time: "Yesterday" },
         { id: 2, sender: "You", text: "Hello! How can I help you?", time: "Yesterday" },
-        { id: 3, sender: "Adam", text: "Can you aprove the Pr?", time: "Yesterday" },
+        { id: 3, sender: "Adam", text: "Can you approve the PR?", time: "Yesterday" },
       ]
     },
     {
       id: 2,
-      name: "Breeto Codes",
-      lastMessage: "Meeting scheduled for tomorrow",
+      name: "Sarah",
+      lastMessage: "Thanks for your help!",
       unread: false,
       messages: [
-        { id: 1, sender: "John", text: "Meeting scheduled for tomorrow", time: "Yesterday" },
-        { id: 2, sender: "You", text: "I'll be there", time: "Yesterday" },
-        { id: 3, sender: "Alex", text: "Great, see you all then!", time: "Yesterday" },
+        { id: 1, sender: "Sarah", text: "Do you have time to review my task?", time: "Monday" },
+        { id: 2, sender: "You", text: "Sure, I'll take a look at it today.", time: "Monday" },
+        { id: 3, sender: "Sarah", text: "Thanks for your help!", time: "Monday" },
       ]
-    },
+    }
   ]);
 
+  // Function to handle sending a message
   const handleSendMessage = (e) => {
     e.preventDefault();
-    
-    // Don't send empty messages
     if (!messageInput.trim()) return;
-    
-    // Get current time
-    const now = new Date();
-    const hours = now.getHours();
-    const minutes = now.getMinutes();
-    const ampm = hours >= 12 ? 'PM' : 'AM';
-    const formattedHours = hours % 12 || 12;
-    const formattedMinutes = minutes < 10 ? `0${minutes}` : minutes;
-    const timeString = `${formattedHours}:${formattedMinutes} ${ampm}`;
-    
+
     // Create a new message
     const newMessage = {
       id: conversationList[selectedConversation].messages.length + 1,
       sender: "You",
-      text: messageInput,
-      time: timeString
+      text: messageInput.trim(),
+      time: "Just now"
     };
-    
-    // Create a copy of the conversations array
+
+    // Update the conversation with the new message
     const updatedConversations = [...conversationList];
+    updatedConversations[selectedConversation].messages.push(newMessage);
+    updatedConversations[selectedConversation].lastMessage = messageInput.trim();
     
-    // Add the new message to the selected conversation
-    updatedConversations[selectedConversation] = {
-      ...updatedConversations[selectedConversation],
-      lastMessage: messageInput,
-      messages: [...updatedConversations[selectedConversation].messages, newMessage]
-    };
-    
-    // Update the state
     setConversationList(updatedConversations);
-    
-    // Clear the input field
     setMessageInput("");
   };
 
   return (
-    <div className="pt-16 h-screen flex flex-col bg-gray-50">
-      <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
-        {/* Sidebar - Conversation List */}
-        <div className="w-full md:w-80 bg-white border-r border-gray-200 flex-shrink-0 overflow-y-auto">
-          <div className="p-4 border-b border-gray-200">
-            <h2 className="text-lg font-semibold text-gray-800">Messages</h2>
-          </div>
-          <div className="divide-y divide-gray-200">
-            {conversationList.map((conversation) => (
-              <div
-                key={conversation.id}
-                className={`p-4 cursor-pointer hover:bg-gray-50 transition-colors duration-150 ${
-                  selectedConversation === conversation.id ? "bg-blue-50" : ""
-                }`}
-                onClick={() => setSelectedConversation(conversation.id)}
-              >
-                <div className="flex items-center space-x-3">
-                  <div className="relative">
-                    <div className="w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center">
-                      <FaUser className="text-gray-600" />
-                    </div>
-                    {conversation.unread && (
-                      <div className="absolute -top-1 -right-1 w-3 h-3 bg-blue-500 rounded-full"></div>
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex justify-between items-baseline">
-                      <h3 className="text-sm font-medium text-gray-900 truncate">
-                        {conversation.name}
-                      </h3>
-                      <span className="text-xs text-gray-500">12:34 PM</span>
-                    </div>
-                    <p className="text-sm text-gray-500 truncate">
-                      {conversation.lastMessage}
-                    </p>
-                  </div>
-                </div>
+    <div className="min-h-screen pt-16 bg-secondary-50 dark:bg-secondary-900">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <div className="glass-morphism rounded-xl shadow-md overflow-hidden">
+          <div className="flex h-[calc(100vh-150px)]">
+            {/* Conversation List */}
+            <div className="w-1/3 border-r border-secondary-200 dark:border-secondary-700 bg-white dark:bg-secondary-800">
+              <div className="p-4 border-b border-secondary-200 dark:border-secondary-700">
+                <h2 className="text-xl font-bold text-secondary-900 dark:text-white">Messages</h2>
               </div>
-            ))}
-          </div>
-        </div>
+              <div className="overflow-y-auto h-[calc(100%-60px)]">
+                {conversationList.map((conversation) => (
+                  <div
+                    key={conversation.id}
+                    className={`p-4 border-b border-secondary-200 dark:border-secondary-700 cursor-pointer hover:bg-secondary-100 dark:hover:bg-secondary-700 transition-colors ${
+                      selectedConversation === conversation.id ? "bg-primary-50 dark:bg-primary-900/30" : ""
+                    }`}
+                    onClick={() => setSelectedConversation(conversation.id)}
+                  >
+                    <div className="flex items-center">
+                      <div className="h-10 w-10 rounded-full bg-primary-100 dark:bg-primary-900 flex items-center justify-center text-primary-600 dark:text-primary-400">
+                        <FaUser />
+                      </div>
+                      <div className="ml-3 flex-1">
+                        <div className="flex justify-between">
+                          <p className="font-medium text-secondary-900 dark:text-white">{conversation.name}</p>
+                          {conversation.unread && (
+                            <span className="h-2 w-2 bg-primary-500 rounded-full"></span>
+                          )}
+                        </div>
+                        <p className="text-sm text-secondary-500 dark:text-secondary-400 truncate">
+                          {conversation.lastMessage}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
 
-        {/* Main Chat Area */}
-        <div className="flex-1 flex flex-col bg-gray-100 overflow-hidden">
-          {selectedConversation !== null ? (
-            <>
-              {/* Chat Header */}
-              <div className="bg-white border-b border-gray-200 p-4 flex items-center">
-                <div className="w-8 h-8 rounded-full bg-gray-300 flex items-center justify-center mr-3">
-                  <FaUser className="text-gray-600" />
+            {/* Message Area */}
+            <div className="w-2/3 flex flex-col bg-white dark:bg-secondary-800">
+              {/* Conversation Header */}
+              <div className="p-4 border-b border-secondary-200 dark:border-secondary-700 flex items-center">
+                <div className="h-10 w-10 rounded-full bg-primary-100 dark:bg-primary-900 flex items-center justify-center text-primary-600 dark:text-primary-400">
+                  <FaUser />
                 </div>
-                <h2 className="text-lg font-medium text-gray-800">
-                  {conversationList[selectedConversation].name}
-                </h2>
+                <h3 className="ml-3 font-medium text-secondary-900 dark:text-white">
+                  {conversationList[selectedConversation]?.name}
+                </h3>
               </div>
 
               {/* Messages */}
-              <div className="flex-1 p-4 overflow-y-auto">
-                <div className="space-y-4">
-                  {conversationList[selectedConversation].messages.map((message) => (
+              <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                {conversationList[selectedConversation]?.messages.map((message) => (
+                  <div
+                    key={message.id}
+                    className={`flex ${message.sender === "You" ? "justify-end" : "justify-start"}`}
+                  >
                     <div
-                      key={message.id}
-                      className={`flex ${
-                        message.sender === "You" ? "justify-end" : "justify-start"
+                      className={`max-w-[70%] rounded-lg p-3 ${
+                        message.sender === "You"
+                          ? "bg-primary-500 text-white"
+                          : "bg-secondary-100 dark:bg-secondary-700 text-secondary-900 dark:text-white"
                       }`}
                     >
-                      <div
-                        className={`max-w-xs md:max-w-md lg:max-w-lg xl:max-w-xl rounded-lg px-4 py-2 ${
-                          message.sender === "You"
-                            ? "bg-blue-500 text-white"
-                            : "bg-white text-gray-800"
-                        }`}
-                      >
-                        <div className="flex flex-col">
-                          {message.sender !== "You" && (
-                            <span className="text-xs font-medium mb-1">
-                              {message.sender}
-                            </span>
-                          )}
-                          <p className="text-sm">{message.text}</p>
-                          <span className="text-xs self-end mt-1 opacity-75">
-                            {message.time}
-                          </span>
-                        </div>
-                      </div>
+                      <p>{message.text}</p>
+                      <p className={`text-xs mt-1 ${
+                        message.sender === "You" ? "text-primary-100" : "text-secondary-500 dark:text-secondary-400"
+                      }`}>
+                        {message.time}
+                      </p>
                     </div>
-                  ))}
-                </div>
+                  </div>
+                ))}
               </div>
 
               {/* Message Input */}
-              <div className="p-4 bg-white border-t border-gray-200">
-                <form onSubmit={handleSendMessage} className="flex items-center space-x-2">
+              <div className="p-4 border-t border-secondary-200 dark:border-secondary-700">
+                <form onSubmit={handleSendMessage} className="flex items-center">
                   <input
                     type="text"
                     value={messageInput}
                     onChange={(e) => setMessageInput(e.target.value)}
+                    className="flex-1 p-2 border border-secondary-300 dark:border-secondary-600 rounded-l-lg bg-white dark:bg-secondary-700 text-secondary-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
                     placeholder="Type a message..."
-                    className="flex-1 border border-gray-300 rounded-full py-2 px-4 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-gray-800"
                   />
                   <button
                     type="submit"
-                    className="bg-blue-500 text-white rounded-full p-2 hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                    className="p-2 bg-primary-500 hover:bg-primary-600 text-white rounded-r-lg transition-colors"
                   >
                     <FaPaperPlane />
                   </button>
                 </form>
               </div>
-            </>
-          ) : (
-            <div className="flex-1 flex items-center justify-center">
-              <p className="text-gray-500 text-lg">Select a conversation to start messaging</p>
             </div>
-          )}
+          </div>
+        </div>
+        
+        <div className="mt-6 text-center text-secondary-500 dark:text-secondary-400">
+          <p>Note: This is a demo messaging interface. Real-time functionality is not available in this version.</p>
         </div>
       </div>
     </div>
   );
 };
 
-export default MessagingPage; 
+export default MessagingPage;

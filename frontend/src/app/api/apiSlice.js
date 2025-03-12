@@ -16,15 +16,7 @@ const baseQuery = fetchBaseQuery({
 });
 
 const baseQueryWithReauth = async (args, api, extraOptions) => {
-  // Check localStorage for token on initial load
-  const state = api.getState();
-  if (!state.auth.token) {
-    const persistedToken = localStorage.getItem('token');
-    if (persistedToken) {
-      api.dispatch(setCredentials({ accessToken: persistedToken }));
-    }
-  }
-
+  // Attempt the initial query
   let result = await baseQuery(args, api, extraOptions);
 
   // Handle 401 and 403 status codes for token expiration
@@ -41,16 +33,10 @@ const baseQueryWithReauth = async (args, api, extraOptions) => {
       const accessToken = refreshResult.data.accessToken;
       api.dispatch(setCredentials({ accessToken }));
       
-      // Save to localStorage
-      localStorage.setItem('token', accessToken);
-
       // Retry original query with new access token
       result = await baseQuery(args, api, extraOptions);
     } else {
       console.log("Refresh token failed - logging out");
-      
-      // Clear token from localStorage
-      localStorage.removeItem('token');
       
       // Log the user out on failed refresh
       api.dispatch(logOut());

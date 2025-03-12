@@ -24,7 +24,7 @@ import {
   FaArrowUp,
   FaStar,
 } from "react-icons/fa";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { Line } from "react-chartjs-2";
 import CreateTask from "./CreateTask";
 import { useSelector } from "react-redux";
@@ -64,8 +64,12 @@ ChartJS.register(
 
 const AdminPage = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const token = useSelector((state) => state.auth.token);
-  const [activeTab, setActiveTab] = useState("dashboard");
+  const [activeTab, setActiveTab] = useState(() => {
+    const params = new URLSearchParams(location.search);
+    return params.get('tab') || "dashboard";
+  });
   const [error, setError] = useState(null);
   const [showCreateUser, setShowCreateUser] = useState(false);
   const [showCreateTask, setShowCreateTask] = useState(false);
@@ -507,6 +511,23 @@ const AdminPage = () => {
     setEditTaskData(formattedTask);
   };
 
+  // Update activeTab when URL changes
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const tab = params.get('tab');
+    if (tab) {
+      setActiveTab(tab);
+    } else if (location.pathname === '/admindashboard') {
+      setActiveTab('dashboard');
+    }
+  }, [location]);
+
+  // Handle tab changes
+  const handleTabChange = (tab) => {
+    setActiveTab(tab);
+    navigate(`/admindashboard${tab === 'dashboard' ? '' : `?tab=${tab}`}`);
+  };
+
   return (
     <div className={`min-h-screen bg-secondary-50 dark:bg-secondary-900 pt-16 px-4 sm:px-6 lg:px-8 transition-all duration-300 ${isLoaded ? 'opacity-100' : 'opacity-0'}`}>
       {(error || tasksError || usersError) && (
@@ -605,101 +626,67 @@ const AdminPage = () => {
           </p>
         </div>
 
-        {/* Metrics Overview */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
-          <div className="glass-morphism rounded-xl shadow-sm p-6 border border-secondary-200 dark:border-secondary-700 transform transition-all duration-300 hover:shadow-md hover:-translate-y-1">
-            <div className="flex items-center">
-              <div className="p-3 rounded-full bg-primary-100 dark:bg-primary-900/20 text-primary-500 dark:text-primary-400">
-                <FaUsers className="h-6 w-6" />
+        {/* Only show metrics overview on dashboard tab */}
+        {activeTab === "dashboard" && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+            <div className="glass-morphism rounded-xl shadow-sm p-6 border border-secondary-200 dark:border-secondary-700 transform transition-all duration-300 hover:shadow-md hover:-translate-y-1">
+              <div className="flex items-center">
+                <div className="p-3 rounded-full bg-primary-100 dark:bg-primary-900/20 text-primary-500 dark:text-primary-400">
+                  <FaUsers className="h-6 w-6" />
+                </div>
+                <div className="ml-4">
+                  <p className="text-sm font-medium text-secondary-500 dark:text-secondary-400">Total Users</p>
+                  <h3 className="text-2xl font-bold text-secondary-900 dark:text-white">
+                    {metrics.totalUsers}
+                  </h3>
+                </div>
               </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-secondary-500 dark:text-secondary-400">Total Users</p>
-                <h3 className="text-2xl font-bold text-secondary-900 dark:text-white">
-                  {metrics.totalUsers}
-                </h3>
+            </div>
+            <div className="glass-morphism rounded-xl shadow-sm p-6 border border-secondary-200 dark:border-secondary-700 transform transition-all duration-300 hover:shadow-md hover:-translate-y-1">
+              <div className="flex items-center">
+                <div className="p-3 rounded-full bg-success-100 dark:bg-success-900/20 text-success-500 dark:text-success-400">
+                  <FaTasks className="h-6 w-6" />
+                </div>
+                <div className="ml-4">
+                  <p className="text-sm font-medium text-secondary-500 dark:text-secondary-400">Total Tasks</p>
+                  <h3 className="text-2xl font-bold text-secondary-900 dark:text-white">
+                    {metrics.totalTasks}
+                  </h3>
+                </div>
+              </div>
+            </div>
+            <div className="glass-morphism rounded-xl shadow-sm p-6 border border-secondary-200 dark:border-secondary-700 transform transition-all duration-300 hover:shadow-md hover:-translate-y-1">
+              <div className="flex items-center">
+                <div className="p-3 rounded-full bg-warning-100 dark:bg-warning-900/20 text-warning-500 dark:text-warning-400">
+                  <FaChartLine className="h-6 w-6" />
+                </div>
+                <div className="ml-4">
+                  <p className="text-sm font-medium text-secondary-500 dark:text-secondary-400">
+                    Completed Tasks
+                  </p>
+                  <h3 className="text-2xl font-bold text-secondary-900 dark:text-white">
+                    {metrics.completedTasks}
+                  </h3>
+                </div>
+              </div>
+            </div>
+            <div className="glass-morphism rounded-xl shadow-sm p-6 border border-secondary-200 dark:border-secondary-700 transform transition-all duration-300 hover:shadow-md hover:-translate-y-1">
+              <div className="flex items-center">
+                <div className="p-3 rounded-full bg-danger-100 dark:bg-danger-900/20 text-danger-500 dark:text-danger-400">
+                  <FaClock className="h-6 w-6" />
+                </div>
+                <div className="ml-4">
+                  <p className="text-sm font-medium text-secondary-500 dark:text-secondary-400">
+                    Upcoming Deadlines
+                  </p>
+                  <h3 className="text-2xl font-bold text-secondary-900 dark:text-white">
+                    {metrics.upcomingDeadlines}
+                  </h3>
+                </div>
               </div>
             </div>
           </div>
-          <div className="glass-morphism rounded-xl shadow-sm p-6 border border-secondary-200 dark:border-secondary-700 transform transition-all duration-300 hover:shadow-md hover:-translate-y-1">
-            <div className="flex items-center">
-              <div className="p-3 rounded-full bg-success-100 dark:bg-success-900/20 text-success-500 dark:text-success-400">
-                <FaTasks className="h-6 w-6" />
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-secondary-500 dark:text-secondary-400">Total Tasks</p>
-                <h3 className="text-2xl font-bold text-secondary-900 dark:text-white">
-                  {metrics.totalTasks}
-                </h3>
-              </div>
-            </div>
-          </div>
-          <div className="glass-morphism rounded-xl shadow-sm p-6 border border-secondary-200 dark:border-secondary-700 transform transition-all duration-300 hover:shadow-md hover:-translate-y-1">
-            <div className="flex items-center">
-              <div className="p-3 rounded-full bg-warning-100 dark:bg-warning-900/20 text-warning-500 dark:text-warning-400">
-                <FaChartLine className="h-6 w-6" />
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-secondary-500 dark:text-secondary-400">
-                  Completed Tasks
-                </p>
-                <h3 className="text-2xl font-bold text-secondary-900 dark:text-white">
-                  {metrics.completedTasks}
-                </h3>
-              </div>
-            </div>
-          </div>
-          <div className="glass-morphism rounded-xl shadow-sm p-6 border border-secondary-200 dark:border-secondary-700 transform transition-all duration-300 hover:shadow-md hover:-translate-y-1">
-            <div className="flex items-center">
-              <div className="p-3 rounded-full bg-danger-100 dark:bg-danger-900/20 text-danger-500 dark:text-danger-400">
-                <FaClock className="h-6 w-6" />
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-secondary-500 dark:text-secondary-400">
-                  Upcoming Deadlines
-                </p>
-                <h3 className="text-2xl font-bold text-secondary-900 dark:text-white">
-                  {metrics.upcomingDeadlines}
-                </h3>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Navigation Tabs */}
-        <div className="glass-morphism rounded-xl shadow-sm mb-6 border border-secondary-200 dark:border-secondary-700 overflow-hidden">
-          <nav className="flex">
-            <button
-              onClick={() => setActiveTab("dashboard")}
-              className={`px-6 py-4 text-sm font-medium transition-all duration-200 ${
-                activeTab === "dashboard"
-                  ? "border-b-2 border-primary-500 text-primary-600 dark:text-primary-400"
-                  : "text-secondary-500 dark:text-secondary-400 hover:text-secondary-700 dark:hover:text-secondary-300 hover:bg-secondary-100 dark:hover:bg-secondary-800"
-              }`}
-            >
-              Dashboard
-            </button>
-            <button
-              onClick={() => setActiveTab("users")}
-              className={`px-6 py-4 text-sm font-medium transition-all duration-200 ${
-                activeTab === "users"
-                  ? "border-b-2 border-primary-500 text-primary-600 dark:text-primary-400"
-                  : "text-secondary-500 dark:text-secondary-400 hover:text-secondary-700 dark:hover:text-secondary-300 hover:bg-secondary-100 dark:hover:bg-secondary-800"
-              }`}
-            >
-              Users
-            </button>
-            <button
-              onClick={() => setActiveTab("tasks")}
-              className={`px-6 py-4 text-sm font-medium transition-all duration-200 ${
-                activeTab === "tasks"
-                  ? "border-b-2 border-primary-500 text-primary-600 dark:text-primary-400"
-                  : "text-secondary-500 dark:text-secondary-400 hover:text-secondary-700 dark:hover:text-secondary-300 hover:bg-secondary-100 dark:hover:bg-secondary-800"
-              }`}
-            >
-              Tasks
-            </button>
-          </nav>
-        </div>
+        )}
 
         {/* Content Sections */}
         <div className="glass-morphism rounded-xl shadow-sm p-6 border border-secondary-200 dark:border-secondary-700">

@@ -76,6 +76,12 @@ const AdminNavbar = () => {
 
   const isActivePath = (path) => location.pathname.startsWith(path);
 
+  // Check if a tab is active based on URL search params
+  const isTabActive = (tab) => {
+    const params = new URLSearchParams(location.search);
+    return params.get('tab') === tab;
+  };
+
   const handleLogout = async () => {
     try {
       // First, manually dispatch the logout action to clear the Redux state
@@ -129,7 +135,7 @@ const AdminNavbar = () => {
               <Link
                 to="/admindashboard"
                 className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 hover-lift ${
-                  isActivePath("/admindashboard") && !isActivePath("/messaging")
+                  isActivePath("/admindashboard") && !location.search
                     ? "bg-primary-50 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400 shadow-sm"
                     : "text-secondary-700 dark:text-secondary-300 hover:bg-secondary-50 dark:hover:bg-secondary-800"
                 }`}
@@ -137,6 +143,34 @@ const AdminNavbar = () => {
                 <span className="flex items-center gap-1.5">
                   <FaChartBar className="h-4 w-4" />
                   <span>Dashboard</span>
+                </span>
+              </Link>
+
+              <Link
+                to="/admindashboard?tab=users"
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 hover-lift ${
+                  isTabActive("users")
+                    ? "bg-primary-50 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400 shadow-sm"
+                    : "text-secondary-700 dark:text-secondary-300 hover:bg-secondary-50 dark:hover:bg-secondary-800"
+                }`}
+              >
+                <span className="flex items-center gap-1.5">
+                  <FaUserCircle className="h-4 w-4" />
+                  <span>Users</span>
+                </span>
+              </Link>
+
+              <Link
+                to="/admindashboard?tab=tasks"
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 hover-lift ${
+                  isTabActive("tasks")
+                    ? "bg-primary-50 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400 shadow-sm"
+                    : "text-secondary-700 dark:text-secondary-300 hover:bg-secondary-50 dark:hover:bg-secondary-800"
+                }`}
+              >
+                <span className="flex items-center gap-1.5">
+                  <FaTasks className="h-4 w-4" />
+                  <span>Tasks</span>
                 </span>
               </Link>
               
@@ -265,7 +299,7 @@ const AdminNavbar = () => {
             <Link
               to="/admindashboard"
               className={`flex items-center px-3 py-2 rounded-lg text-base font-medium ${
-                isActivePath("/admindashboard") && !isActivePath("/messaging")
+                isActivePath("/admindashboard") && !location.search
                   ? "bg-primary-50 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400"
                   : "text-secondary-700 dark:text-secondary-300 hover:bg-secondary-50 dark:hover:bg-secondary-800"
               }`}

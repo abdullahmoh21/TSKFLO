@@ -2,7 +2,6 @@ import { apiSlice } from "../../app/api/apiSlice";
 import { getSocket } from "../../services/socketService";
 
 const onStartListening = (dispatch, api) => {
-  // Check periodically for socket availability
   const checkAndSetupSocket = () => {
     const socket = getSocket();
     if (socket) {
@@ -47,7 +46,7 @@ const onStartListening = (dispatch, api) => {
             );
           }
 
-          // Also update conversation's lastMessage
+          // Update conversation's lastMessage AND move to top of the list
           dispatch(
             api.util.updateQueryData(
               "getAllConversations",
@@ -55,11 +54,21 @@ const onStartListening = (dispatch, api) => {
               (draftConversations) => {
                 if (!Array.isArray(draftConversations)) return;
 
-                const conversation = draftConversations.find(
+                // Find the conversation
+                const index = draftConversations.findIndex(
                   (c) => c._id === conversationId
                 );
-                if (conversation) {
+
+                if (index > -1) {
+                  // Get the conversation object
+                  const conversation = draftConversations[index];
+                  // Update its lastMessage
                   conversation.lastMessage = message;
+
+                  // Remove conversation from current position
+                  draftConversations.splice(index, 1);
+                  // Add it to the beginning of the array (top of the list)
+                  draftConversations.unshift(conversation);
                 }
               }
             )

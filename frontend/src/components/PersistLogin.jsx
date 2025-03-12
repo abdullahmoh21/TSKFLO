@@ -7,7 +7,8 @@ import { selectCurrentToken, setCredentials } from "../features/auth/authSlice";
 const PersistLogin = () => {
   const [isLoading, setIsLoading] = useState(true);
   const token = useSelector(selectCurrentToken);
-  const [refresh, { isUninitialized, isSuccess, isError }] = useRefreshMutation();
+  const [refresh, { isUninitialized, isSuccess, isError }] =
+    useRefreshMutation();
   const dispatch = useDispatch();
 
   useEffect(() => {
@@ -25,19 +26,6 @@ const PersistLogin = () => {
         console.log("Refresh successful:", result);
       } catch (err) {
         console.error("Error refreshing token:", err);
-        
-        // Check if there's a token in localStorage as a fallback
-        const persistedToken = localStorage.getItem('token');
-        if (persistedToken) {
-          console.log("Using persisted token from localStorage");
-          try {
-            dispatch(setCredentials({ accessToken: persistedToken }));
-          } catch (error) {
-            console.error("Failed to use persisted token:", error);
-            // Clear invalid token
-            localStorage.removeItem('token');
-          }
-        }
       } finally {
         setIsLoading(false);
       }

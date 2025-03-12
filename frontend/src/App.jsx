@@ -21,6 +21,7 @@ import AdminRoute from "./components/AdminRoute";
 import AdminPage from "./pages/AdminDashboard";
 import MessagingPage from "./pages/MessagingPage";
 import PersistLogin from "./components/PersistLogin";
+import AdminCreateTask from "./components/AdminCreateTask";
 
 // Create a wrapper component that uses location
 function AppContent() {
@@ -31,7 +32,11 @@ function AppContent() {
 
   // Decide which Navbar to show based on the current path and user role
   let NavbarComponent;
-  if (isAdmin && (location.pathname.startsWith("/admindashboard") || location.pathname.startsWith("/messaging"))) {
+  if (isAdmin && (
+    location.pathname.startsWith("/admindashboard") || 
+    location.pathname.startsWith("/messaging") ||
+    location.pathname.startsWith("/admin-create-task")
+  )) {
     NavbarComponent = AdminNavbar;
   } else if (
     location.pathname.startsWith("/dashboard") ||
@@ -74,6 +79,14 @@ function AppContent() {
             element={
               <AdminRoute>
                 <AdminPage />
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="/admin-create-task"
+            element={
+              <AdminRoute>
+                <AdminCreateTask />
               </AdminRoute>
             }
           />

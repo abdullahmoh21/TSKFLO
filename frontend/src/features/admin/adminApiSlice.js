@@ -61,6 +61,26 @@ export const adminApiSlice = createApi({
         };
       },
     }),
+    searchUsers: builder.query({
+      query: (text) => ({
+        url: `/users?search=${encodeURIComponent(text)}`,
+        method: "GET",
+        credentials: "include",
+      }),
+      transformResponse: (response) => {
+        console.log("Search Users Response:", response);
+        // Handle the response based on the structure
+        if (!response) return { users: [] };
+        if (response.users) return response;
+
+        // If the response is an array, wrap it in a users property
+        if (Array.isArray(response)) {
+          return { users: response };
+        }
+
+        return { users: [] };
+      },
+    }),
     deleteAdminTask: builder.mutation({
       query: (taskId) => ({
         url: `/tasks/${taskId}`,
@@ -84,11 +104,16 @@ export const adminApiSlice = createApi({
         method: "POST",
         body: task,
         credentials: "include",
+        responseHandler: (response) => {
+          // For this specific endpoint, don't try to parse as JSON if it's just "OK"
+          if (response.status === 200) {
+            return { success: true, message: "Task created successfully" };
+          }
+          return response.json().catch(() => {
+            return { success: true, message: "Task created successfully" };
+          });
+        },
       }),
-      transformResponse: (response) => {
-        console.log("Create Task Response:", response);
-        return response;
-      },
       transformErrorResponse: (response) => {
         console.error("Create Task Error:", response);
         if (response.status === 400) {
@@ -112,6 +137,7 @@ export const adminApiSlice = createApi({
 export const {
   useGetAdminTasksQuery,
   useGetAdminUsersQuery,
+  useSearchUsersQuery,
   useDeleteAdminTaskMutation,
   useUpdateAdminTaskMutation,
   useCreateAdminTaskMutation,

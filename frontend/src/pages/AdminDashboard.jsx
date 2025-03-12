@@ -23,10 +23,12 @@ import {
   FaSave,
   FaArrowUp,
   FaStar,
+  FaExternalLinkAlt,
+  FaInfoCircle,
 } from "react-icons/fa";
-import { useNavigate } from "react-router-dom";
-import { Line } from "react-chartjs-2";
-import CreateTask from "./CreateTask";
+import { useNavigate, Link } from "react-router-dom";
+import { Line, Bar, Pie } from "react-chartjs-2";
+import AdminCreateTask from "../components/AdminCreateTask";
 import { useSelector } from "react-redux";
 import {
   useGetAdminTasksQuery,
@@ -35,6 +37,7 @@ import {
   useUpdateAdminTaskMutation,
   useCreateAdminTaskMutation,
   useLockAdminTaskMutation,
+  useSearchUsersQuery,
 } from "../features/admin/adminApiSlice";
 import 'react-tooltip/dist/react-tooltip.css';
 import { Tooltip as ReactTooltip } from 'react-tooltip';
@@ -46,8 +49,10 @@ import {
   LinearScale,
   PointElement,
   LineElement,
+  BarElement,
+  ArcElement,
   Title,
-  Tooltip,
+  Tooltip as ChartTooltip,
   Legend,
 } from "chart.js";
 
@@ -57,8 +62,10 @@ ChartJS.register(
   LinearScale,
   PointElement,
   LineElement,
+  BarElement,
+  ArcElement,
   Title,
-  Tooltip,
+  ChartTooltip,
   Legend
 );
 
@@ -141,17 +148,127 @@ const AdminPage = () => {
   }, []);
 
   // Calculate metrics only when data is available
-  const metrics = useMemo(() => ({
-    totalUsers: users?.length || 0,
-    totalTasks: tasks?.length || 0,
-    completedTasks: tasks?.filter(task => task.status === 'completed')?.length || 0,
-    upcomingDeadlines: tasks?.filter(task => new Date(task.dueDate) > new Date())?.length || 0,
-    weeklyTaskCompletion: [65, 72, 78, 85, 82, 90, 88],
-    teamPerformance: {
-      labels: ["Team A", "Team B", "Team C", "Team D"],
-      data: [85, 72, 90, 78],
-    },
-  }), [tasks, users]);
+  const metrics = useMemo(() => {
+    // Early return if data isn't loaded yet
+    if (!Array.isArray(tasks) || !Array.isArray(users)) {
+      return {
+        totalUsers: 0,
+        totalTasks: 0,
+        completedTasks: 0,
+        upcomingDeadlines: 0,
+        tasksByStatus: [0, 0, 0], // To Do, In Progress, Completed
+        tasksByPriority: [0, 0, 0], // Low, Medium, High
+        weeklyTaskCompletion: Array(7).fill(0),
+        teamPerformance: { labels: [], data: [] },
+      };
+    }
+
+    // Get the current date and day of week (0 = Sunday, 6 = Saturday)
+    const today = new Date();
+    const currentDayOfWeek = today.getDay();
+    
+    // Calculate date ranges
+    const startOfWeek = new Date(today);
+    startOfWeek.setDate(today.getDate() - currentDayOfWeek);
+    startOfWeek.setHours(0, 0, 0, 0);
+    
+    const endOfToday = new Date(today);
+    endOfToday.setHours(23, 59, 59, 999);
+    
+    const thirtyDaysAgo = new Date(today);
+    thirtyDaysAgo.setDate(today.getDate() - 30);
+    
+    // Calculate tasks by status
+    const tasksByStatus = [
+      tasks.filter(task => task?.status === 'Complete').length,
+      tasks.filter(task => task?.status === 'In Progress').length,
+      tasks.filter(task => task?.status === 'Incomplete').length
+    ];
+    
+    // Calculate completed tasks in the last 30 days
+    const recentlyCompletedTasks = tasks.filter(task => {
+      if (task?.status !== 'Complete') return false;
+      if (!task?.updatedAt) return false;
+      const completedDate = new Date(task.updatedAt);
+      return completedDate >= thirtyDaysAgo && completedDate <= endOfToday;
+    });
+    
+    // Calculate upcoming deadlines (due in the next 7 days)
+    const nextWeek = new Date(today);
+    nextWeek.setDate(today.getDate() + 7);
+    
+    const upcomingDeadlines = tasks.filter(task => {
+      if (!task?.dueDate) return false;
+      const dueDate = new Date(task.dueDate);
+      return dueDate > today && dueDate <= nextWeek && task.status !== 'Complete';
+    }).length;
+    
+    // Calculate tasks by priority
+    const tasksByPriority = [
+      tasks.filter(task => task?.priority?.toLowerCase() === 'low').length,
+      tasks.filter(task => task?.priority?.toLowerCase() === 'medium').length,
+      tasks.filter(task => task?.priority?.toLowerCase() === 'high').length
+    ];
+    
+    // Calculate weekly task completion
+    const weeklyTaskCompletion = Array(7).fill(0);
+    
+    recentlyCompletedTasks.forEach(task => {
+      if (!task.updatedAt) return;
+      const completedDate = new Date(task.updatedAt);
+      if (completedDate >= startOfWeek && completedDate <= endOfToday) {
+        const dayOfWeek = completedDate.getDay();
+        weeklyTaskCompletion[dayOfWeek]++;
+      }
+    });
+    
+    // Calculate team performance (top 5 users by completed tasks)
+    const userTaskCounts = {};
+    
+    tasks.forEach(task => {
+      if (!task.owner) return;
+      
+      const ownerId = typeof task.owner === 'object' ? task.owner._id : task.owner;
+      
+      if (!userTaskCounts[ownerId]) {
+        userTaskCounts[ownerId] = {
+          completed: 0,
+          total: 0,
+          user: users.find(u => u._id === ownerId || u.id === ownerId)
+        };
+      }
+      
+      userTaskCounts[ownerId].total++;
+      
+      if (task.status === 'Complete') {
+        userTaskCounts[ownerId].completed++;
+      }
+    });
+    
+    // Convert to array and sort by completed tasks
+    const topUsers = Object.values(userTaskCounts)
+      .filter(user => user.total > 0)
+      .sort((a, b) => b.completed - a.completed)
+      .slice(0, 5);
+    
+    // Build data for chart
+    const teamLabels = topUsers.map(u => u.user?.name || 'Unknown User');
+    const teamData = topUsers.map(u => u.total > 0 ? Math.round((u.completed / u.total) * 100) : 0);
+    
+    return {
+      totalUsers: users?.length || 0,
+      totalTasks: tasks?.length || 0,
+      completedTasks: tasks?.filter(task => task.status === 'Complete')?.length || 0,
+      upcomingDeadlines,
+      tasksByStatus,
+      tasksByPriority,
+      weeklyTaskCompletion,
+      teamPerformance: {
+        labels: teamLabels,
+        data: teamData,
+      },
+    };
+  }, [tasks, users]);
 
   // Add retry functionality with loading state
   const [isRetrying, setIsRetrying] = useState(false);
@@ -507,6 +624,10 @@ const AdminPage = () => {
     setEditTaskData(formattedTask);
   };
 
+  const handleCreateTask = () => {
+    setShowCreateTask(true);
+  };
+
   return (
     <div className={`min-h-screen bg-secondary-50 dark:bg-secondary-900 pt-16 px-4 sm:px-6 lg:px-8 transition-all duration-300 ${isLoaded ? 'opacity-100' : 'opacity-0'}`}>
       {(error || tasksError || usersError) && (
@@ -552,7 +673,7 @@ const AdminPage = () => {
                 <FaTimes />
               </button>
             </div>
-            <CreateTask
+            <AdminCreateTask
               isModal={true}
               onClose={() => {
                 setShowCreateTask(false);
@@ -897,13 +1018,20 @@ const AdminPage = () => {
                     )}
                   </div>
                   
-                  <button
-                    onClick={() => setShowCreateTask(true)}
-                    className="flex items-center px-4 py-2 bg-primary-500 hover:bg-primary-600 text-white rounded-lg font-medium shadow-sm hover:shadow-lg transition-all duration-200 hover:-translate-y-1"
-                  >
-                    <FaPlus className="mr-2" />
-                    Add Task
-                  </button>
+                  <div className="flex items-center gap-4">
+                    <button
+                      onClick={handleCreateTask}
+                      className="flex items-center px-4 py-2 bg-primary-500 hover:bg-primary-600 text-white rounded-lg font-medium shadow-sm hover:shadow-lg transition-all duration-200 hover:-translate-y-1"
+                    >
+                      <FaPlus className="mr-2" /> Create Task
+                    </button>
+                    <Link
+                      to="/admin-create-task"
+                      className="flex items-center px-4 py-2 bg-secondary-100 dark:bg-secondary-700 hover:bg-secondary-200 dark:hover:bg-secondary-600 text-secondary-900 dark:text-white rounded-lg font-medium shadow-sm hover:shadow transition-all duration-200"
+                    >
+                      <FaExternalLinkAlt className="mr-2 text-xs" /> Full Page
+                    </Link>
+                  </div>
                 </div>
               </div>
 
@@ -1122,190 +1250,186 @@ const AdminPage = () => {
             <div className="space-y-6">
               {/* Performance Metrics */}
               <div>
-                <h2 className="text-xl font-bold text-secondary-900 dark:text-white flex items-center mb-4">
-                  <span className="bg-gradient-to-r from-primary-500 to-primary-700 bg-clip-text text-transparent">
-                    Performance Metrics
-                  </span>
+                <h2 className="text-lg font-semibold text-gray-900 mb-4">
+                  Performance Metrics
                 </h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="glass-morphism rounded-xl p-6 border border-secondary-200 dark:border-secondary-700 shadow-sm">
-                    <h3 className="text-sm font-medium text-secondary-500 dark:text-secondary-400 mb-2">
+                  {/* Task Completion Rate */}
+                  <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-6">
+                    <h3 className="text-sm font-medium text-gray-500 mb-2">
                       Task Completion Rate
                     </h3>
-                    <div className="flex items-center">
-                      <div className="flex-1 bg-secondary-200 dark:bg-secondary-700 rounded-full h-2">
-                        <div
-                          className="bg-success-500 dark:bg-success-400 h-2 rounded-full"
-                          style={{
-                            width: `${
-                              (metrics.completedTasks / metrics.totalTasks) *
-                              100
-                            }%`,
-                          }}
-                        />
+                    <div className="h-64">
+                      <div className="flex justify-center items-center h-full">
+                        <div className="w-full max-w-[220px]">
+                          <PieChart
+                            data={{
+                              labels: ['Complete', 'In Progress', 'To Do'],
+                              datasets: [
+                                {
+                                  data: metrics.tasksByStatus,
+                                  backgroundColor: [
+                                    'rgba(72, 187, 120, 0.7)',
+                                    'rgba(66, 153, 225, 0.7)',
+                                    'rgba(160, 174, 192, 0.7)',
+                                  ],
+                                  borderColor: [
+                                    'rgba(72, 187, 120, 1)',
+                                    'rgba(66, 153, 225, 1)',
+                                    'rgba(160, 174, 192, 1)',
+                                  ],
+                                  borderWidth: 1,
+                                },
+                              ],
+                            }}
+                            options={{
+                              responsive: true,
+                              maintainAspectRatio: false,
+                              plugins: {
+                                legend: {
+                                  position: 'bottom',
+                                },
+                                tooltip: {
+                                  callbacks: {
+                                    label: function(context) {
+                                      const value = context.raw;
+                                      const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                      const percentage = total > 0 ? Math.round((value / total) * 100) : 0;
+                                      return `${value} tasks (${percentage}%)`;
+                                    }
+                                  }
+                                }
+                              },
+                            }}
+                          />
+                        </div>
                       </div>
-                      <span className="ml-4 text-sm font-medium text-secondary-900 dark:text-white">
-                        {Math.round(
-                          (metrics.completedTasks / metrics.totalTasks) * 100
-                        )}
-                        %
-                      </span>
                     </div>
                   </div>
-                  <div className="glass-morphism rounded-xl p-6 border border-secondary-200 dark:border-secondary-700 shadow-sm">
-                    <h3 className="text-sm font-medium text-secondary-500 dark:text-secondary-400 mb-2">
-                      Team Performance
+                  
+                  {/* Task Priority Distribution */}
+                  <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-6">
+                    <h3 className="text-sm font-medium text-gray-500 mb-2">
+                      Task Priority Distribution
                     </h3>
-                    <div className="h-40">
-                      {metrics.teamPerformance.labels.map((team, index) => (
-                        <div key={team} className="flex items-center mb-2">
-                          <span className="w-16 text-sm text-secondary-600 dark:text-secondary-400">
-                            {team}
-                          </span>
-                          <div className="flex-1 bg-secondary-200 dark:bg-secondary-700 rounded-full h-2 ml-2">
-                            <div
-                              className="bg-primary-500 dark:bg-primary-400 h-2 rounded-full"
-                              style={{
-                                width: `${metrics.teamPerformance.data[index]}%`,
-                              }}
-                            />
-                          </div>
-                          <span className="ml-2 text-sm text-secondary-600 dark:text-secondary-400">
-                            {metrics.teamPerformance.data[index]}%
-                          </span>
-                        </div>
-                      ))}
+                    <div className="h-64">
+                      <BarChart
+                        data={{
+                          labels: ['Low', 'Medium', 'High'],
+                          datasets: [
+                            {
+                              label: 'Tasks by Priority',
+                              data: metrics.tasksByPriority,
+                              backgroundColor: [
+                                'rgba(72, 187, 120, 0.7)',
+                                'rgba(237, 137, 54, 0.7)',
+                                'rgba(229, 62, 62, 0.7)',
+                              ],
+                              borderColor: [
+                                'rgba(72, 187, 120, 1)',
+                                'rgba(237, 137, 54, 1)',
+                                'rgba(229, 62, 62, 1)',
+                              ],
+                              borderWidth: 1,
+                            },
+                          ],
+                        }}
+                        options={{
+                          responsive: true,
+                          maintainAspectRatio: false,
+                          plugins: {
+                            legend: {
+                              display: false,
+                            },
+                          },
+                          scales: {
+                            y: {
+                              beginAtZero: true,
+                              title: {
+                                display: true,
+                                text: 'Number of Tasks',
+                              },
+                            },
+                          },
+                        }}
+                      />
                     </div>
                   </div>
                 </div>
 
                 {/* Weekly Task Completion Chart */}
-                <div className="mt-6 glass-morphism rounded-xl p-6 border border-secondary-200 dark:border-secondary-700 shadow-sm">
-                  <h3 className="text-sm font-medium text-secondary-500 dark:text-secondary-400 mb-4">
+                <div className="mt-6 bg-gray-50 dark:bg-gray-800 rounded-lg p-6">
+                  <h3 className="text-sm font-medium text-gray-500 mb-4">
                     Weekly Progress
                   </h3>
                   <div className="h-64">
-                    <Line data={chartData} options={chartOptions} />
+                    <Line 
+                      data={{
+                        labels: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
+                        datasets: [
+                          {
+                            label: 'Tasks Completed',
+                            data: metrics.weeklyTaskCompletion,
+                            fill: false,
+                            borderColor: 'rgb(75, 192, 192)',
+                            tension: 0.1,
+                            backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                          },
+                        ],
+                      }} 
+                      options={chartOptions} 
+                    />
                   </div>
                 </div>
               </div>
 
-              {/* Recent Activity */}
-              <div>
-                <h2 className="text-xl font-bold text-secondary-900 dark:text-white flex items-center mb-4">
-                  <span className="bg-gradient-to-r from-primary-500 to-primary-700 bg-clip-text text-transparent">
-                    Recent Activity
-                  </span>
-                </h2>
-                <div className="glass-morphism rounded-xl p-6 border border-secondary-200 dark:border-secondary-700 shadow-sm">
-                  <div className="space-y-4">
-                    {/* Mock recent activity items */}
-                    <div className="flex items-start p-3 rounded-lg hover:bg-secondary-50 dark:hover:bg-secondary-800/50 transition-colors duration-200">
-                      <div className="flex-shrink-0">
-                        <div className="h-10 w-10 rounded-full bg-primary-100 dark:bg-primary-900/20 flex items-center justify-center">
-                          <FaUsers className="h-5 w-5 text-primary-600 dark:text-primary-400" />
-                        </div>
-                      </div>
-                      <div className="ml-4">
-                        <p className="text-sm font-medium text-secondary-900 dark:text-white">
-                          New user John Doe joined the team
-                        </p>
-                        <p className="text-xs text-secondary-500 dark:text-secondary-400 mt-1">2 hours ago</p>
-                      </div>
-                    </div>
-                    <div className="flex items-start p-3 rounded-lg hover:bg-secondary-50 dark:hover:bg-secondary-800/50 transition-colors duration-200">
-                      <div className="flex-shrink-0">
-                        <div className="h-10 w-10 rounded-full bg-success-100 dark:bg-success-900/20 flex items-center justify-center">
-                          <FaTasks className="h-5 w-5 text-success-600 dark:text-success-400" />
-                        </div>
-                      </div>
-                      <div className="ml-4">
-                        <p className="text-sm font-medium text-secondary-900 dark:text-white">
-                          Task "Update Documentation" completed
-                        </p>
-                        <p className="text-xs text-secondary-500 dark:text-secondary-400 mt-1">5 hours ago</p>
-                      </div>
-                    </div>
-                    <div className="flex items-start p-3 rounded-lg hover:bg-secondary-50 dark:hover:bg-secondary-800/50 transition-colors duration-200">
-                      <div className="flex-shrink-0">
-                        <div className="h-10 w-10 rounded-full bg-warning-100 dark:bg-warning-900/20 flex items-center justify-center">
-                          <FaCalendarAlt className="h-5 w-5 text-warning-600 dark:text-warning-400" />
-                        </div>
-                      </div>
-                      <div className="ml-4">
-                        <p className="text-sm font-medium text-secondary-900 dark:text-white">
-                          Task "Quarterly Review" deadline approaching
-                        </p>
-                        <p className="text-xs text-secondary-500 dark:text-secondary-400 mt-1">1 day ago</p>
-                      </div>
-                    </div>
+              {/* Team Performance */}
+              <div className="mt-6 bg-gray-50 dark:bg-gray-800 rounded-lg p-6">
+                <h3 className="text-sm font-medium text-gray-500 mb-4">
+                  Team Performance
+                </h3>
+                {metrics.teamPerformance.labels.length > 0 ? (
+                  <div className="h-64">
+                    <BarChart
+                      data={{
+                        labels: metrics.teamPerformance.labels,
+                        datasets: [
+                          {
+                            label: 'Completion Rate (%)',
+                            data: metrics.teamPerformance.data,
+                            backgroundColor: 'rgba(66, 153, 225, 0.7)',
+                            borderColor: 'rgba(66, 153, 225, 1)',
+                            borderWidth: 1,
+                          },
+                        ],
+                      }}
+                      options={{
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        indexAxis: 'y',
+                        plugins: {
+                          legend: {
+                            display: false,
+                          },
+                        },
+                        scales: {
+                          x: {
+                            min: 0,
+                            max: 100,
+                            title: {
+                              display: true,
+                              text: 'Completion Rate (%)',
+                            },
+                          },
+                        },
+                      }}
+                    />
                   </div>
-                </div>
-              </div>
-              
-              {/* System Health */}
-              <div>
-                <h2 className="text-xl font-bold text-secondary-900 dark:text-white flex items-center mb-4">
-                  <span className="bg-gradient-to-r from-primary-500 to-primary-700 bg-clip-text text-transparent">
-                    System Health
-                  </span>
-                </h2>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <div className="glass-morphism rounded-xl p-6 border border-secondary-200 dark:border-secondary-700 shadow-sm">
-                    <div className="flex items-center justify-between mb-2">
-                      <h3 className="text-sm font-medium text-secondary-500 dark:text-secondary-400">
-                        Server Status
-                      </h3>
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-success-100 dark:bg-success-900/20 text-success-800 dark:text-success-300">
-                        Healthy
-                      </span>
-                    </div>
-                    <div className="flex items-center mt-4">
-                      <FaCheckCircle className="h-5 w-5 text-success-500 dark:text-success-400" />
-                      <span className="ml-2 text-sm text-secondary-600 dark:text-secondary-400">
-                        All systems operational
-                      </span>
-                    </div>
+                ) : (
+                  <div className="h-64 flex items-center justify-center">
+                    <p className="text-gray-500">No team performance data available</p>
                   </div>
-                  <div className="glass-morphism rounded-xl p-6 border border-secondary-200 dark:border-secondary-700 shadow-sm">
-                    <div className="flex items-center justify-between mb-2">
-                      <h3 className="text-sm font-medium text-secondary-500 dark:text-secondary-400">
-                        Database Load
-                      </h3>
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-warning-100 dark:bg-warning-900/20 text-warning-800 dark:text-warning-300">
-                        Moderate
-                      </span>
-                    </div>
-                    <div className="mt-4">
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-xs text-secondary-500 dark:text-secondary-400">Current: 42%</span>
-                        <span className="text-xs text-secondary-500 dark:text-secondary-400">Threshold: 80%</span>
-                      </div>
-                      <div className="w-full bg-secondary-200 dark:bg-secondary-700 rounded-full h-2">
-                        <div className="bg-warning-500 dark:bg-warning-400 h-2 rounded-full" style={{ width: '42%' }}></div>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="glass-morphism rounded-xl p-6 border border-secondary-200 dark:border-secondary-700 shadow-sm">
-                    <div className="flex items-center justify-between mb-2">
-                      <h3 className="text-sm font-medium text-secondary-500 dark:text-secondary-400">
-                        API Requests
-                      </h3>
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary-100 dark:bg-primary-900/20 text-primary-800 dark:text-primary-300">
-                        Normal
-                      </span>
-                    </div>
-                    <div className="mt-4">
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-xs text-secondary-500 dark:text-secondary-400">Today: 1,248</span>
-                        <span className="text-xs text-secondary-500 dark:text-secondary-400">Avg: 1,100</span>
-                      </div>
-                      <div className="w-full bg-secondary-200 dark:bg-secondary-700 rounded-full h-2">
-                        <div className="bg-primary-500 dark:bg-primary-400 h-2 rounded-full" style={{ width: '65%' }}></div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                )}
               </div>
             </div>
           )}
@@ -1329,20 +1453,14 @@ const EditTaskForm = ({ task, onClose }) => {
     description: task.description || '',
     dueDate: task.dueDate || '',
     priority: task.priority?.toLowerCase() || 'medium',
-    assignees: task.assignees || [],
+    status: task.status || 'Incomplete',
   });
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(false);
-
+  
   const handleChange = (e) => {
     const { name, value } = e.target;
-    if (name === "assignees") {
-      // Convert comma-separated string to array and trim whitespace
-      const assignees = value ? value.split(",").map(id => id.trim()).filter(Boolean) : [];
-      setEditedTask(prev => ({ ...prev, assignees }));
-    } else {
-      setEditedTask(prev => ({ ...prev, [name]: value }));
-    }
+    setEditedTask(prev => ({ ...prev, [name]: value }));
   };
 
   const handleSubmit = async (e) => {
@@ -1367,6 +1485,7 @@ const EditTaskForm = ({ task, onClose }) => {
         title: editedTask.title.trim(),
         description: editedTask.description.trim(),
         priority: editedTask.priority,
+        status: editedTask.status,
       };
       
       // Only include dueDate if it's not empty
@@ -1374,10 +1493,8 @@ const EditTaskForm = ({ task, onClose }) => {
         taskData.dueDate = editedTask.dueDate;
       }
       
-      // Only include assignees if it's not empty
-      if (editedTask.assignees && editedTask.assignees.length > 0) {
-        taskData.assignees = editedTask.assignees;
-      }
+      // The backend doesn't allow updating assignees through the task update endpoint
+      // We need to use a dedicated endpoint for managing assignees
       
       console.log("Updating task:", taskData);
       await updateTask(taskData).unwrap();
@@ -1410,7 +1527,7 @@ const EditTaskForm = ({ task, onClose }) => {
 
       <form onSubmit={handleSubmit} className="space-y-5">
         <div className="flex flex-col">
-          <label htmlFor="title" className="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">
+          <label htmlFor="title" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
             Task Title <span className="text-danger-500">*</span>
           </label>
           <input
@@ -1420,13 +1537,13 @@ const EditTaskForm = ({ task, onClose }) => {
             placeholder="Enter task title"
             value={editedTask.title}
             onChange={handleChange}
-            className="w-full px-4 py-2.5 bg-white dark:bg-secondary-800 border border-secondary-300 dark:border-secondary-700 rounded-lg text-secondary-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all"
+            className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all"
             required
           />
         </div>
 
         <div className="flex flex-col">
-          <label htmlFor="description" className="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">
+          <label htmlFor="description" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
             Description
           </label>
           <textarea
@@ -1435,19 +1552,19 @@ const EditTaskForm = ({ task, onClose }) => {
             placeholder="Enter task description"
             value={editedTask.description}
             onChange={handleChange}
-            className="w-full px-4 py-2.5 bg-white dark:bg-secondary-800 border border-secondary-300 dark:border-secondary-700 rounded-lg text-secondary-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all resize-none"
+            className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all resize-none"
             rows={4}
           />
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
           <div className="relative flex flex-col">
-            <label htmlFor="dueDate" className="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">
+            <label htmlFor="dueDate" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Due Date
             </label>
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <FaCalendarAlt className="text-secondary-400 dark:text-secondary-500" />
+                <FaCalendarAlt className="text-gray-400 dark:text-gray-500" />
               </div>
               <input
                 type="date"
@@ -1455,85 +1572,104 @@ const EditTaskForm = ({ task, onClose }) => {
                 name="dueDate"
                 value={editedTask.dueDate}
                 onChange={handleChange}
-                className="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-secondary-800 border border-secondary-300 dark:border-secondary-700 rounded-lg text-secondary-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all"
+                className="w-full pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all"
               />
             </div>
           </div>
 
           <div className="relative flex flex-col">
-            <label htmlFor="priority" className="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">
+            <label htmlFor="priority" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Priority
             </label>
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <FaExclamationCircle className="text-secondary-400 dark:text-secondary-500" />
+                <FaExclamationCircle className="text-gray-400 dark:text-gray-500" />
               </div>
               <select
                 name="priority"
                 value={editedTask.priority}
                 onChange={handleChange}
-                className="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-secondary-800 border border-secondary-300 dark:border-secondary-700 rounded-lg text-secondary-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all appearance-none"
+                className="w-full pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all appearance-none"
               >
                 <option value="low">Low</option>
                 <option value="medium">Medium</option>
                 <option value="high">High</option>
               </select>
               <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-                <FaChevronDown className="text-secondary-400 dark:text-secondary-500" />
+                <FaChevronDown className="text-gray-400 dark:text-gray-500" />
               </div>
             </div>
           </div>
 
           <div className="relative flex flex-col">
-            <label htmlFor="assignees" className="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">
-              Assign to (User IDs, comma-separated)
+            <label htmlFor="status" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Status
             </label>
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <FaUser className="text-secondary-400 dark:text-secondary-500" />
+                <FaCheckCircle className="text-gray-400 dark:text-gray-500" />
               </div>
-              <input
-                type="text"
-                id="assignees"
-                name="assignees"
-                placeholder="Enter user IDs (comma-separated)"
-                value={editedTask.assignees.join(", ")}
+              <select
+                name="status"
+                value={editedTask.status}
                 onChange={handleChange}
-                className="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-secondary-800 border border-secondary-300 dark:border-secondary-700 rounded-lg text-secondary-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all"
-              />
+                className="w-full pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all appearance-none"
+              >
+                <option value="Incomplete">To Do</option>
+                <option value="In Progress">In Progress</option>
+                <option value="Complete">Done</option>
+              </select>
+              <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                <FaChevronDown className="text-gray-400 dark:text-gray-500" />
+              </div>
             </div>
           </div>
         </div>
 
-        <div className="flex justify-end space-x-3 pt-4 border-t border-secondary-200 dark:border-secondary-700">
+        <div className="p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300 rounded-lg">
+          <div className="flex items-start">
+            <FaInfoCircle className="mt-0.5 mr-2 flex-shrink-0" />
+            <p className="text-sm">
+              <strong>Note:</strong> Task assignees cannot be edited through this form due to backend restrictions. 
+              If you need to update assignees, please use the dedicated endpoint.
+            </p>
+          </div>
+        </div>
+
+        <div className="flex justify-end space-x-3 pt-4">
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 bg-secondary-100 dark:bg-secondary-800 hover:bg-secondary-200 dark:hover:bg-secondary-700 text-secondary-700 dark:text-secondary-300 rounded-lg font-medium transition-all"
+            className="px-4 py-2 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg font-medium transition-all"
           >
             Cancel
           </button>
           <button
             type="submit"
             disabled={isLoading}
-            className="px-6 py-2 bg-primary-500 hover:bg-primary-600 text-white rounded-lg font-medium shadow-sm hover:shadow-lg transition-all hover:-translate-y-1 flex items-center"
+            className="px-4 py-2 bg-primary-500 hover:bg-primary-600 text-white rounded-lg font-medium shadow-sm hover:shadow-lg transition-all"
           >
-            {isLoading ? (
-              <>
-                <FaSpinner className="animate-spin mr-2" />
-                Updating...
-              </>
-            ) : (
-              <>
-                <FaSave className="mr-2" />
-                Update Task
-              </>
-            )}
+            {isLoading ? "Saving..." : "Save Changes"}
           </button>
         </div>
       </form>
     </div>
   );
+};
+
+// Create component wrappers for charts to handle null data gracefully
+const BarChart = ({ data, options }) => {
+  if (!data || !data.labels || !data.datasets) {
+    return <div className="h-full flex items-center justify-center text-gray-500">No data available</div>;
+  }
+  return <Bar data={data} options={options} />;
+};
+
+const PieChart = ({ data, options }) => {
+  if (!data || !data.labels || !data.datasets) {
+    return <div className="h-full flex items-center justify-center text-gray-500">No data available</div>;
+  }
+  return <Pie data={data} options={options} />;
 };
 
 export default AdminPage;

@@ -18,13 +18,18 @@ export const authApiSlice = apiSlice.injectEndpoints({
       },
     }),
     register: builder.mutation({
-      query: (initialUserData) => ({
-        url: "/auth/register",
+      query: ({ token, password }) => ({
+        url: `/auth/register/${token}`,
         method: "POST",
-        body: {
-          ...initialUserData,
-        },
+        body: { password },
       }),
+      // Handle any errors
+      transformErrorResponse: (response) => {
+        return {
+          status: response.status,
+          message: response.data?.message || "Registration failed. Please try again.",
+        };
+      },
       invalidatesTags: [{ type: "User" }],
     }),
     logout: builder.mutation({

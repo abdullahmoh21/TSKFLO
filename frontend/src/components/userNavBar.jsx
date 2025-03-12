@@ -8,15 +8,13 @@ import {
   FaSignOutAlt, 
   FaMoon, 
   FaSun, 
-  FaPlus, 
-  FaBell 
+  FaPlus
 } from "react-icons/fa";
 import { useSelector, useDispatch } from "react-redux";
 import { selectCurrentUserName, logOut } from "../features/auth/authSlice";
 import { useLogoutMutation } from "../features/auth/authApiSlice";
 import { useGetMyDataQuery } from "../features/user/userApiSlice";
 import UserProfilePopup from "./UserProfilePopup";
-import NotificationPanel from "./NotificationPanel";
 
 const UserDashNavbar = () => {
   const location = useLocation();
@@ -42,11 +40,6 @@ const UserDashNavbar = () => {
   const [showPopup, setShowPopup] = useState(false);
   const [darkMode, setDarkMode] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
-  const [showNotifications, setShowNotifications] = useState(false);
-  const [notifications, setNotifications] = useState([
-    { id: 1, text: "New task assigned to you", isRead: false },
-    { id: 2, text: "Task deadline approaching", isRead: false }
-  ]);
   
   // Handle dark mode toggle
   useEffect(() => {
@@ -108,14 +101,6 @@ const UserDashNavbar = () => {
       dispatch(logOut());
       navigate("/login", { replace: true });
     }
-  };
-
-  // Get unread notification count
-  const unreadCount = notifications.filter(n => !n.isRead).length;
-  
-  // Toggle notifications panel
-  const toggleNotifications = () => {
-    setShowNotifications(!showNotifications);
   };
 
   return (
@@ -180,28 +165,6 @@ const UserDashNavbar = () => {
 
             {/* User actions */}
             <div className="flex items-center gap-2">
-              {/* Notifications */}
-              <div className="relative">
-                <button 
-                  onClick={toggleNotifications}
-                  className="p-2 rounded-full hover:bg-secondary-100 dark:hover:bg-secondary-800 transition-colors text-secondary-600 dark:text-secondary-400"
-                  aria-label="Notifications"
-                >
-                  <FaBell className="h-5 w-5" />
-                  {unreadCount > 0 && (
-                    <span className="absolute top-0 right-0 bg-danger-500 text-white text-xs rounded-full h-4 w-4 flex items-center justify-center animate-pulse">
-                      {unreadCount}
-                    </span>
-                  )}
-                </button>
-                
-                {/* Notification Panel */}
-                <NotificationPanel 
-                  isOpen={showNotifications} 
-                  onClose={() => setShowNotifications(false)} 
-                />
-              </div>
-              
               {/* Dark mode toggle */}
               <button 
                 onClick={toggleDarkMode}

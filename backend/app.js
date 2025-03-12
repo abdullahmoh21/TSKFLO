@@ -22,7 +22,6 @@ app.use("/auth", require("./endpoints/authEndpoints"));
 app.use("/user", require("./endpoints/userEndpoints"));
 app.use("/tasks", require("./endpoints/tasksEndpoints"));
 app.use("/admin", require("./endpoints/adminEndpoints"));
-app.use("/conversations", require("./endpoints/conversationsEndpoints"));
 
 app.use(require("./middleware/formatJoiErrors")); // formats Joi validation errors into JSON
 app.use(require("./middleware/errorHandler")); // catches any unhandled error

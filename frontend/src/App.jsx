@@ -21,7 +21,6 @@ import AdminRoute from "./components/AdminRoute";
 import AdminPage from "./pages/AdminDashboard";
 import MessagingPage from "./pages/MessagingPage";
 import PersistLogin from "./components/PersistLogin";
-import SocketInitializer from "./features/socket/SocketInitializer";
 
 // Create a wrapper component that uses location
 function AppContent() {
@@ -99,7 +98,6 @@ function App() {
   return (
     <Router>
       <AuthCheck />
-      <SocketInitializer />
       <AppContent />
     </Router>
   );

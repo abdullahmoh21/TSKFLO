@@ -585,32 +585,36 @@ const UserDashboard = () => {
                     onMouseLeave={() => setHoveredTask(null)}
                   >
                     <div className="p-5">
-                      <div className="flex justify-between items-start mb-3">
-                        <div>
-                          <div className="flex items-center gap-2">
-                            {task.priority === "high" && (
-                              <span className="text-danger-500 dark:text-danger-400">
-                                <FaArrowUp />
-                              </span>
-                            )}
-                            {isOverdue(task.dueDate) && (
-                              <span className="text-danger-500 dark:text-danger-400">
-                                <FaExclamationCircle />
-                              </span>
-                            )}
-                            <h3 className="text-lg font-semibold text-secondary-900 dark:text-white">{task.title}</h3>
+                      <div className="flex flex-col mb-3">
+                        <div className="flex justify-between items-start mb-2">
+                          <div className="flex items-start gap-2 w-[60%]">
+                            <div className="flex flex-shrink-0 mt-1">
+                              {task.priority === "high" && (
+                                <span className="text-danger-500 dark:text-danger-400 mr-1">
+                                  <FaArrowUp />
+                                </span>
+                              )}
+                              {isOverdue(task.dueDate) && (
+                                <span className="text-danger-500 dark:text-danger-400">
+                                  <FaExclamationCircle />
+                                </span>
+                              )}
+                            </div>
+                            <h3 className="text-lg font-semibold text-secondary-900 dark:text-white truncate">
+                              {task.title}
+                            </h3>
                           </div>
-                          <div className="text-sm text-secondary-500 dark:text-secondary-400 mt-1">
-                            {getTaskRelationshipLabel(task)}
+                          <div className="flex gap-1 flex-shrink-0">
+                            <span className={`px-2.5 py-1 rounded-lg text-xs font-medium whitespace-nowrap ${getStatusColor(task.status)}`}>
+                              {formatStatus(task.status)}
+                            </span>
+                            <span className={`px-2.5 py-1 rounded-lg text-xs font-medium whitespace-nowrap bg-white/50 dark:bg-secondary-700/50 ${getPriorityColor(task.priority)}`}>
+                              {formatPriority(task.priority)}
+                            </span>
                           </div>
                         </div>
-                        <div className="flex gap-1">
-                          <span className={`px-2.5 py-1 rounded-lg text-xs font-medium ${getStatusColor(task.status)}`}>
-                            {formatStatus(task.status)}
-                          </span>
-                          <span className={`px-2.5 py-1 rounded-lg text-xs font-medium bg-white/50 dark:bg-secondary-700/50 ${getPriorityColor(task.priority)}`}>
-                            {formatPriority(task.priority)}
-                          </span>
+                        <div className="text-sm text-secondary-500 dark:text-secondary-400">
+                          {getTaskRelationshipLabel(task)}
                         </div>
                       </div>
                       
@@ -648,14 +652,16 @@ const UserDashboard = () => {
                           >
                             <FaEdit />
                           </button>
-                          <button
-                            onClick={() => handleDeleteTask(task._id)}
-                            className="p-1.5 rounded-full text-secondary-500 hover:text-danger-500 dark:text-secondary-400 dark:hover:text-danger-400 hover:bg-secondary-100 dark:hover:bg-secondary-700/50 transition-colors"
-                            aria-label="Delete task"
-                            disabled={isDeleting}
-                          >
-                            <FaTrash />
-                          </button>
+                          {task.owner && task.owner._id === userId && (
+                            <button
+                              onClick={() => handleDeleteTask(task._id)}
+                              className="p-1.5 rounded-full text-secondary-500 hover:text-danger-500 dark:text-secondary-400 dark:hover:text-danger-400 hover:bg-secondary-100 dark:hover:bg-secondary-700/50 transition-colors"
+                              aria-label="Delete task"
+                              disabled={isDeleting}
+                            >
+                              <FaTrash />
+                            </button>
+                          )}
                         </div>
                       </div>
                     </div>

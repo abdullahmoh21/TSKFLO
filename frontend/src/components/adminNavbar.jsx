@@ -16,6 +16,7 @@ import {
 import { useSelector, useDispatch } from "react-redux";
 import { selectCurrentUserName, logOut } from "../features/auth/authSlice";
 import { useLogoutMutation } from "../features/auth/authApiSlice";
+import NotificationPanel from "./NotificationPanel";
 
 const AdminNavbar = () => {
   const location = useLocation();
@@ -29,6 +30,7 @@ const AdminNavbar = () => {
     { id: 1, text: "New user registration", isRead: false },
     { id: 2, text: "System maintenance scheduled", isRead: false }
   ]);
+  const [showNotifications, setShowNotifications] = useState(false);
 
   // Get user name from Redux state
   const userName = useSelector(selectCurrentUserName);
@@ -95,6 +97,11 @@ const AdminNavbar = () => {
   // Get unread notification count
   const unreadCount = notifications.filter(n => !n.isRead).length;
 
+  // Toggle notifications panel
+  const toggleNotifications = () => {
+    setShowNotifications(!showNotifications);
+  };
+
   return (
     <header 
       className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
@@ -153,6 +160,7 @@ const AdminNavbar = () => {
               {/* Notifications */}
               <div className="relative">
                 <button 
+                  onClick={toggleNotifications}
                   className="p-2 rounded-full hover:bg-secondary-100 dark:hover:bg-secondary-800 transition-colors text-secondary-600 dark:text-secondary-400"
                   aria-label="Notifications"
                 >
@@ -163,6 +171,12 @@ const AdminNavbar = () => {
                     </span>
                   )}
                 </button>
+                
+                {/* Notification Panel */}
+                <NotificationPanel 
+                  isOpen={showNotifications} 
+                  onClose={() => setShowNotifications(false)} 
+                />
               </div>
               
               {/* Dark mode toggle */}

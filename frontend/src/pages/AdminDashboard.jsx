@@ -23,6 +23,8 @@ import {
   FaSave,
   FaArrowUp,
   FaStar,
+  FaChartBar,
+  FaClipboardList,
 } from "react-icons/fa";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Line } from "react-chartjs-2";
@@ -35,6 +37,7 @@ import {
   useUpdateAdminTaskMutation,
   useCreateAdminTaskMutation,
   useLockAdminTaskMutation,
+  useUpdateAdminUserMutation,
 } from "../features/admin/adminApiSlice";
 import 'react-tooltip/dist/react-tooltip.css';
 import { Tooltip as ReactTooltip } from 'react-tooltip';
@@ -93,6 +96,7 @@ const AdminPage = () => {
   // Animation state
   const [isLoaded, setIsLoaded] = useState(false);
   const [hoveredTask, setHoveredTask] = useState(null);
+  const [editUserData, setEditUserData] = useState(null);
 
   // Add the isOverdue function
   const isOverdue = (dueDate) => {
@@ -528,6 +532,17 @@ const AdminPage = () => {
     navigate(`/admindashboard${tab === 'dashboard' ? '' : `?tab=${tab}`}`);
   };
 
+  // Function to handle opening the edit user modal
+  const handleEditUser = (user) => {
+    setEditUserData(user);
+  };
+
+  // Function to handle closing the edit user modal
+  const handleCloseEditUser = () => {
+    setEditUserData(null);
+    refetchUsers(); // Refresh the users list after edit
+  };
+
   return (
     <div className={`min-h-screen bg-secondary-50 dark:bg-secondary-900 pt-16 px-4 sm:px-6 lg:px-8 transition-all duration-300 ${isLoaded ? 'opacity-100' : 'opacity-0'}`}>
       {(error || tasksError || usersError) && (
@@ -610,6 +625,27 @@ const AdminPage = () => {
                 refetchTasks();
               }} 
             />
+          </div>
+        </div>
+      )}
+      {/* Edit User Modal */}
+      {editUserData && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm overflow-y-auto h-full w-full z-50 flex items-center justify-center">
+          <div className="relative mx-auto p-5 border max-w-xl shadow-xl rounded-xl bg-white dark:bg-secondary-800 animate-scale-in">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-xl font-bold text-secondary-900 dark:text-white">
+                <span className="bg-gradient-to-r from-primary-500 to-primary-700 bg-clip-text text-transparent">
+                  Edit User
+                </span>
+              </h3>
+              <button
+                onClick={handleCloseEditUser}
+                className="p-2 rounded-full hover:bg-secondary-100 dark:hover:bg-secondary-700 text-secondary-500 dark:text-secondary-400 transition-colors"
+              >
+                <FaTimes />
+              </button>
+            </div>
+            <EditUserForm user={editUserData} onClose={handleCloseEditUser} />
           </div>
         </div>
       )}
@@ -761,7 +797,7 @@ const AdminPage = () => {
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                             <div className="flex space-x-3 opacity-70 hover:opacity-100 transition-opacity duration-200">
                               <button
-                                onClick={() => navigate(`/admin/users/${user.id}/edit`)}
+                                onClick={() => handleEditUser(user)}
                                 className="text-primary-600 dark:text-primary-400 hover:text-primary-900 dark:hover:text-primary-300 transition-colors duration-200"
                                 aria-label="Edit user"
                               >
@@ -1520,6 +1556,160 @@ const EditTaskForm = ({ task, onClose }) => {
         </div>
       </form>
     </div>
+  );
+};
+
+// Add EditUserForm component
+const EditUserForm = ({ user, onClose }) => {
+  const [updateUser] = useUpdateAdminUserMutation();
+  const [editedUser, setEditedUser] = useState({
+    name: user.name || '',
+    email: user.email || '',
+    phone: user.phone || '',
+    role: user.role || 'user'
+  });
+  const [error, setError] = useState(null);
+  const [success, setSuccess] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setEditedUser(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError(null);
+    setSuccess(false);
+    setIsLoading(true);
+
+    try {
+      const updates = {};
+      Object.keys(editedUser).forEach(key => {
+        if (editedUser[key] !== user[key]) {
+          updates[key] = editedUser[key];
+        }
+      });
+
+      if (Object.keys(updates).length === 0) {
+        onClose();
+        return;
+      }
+
+      await updateUser({ userId: user.id, ...updates }).unwrap();
+      setSuccess(true);
+      setTimeout(() => {
+        onClose();
+      }, 1500);
+    } catch (err) {
+      console.error('Failed to update user:', err);
+      setError(err?.data?.message || 'Failed to update user. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      {error && (
+        <div className="p-3 bg-danger-50 dark:bg-danger-900/20 border border-danger-200 dark:border-danger-800 text-danger-700 dark:text-danger-300 rounded-lg">
+          {error}
+        </div>
+      )}
+      
+      {success && (
+        <div className="p-3 bg-success-50 dark:bg-success-900/20 border border-success-200 dark:border-success-800 text-success-700 dark:text-success-300 rounded-lg">
+          User updated successfully!
+        </div>
+      )}
+
+      <div>
+        <label className="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">
+          Name
+        </label>
+        <input
+          type="text"
+          name="name"
+          value={editedUser.name}
+          onChange={handleChange}
+          className="w-full px-3 py-2 border border-secondary-300 dark:border-secondary-700 rounded-lg focus:ring-2 focus:ring-primary-500 dark:bg-secondary-800 dark:text-white"
+          required
+        />
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">
+          Email
+        </label>
+        <input
+          type="email"
+          name="email"
+          value={editedUser.email}
+          onChange={handleChange}
+          className="w-full px-3 py-2 border border-secondary-300 dark:border-secondary-700 rounded-lg focus:ring-2 focus:ring-primary-500 dark:bg-secondary-800 dark:text-white"
+          required
+        />
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">
+          Phone
+        </label>
+        <input
+          type="tel"
+          name="phone"
+          value={editedUser.phone}
+          onChange={handleChange}
+          className="w-full px-3 py-2 border border-secondary-300 dark:border-secondary-700 rounded-lg focus:ring-2 focus:ring-primary-500 dark:bg-secondary-800 dark:text-white"
+        />
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">
+          Role
+        </label>
+        <select
+          name="role"
+          value={editedUser.role}
+          onChange={handleChange}
+          className="w-full px-3 py-2 border border-secondary-300 dark:border-secondary-700 rounded-lg focus:ring-2 focus:ring-primary-500 dark:bg-secondary-800 dark:text-white"
+          required
+        >
+          <option value="user">User</option>
+          <option value="admin">Admin</option>
+        </select>
+      </div>
+
+      <div className="flex justify-end space-x-3 pt-4 border-t border-secondary-200 dark:border-secondary-700">
+        <button
+          type="button"
+          onClick={onClose}
+          className="px-4 py-2 bg-secondary-100 dark:bg-secondary-800 hover:bg-secondary-200 dark:hover:bg-secondary-700 text-secondary-700 dark:text-secondary-300 rounded-lg font-medium transition-all"
+        >
+          Cancel
+        </button>
+        <button
+          type="submit"
+          disabled={isLoading}
+          className="px-6 py-2 bg-primary-500 hover:bg-primary-600 text-white rounded-lg font-medium shadow-sm hover:shadow-lg transition-all hover:-translate-y-1 flex items-center"
+        >
+          {isLoading ? (
+            <>
+              <FaSpinner className="animate-spin mr-2" />
+              Updating...
+            </>
+          ) : (
+            <>
+              <FaSave className="mr-2" />
+              Update User
+            </>
+          )}
+        </button>
+      </div>
+    </form>
   );
 };
 

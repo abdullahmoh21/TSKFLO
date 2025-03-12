@@ -106,6 +106,15 @@ export const adminApiSlice = createApi({
       }),
       invalidatesTags: ["AdminTasks"],
     }),
+    updateAdminUser: builder.mutation({
+      query: ({ userId, ...updates }) => ({
+        url: `/users/${userId}`,
+        method: 'PATCH',
+        body: updates,
+        credentials: 'include'
+      }),
+      invalidatesTags: ['AdminUsers']
+    }),
   }),
 });
 
@@ -116,4 +125,5 @@ export const {
   useUpdateAdminTaskMutation,
   useCreateAdminTaskMutation,
   useLockAdminTaskMutation,
+  useUpdateAdminUserMutation,
 } = adminApiSlice;

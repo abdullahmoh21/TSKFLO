@@ -159,7 +159,12 @@ const getAllTasks = asyncHandler(async (req, res) => {
   const skip = (page - 1) * limit;
 
   // Fetch paginated users
-  const tasks = await Task.find().skip(skip).limit(limit).populate("assignees","_id name email").lean().exec();
+  const tasks = await Task.find()
+    .skip(skip)
+    .limit(limit)
+    .populate("assignees", "_id name email")
+    .lean()
+    .exec();
 
   // Get total number of users
   const totalTasks = await Task.countDocuments();

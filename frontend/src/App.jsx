@@ -16,6 +16,7 @@ import UserNavbar from "./components/userNavBar";
 import AdminNavbar from "./components/adminNavbar";
 import HomePage from "./pages/HomePage";
 import LoginPage from "./pages/LoginPage";
+import RegisterPage from "./pages/RegisterPage";
 import UserDashboard from "./pages/UserDashboard";
 import CreateTask from "./pages/CreateTask";
 import AboutPage from "./pages/AboutPage";
@@ -56,12 +57,13 @@ function AppContent() {
 
   return (
     <>
-      <NavbarComponent />
+      {!location.pathname.startsWith("/register") && <NavbarComponent />}
       <Routes>
         {/* Public routes */}
         <Route path="/" element={<HomePage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/about" element={<AboutPage />} />
+        <Route path="/register/:token" element={<RegisterPage />} />
 
         <Route element={<PersistLogin />}>
           <Route
@@ -97,9 +99,6 @@ function AppContent() {
             }
           />
         </Route>
-
-        {/* Fallback route */}
-        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </>
   );

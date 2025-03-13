@@ -1,12 +1,13 @@
-const Invitation = require("./models/Invitation");
+const Conversation = require("./models/Conversation");
 
-// Mock mongoose FIRST, before any models are loaded
 jest.mock("mongoose", () => {
   // Create mock model registry
   const mockModels = {
     Task: require("./__mocks__/models/Task"),
     User: require("./__mocks__/models/User"),
     Invitation: require("./__mocks__/models/Invitation"),
+    Message: require("./__mocks__/models/Message"),
+    Conversation: require("./__mocks__/models/Conversation"),
   };
 
   return {

@@ -7,15 +7,15 @@ import {
   Navigate,
 } from "react-router-dom";
 import { useSelector, useDispatch } from "react-redux";
-import { selectCurrentToken, selectCurrentUserRole } from "./features/auth/authSlice";
-import { ToastContainer } from 'react-toastify';
-import 'react-toastify/dist/ReactToastify.css';
+import {
+  selectCurrentToken,
+  selectCurrentUserRole,
+} from "./features/auth/authSlice";
 import HomeNavBar from "./components/homeNavBar";
 import UserNavbar from "./components/userNavBar";
 import AdminNavbar from "./components/adminNavbar";
 import HomePage from "./pages/HomePage";
 import LoginPage from "./pages/LoginPage";
-import RegisterPage from "./pages/RegisterPage";
 import UserDashboard from "./pages/UserDashboard";
 import CreateTask from "./pages/CreateTask";
 import AboutPage from "./pages/AboutPage";
@@ -24,17 +24,25 @@ import AdminRoute from "./components/AdminRoute";
 import AdminPage from "./pages/AdminDashboard";
 import MessagingPage from "./pages/MessagingPage";
 import PersistLogin from "./components/PersistLogin";
+import SocketInitializer from "./features/socket/SocketInitializer";
+import { NotificationProvider } from "./context/NotificationContext";
+import { ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 // Create a wrapper component that uses location
 function AppContent() {
   const location = useLocation();
   const token = useSelector(selectCurrentToken);
   const userRole = useSelector(selectCurrentUserRole);
-  const isAdmin = userRole === 'admin';
+  const isAdmin = userRole === "admin";
 
   // Decide which Navbar to show based on the current path and user role
   let NavbarComponent;
-  if (isAdmin && (location.pathname.startsWith("/admindashboard") || location.pathname.startsWith("/messaging"))) {
+  if (
+    isAdmin &&
+    (location.pathname.startsWith("/admindashboard") ||
+      location.pathname.startsWith("/messaging"))
+  ) {
     NavbarComponent = AdminNavbar;
   } else if (
     location.pathname.startsWith("/dashboard") ||
@@ -53,7 +61,6 @@ function AppContent() {
         {/* Public routes */}
         <Route path="/" element={<HomePage />} />
         <Route path="/login" element={<LoginPage />} />
-        <Route path="/register/:token" element={<RegisterPage />} />
         <Route path="/about" element={<AboutPage />} />
 
         <Route element={<PersistLogin />}>
@@ -90,7 +97,7 @@ function AppContent() {
             }
           />
         </Route>
-        
+
         {/* Fallback route */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
@@ -101,25 +108,23 @@ function AppContent() {
 function App() {
   return (
     <Router>
-      <ToastContainer />
-      <AuthCheck />
-      <AppContent />
+      <NotificationProvider>
+        <ToastContainer
+          position="top-right"
+          autoClose={5000}
+          hideProgressBar={false}
+          newestOnTop
+          closeOnClick
+          rtl={false}
+          pauseOnFocusLoss
+          draggable
+          pauseOnHover
+        />
+        <SocketInitializer />
+        <AppContent />
+      </NotificationProvider>
     </Router>
   );
-}
-
-// Add this new component for auth checking
-function AuthCheck() {
-  const token = useSelector(selectCurrentToken);
-  const dispatch = useDispatch();
-
-  useEffect(() => {
-    console.log("Auth check on application start");
-    // Token existence is now handled by the loadAuthState in authSlice
-    // This component is a hook point for any additional auth checks or initializations
-  }, []);
-
-  return null; // This component doesn't render anything
 }
 
 export default App;

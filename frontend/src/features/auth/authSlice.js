@@ -1,5 +1,6 @@
 import { createSlice } from "@reduxjs/toolkit";
 import { jwtDecode } from "jwt-decode";
+import { disconnectSocket } from "../../services/socketService";
 
 // Initialize default auth state
 const initialAuthState = {
@@ -41,6 +42,7 @@ const authSlice = createSlice({
       state.id = null;
       state.name = null;
       state.email = null;
+      disconnectSocket();
     },
   },
 });

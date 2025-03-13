@@ -4,7 +4,14 @@ import { useNavigate, Link } from "react-router-dom";
 import { useLoginMutation } from "../features/auth/authApiSlice"; // <-- RTK Query Hook
 import { setCredentials } from "../features/auth/authSlice";
 import { jwtDecode } from "jwt-decode";
-import { FaTasks, FaLock, FaEnvelope, FaEye, FaEyeSlash, FaArrowRight } from "react-icons/fa";
+import {
+  FaTasks,
+  FaLock,
+  FaEnvelope,
+  FaEye,
+  FaEyeSlash,
+  FaArrowRight,
+} from "react-icons/fa";
 
 const LoginPage = () => {
   const [email, setEmail] = useState("");
@@ -26,7 +33,6 @@ const LoginPage = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log("In handle Submit");
     // Simple client-side validation
     let newErrors = {};
     if (!email) {
@@ -50,7 +56,6 @@ const LoginPage = () => {
       dispatch(setCredentials({ accessToken }));
 
       const decoded = jwtDecode(accessToken);
-      console.log("Decoded Token:", decoded);
 
       // Navigate based on role
       if (decoded?.user?.role === "admin") {
@@ -72,18 +77,18 @@ const LoginPage = () => {
     <div className="relative min-h-screen overflow-hidden">
       {/* Animated gradient background */}
       <div className="absolute inset-0 bg-gradient-to-br from-primary-800 via-primary-600 to-secondary-800 animate-background bg-[length:200%_200%]"></div>
-      
+
       {/* Animated circles */}
       <div className="absolute top-0 left-0 w-full h-full overflow-hidden">
         <div className="absolute -top-40 -left-40 w-80 h-80 bg-primary-400 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-pulse"></div>
         <div className="absolute top-40 -right-40 w-96 h-96 bg-secondary-400 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-pulse"></div>
         <div className="absolute bottom-20 left-20 w-64 h-64 bg-secondary-300 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-pulse"></div>
       </div>
-      
+
       <div className="relative flex items-center justify-center min-h-screen px-4 py-12">
-        <div 
+        <div
           className={`w-full max-w-md transform transition-all duration-1000 ${
-            isVisible ? 'translate-y-0 opacity-100' : 'translate-y-12 opacity-0'
+            isVisible ? "translate-y-0 opacity-100" : "translate-y-12 opacity-0"
           }`}
         >
           {/* Logo and brand */}
@@ -91,10 +96,12 @@ const LoginPage = () => {
             <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-white/10 backdrop-blur-sm mb-4">
               <FaTasks className="text-white text-3xl" />
             </div>
-            <h1 className="text-4xl font-bold text-white mb-2">Task Management</h1>
+            <h1 className="text-4xl font-bold text-white mb-2">
+              Task Management
+            </h1>
             <p className="text-white/80">Sign in to your account</p>
           </div>
-          
+
           {/* Glass morphism card */}
           <div className="glass-morphism rounded-2xl p-8 shadow-glass">
             <form onSubmit={handleSubmit} className="space-y-6">
@@ -117,10 +124,12 @@ const LoginPage = () => {
                   />
                 </div>
                 {errors.email && (
-                  <p className="text-danger-300 text-sm mt-1 animate-pulse">{errors.email}</p>
+                  <p className="text-danger-300 text-sm mt-1 animate-pulse">
+                    {errors.email}
+                  </p>
                 )}
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-white/90 mb-2">
                   Password
@@ -147,16 +156,18 @@ const LoginPage = () => {
                   </button>
                 </div>
                 {errors.password && (
-                  <p className="text-danger-300 text-sm mt-1 animate-pulse">{errors.password}</p>
+                  <p className="text-danger-300 text-sm mt-1 animate-pulse">
+                    {errors.password}
+                  </p>
                 )}
               </div>
-              
+
               {errors.login && (
                 <div className="bg-danger-500/20 text-danger-300 p-3 rounded-lg text-sm animate-pulse">
                   {errors.login}
                 </div>
               )}
-              
+
               <button
                 type="submit"
                 disabled={isLoading}
@@ -164,9 +175,25 @@ const LoginPage = () => {
               >
                 {isLoading ? (
                   <span className="flex items-center">
-                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    <svg
+                      className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      ></circle>
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                      ></path>
                     </svg>
                     Logging in...
                   </span>
@@ -178,21 +205,25 @@ const LoginPage = () => {
                 )}
               </button>
             </form>
-            
+
             <div className="mt-6 text-center">
               <p className="text-white/70 text-sm">
                 Don't have an account?{" "}
-                <Link to="/" className="text-primary-300 hover:text-primary-200 font-medium transition-colors">
+                <Link
+                  to="/"
+                  className="text-primary-300 hover:text-primary-200 font-medium transition-colors"
+                >
                   Contact an administrator
                 </Link>
               </p>
             </div>
           </div>
-          
+
           {/* Footer */}
           <div className="mt-8 text-center">
             <p className="text-white/60 text-sm">
-              &copy; {new Date().getFullYear()} Task Management. All rights reserved.
+              &copy; {new Date().getFullYear()} Task Management. All rights
+              reserved.
             </p>
           </div>
         </div>

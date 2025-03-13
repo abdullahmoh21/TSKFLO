@@ -11,3 +11,4 @@ node_modules
 *.sln
 *.sw?
 backend/logs/errors.log
+.qodo

@@ -19,9 +19,7 @@ const getUserTasks = asyncHandler(async (req, res) => {
     $or: [{ owner: user._id }, { assignees: user._id }],
   })
     .lean()
-    .select("-updatedAt -__v")
-    .populate("assignees", "name _id")
-    .populate("owner", "name _id")
+    .select("-owner -updatedAt -__v")
     .exec();
 
   return res.status(200).json(tasks);
@@ -161,7 +159,7 @@ const addAssignee = asyncHandler(async (req, res) => {
   await task.save();
 
   //TODO: Send Email alert to assignee
-  return res.status(200).json({ message: "Assignee added successfully" });
+  return res.status(200).json({ message: "Assignee added successfully", task });
 });
 
 //@desc Removes an assignee from a task, ensuring only owner can add
@@ -186,7 +184,9 @@ const removeAssignee = asyncHandler(async (req, res) => {
   task.assignees = task.assignees.filter((id) => id.toString() !== assigneeId);
   await task.save();
 
-  return res.status(200).json({ message: "Assignee removed successfully" });
+  return res
+    .status(200)
+    .json({ message: "Assignee removed successfully", task });
 });
 
 module.exports = {

@@ -12,11 +12,14 @@ import {
   FaBell,
 } from "react-icons/fa";
 import { useSelector, useDispatch } from "react-redux";
-import { selectCurrentUserName, logOut } from "../features/auth/authSlice";
+import {
+  selectCurrentUserName,
+  selectCurrentToken,
+  logOut,
+} from "../features/auth/authSlice";
 import { useLogoutMutation } from "../features/auth/authApiSlice";
 import { useGetMyDataQuery } from "../features/user/userApiSlice";
 import UserProfilePopup from "./UserProfilePopup";
-import NotificationPanel from "./NotificationPanel";
 import { useNotification } from "../context/NotificationContext";
 
 const UserDashNavbar = () => {
@@ -26,6 +29,7 @@ const UserDashNavbar = () => {
 
   // Get user name from Redux state
   const userName = useSelector(selectCurrentUserName);
+  const token = useSelector(selectCurrentToken);
 
   // API hooks
   const [logout, { isLoading: isLogoutLoading }] = useLogoutMutation();
@@ -37,6 +41,7 @@ const UserDashNavbar = () => {
     isSuccess: isDataLoaded,
   } = useGetMyDataQuery(undefined, {
     refetchOnMountOrArgChange: false,
+    skip: !token,
   });
 
   // Local state

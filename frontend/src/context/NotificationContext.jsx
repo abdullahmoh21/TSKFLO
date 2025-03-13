@@ -7,7 +7,10 @@ import React, {
 } from "react";
 import { getSocket } from "../services/socketService";
 import { useSelector } from "react-redux";
-import { selectCurrentToken } from "../features/auth/authSlice";
+import {
+  selectCurrentToken,
+  selectCurrentUserId,
+} from "../features/auth/authSlice";
 import { useGetAllConversationsQuery } from "../features/messages/messageApiSlice";
 import { toast } from "react-toastify";
 import { useLocation } from "react-router-dom";
@@ -20,6 +23,7 @@ export const NotificationProvider = ({ children }) => {
   const [unreadMessages, setUnreadMessages] = useState(0);
   const [unreadConversations, setUnreadConversations] = useState(new Set());
   const token = useSelector(selectCurrentToken);
+  const currentUserId = useSelector(selectCurrentUserId);
   const socket = getSocket();
   const location = useLocation();
   const { data: conversations } = useGetAllConversationsQuery(undefined, {
@@ -59,7 +63,7 @@ export const NotificationProvider = ({ children }) => {
   useEffect(() => {
     // Only set up the socket listener if we have both socket and user ID
     // and we haven't already initialized the socket
-    if (!socket || !token || socketInitialized.current) return;
+    if (!socket || !currentUserId || socketInitialized.current) return;
 
     socketInitialized.current = true;
 
@@ -68,7 +72,10 @@ export const NotificationProvider = ({ children }) => {
       console.log("New message received in notification context:", message);
 
       // dont show toasts if were already on /messaging or if user was sender
-      if (message.sender._id !== token && location.pathname !== "/messaging") {
+      if (
+        message.sender._id !== currentUserId &&
+        location.pathname !== "/messaging"
+      ) {
         setUnreadMessages((prevCount) => prevCount + 1);
         setUnreadConversations((prev) => {
           const updated = new Set(prev);
@@ -95,7 +102,7 @@ export const NotificationProvider = ({ children }) => {
       socket.off("messageCreated", handleNewMessage);
       socketInitialized.current = false;
     };
-  }, [socket, token]);
+  }, [socket, currentUserId, location.pathname]);
 
   useEffect(() => {
     if (socket && token && conversations) {

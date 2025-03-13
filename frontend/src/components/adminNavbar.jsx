@@ -30,6 +30,7 @@ const AdminNavbar = () => {
     { id: 1, text: "New user registration", isRead: false },
     { id: 2, text: "System maintenance scheduled", isRead: false },
   ]);
+  const [showNotifications, setShowNotifications] = useState(false);
 
   // Get user name from Redux state
   const userName = useSelector(selectCurrentUserName);
@@ -140,13 +141,14 @@ const AdminNavbar = () => {
 
               <Link
                 to="/messaging"
-                className={`relative p-2 text-secondary-600 dark:text-secondary-400 hover:text-secondary-900 dark:hover:text-white rounded-full hover:bg-secondary-100 dark:hover:bg-secondary-800 transition-colors ${
+                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 hover-lift flex items-center gap-1 ${
                   isActivePath("/messaging")
                     ? "bg-primary-50 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400 shadow-sm"
                     : "text-secondary-700 dark:text-secondary-300 hover:bg-secondary-50 dark:hover:bg-secondary-800"
                 }`}
               >
-                <FaEnvelope size={20} />
+                <FaEnvelope className="h-3.5 w-3.5" />
+                <span>Messages</span>
                 {unreadMessages > 0 && (
                   <span className="absolute top-0 right-0 inline-flex items-center justify-center px-1.5 py-0.5 text-xs font-bold leading-none text-white transform translate-x-1/4 -translate-y-1/4 bg-primary-600 rounded-full">
                     {unreadMessages > 9 ? "9+" : unreadMessages}

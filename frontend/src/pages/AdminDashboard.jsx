@@ -25,6 +25,8 @@ import {
   FaStar,
   FaChartBar,
   FaClipboardList,
+  FaChevronLeft,
+  FaChevronRight,
 } from "react-icons/fa";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Line } from "react-chartjs-2";
@@ -97,6 +99,8 @@ const AdminPage = () => {
   const [isLoaded, setIsLoaded] = useState(false);
   const [hoveredTask, setHoveredTask] = useState(null);
   const [editUserData, setEditUserData] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize] = useState(10);
 
   // Add the isOverdue function
   const isOverdue = (dueDate) => {
@@ -106,11 +110,11 @@ const AdminPage = () => {
 
   // RTK Query hooks with debug logs
   const {
-    data: tasks = [],
+    data: tasksData = { tasks: [], pagination: { totalTasks: 0, currentPage: 1, totalPages: 1 } },
     isLoading: isLoadingTasks,
     error: tasksError,
     refetch: refetchTasks
-  } = useGetAdminTasksQuery(undefined, {
+  } = useGetAdminTasksQuery({ page: currentPage, limit: pageSize }, {
     onError: (error) => {
       console.error('Tasks Query Error:', error);
       setError(error.message || 'Failed to fetch tasks');
@@ -128,6 +132,10 @@ const AdminPage = () => {
       setError(error.message || 'Failed to fetch users');
     }
   });
+
+  // Extract tasks and pagination from the response
+  const tasks = tasksData.tasks || [];
+  const pagination = tasksData.pagination || { totalTasks: 0, currentPage: 1, totalPages: 1 };
 
   // Log data for debugging
   useEffect(() => {
@@ -151,7 +159,7 @@ const AdminPage = () => {
   // Calculate metrics only when data is available
   const metrics = useMemo(() => ({
     totalUsers: users?.length || 0,
-    totalTasks: tasks?.length || 0,
+    totalTasks: pagination.totalTasks || 0,
     completedTasks: tasks?.filter(task => task.status === 'completed')?.length || 0,
     upcomingDeadlines: tasks?.filter(task => new Date(task.dueDate) > new Date())?.length || 0,
     weeklyTaskCompletion: [65, 72, 78, 85, 82, 90, 88],
@@ -159,7 +167,7 @@ const AdminPage = () => {
       labels: ["Team A", "Team B", "Team C", "Team D"],
       data: [85, 72, 90, 78],
     },
-  }), [tasks, users]);
+  }), [tasks, users, pagination.totalTasks]);
 
   // Add retry functionality with loading state
   const [isRetrying, setIsRetrying] = useState(false);
@@ -543,6 +551,29 @@ const AdminPage = () => {
     refetchUsers(); // Refresh the users list after edit
   };
 
+  // Add pagination handlers
+  const handlePageChange = (newPage) => {
+    if (newPage >= 1 && newPage <= pagination.totalPages) {
+      setCurrentPage(newPage);
+    }
+  };
+
+  // Add this function to go to the last page (for newly created tasks)
+  const goToLastPage = () => {
+    setCurrentPage(pagination.totalPages);
+  };
+
+  // Update the task creation success handler
+  const handleTaskCreationSuccess = () => {
+    setShowCreateTask(false);
+    setTimeout(() => {
+      refetchTasks();
+      // Go to the last page to see the newly created task
+      goToLastPage();
+      console.log("Refreshing tasks after creation");
+    }, 500);
+  };
+
   return (
     <div className={`min-h-screen bg-secondary-50 dark:bg-secondary-900 pt-16 px-4 sm:px-6 lg:px-8 transition-all duration-300 ${isLoaded ? 'opacity-100' : 'opacity-0'}`}>
       {(error || tasksError || usersError) && (
@@ -590,13 +621,7 @@ const AdminPage = () => {
             </div>
             <CreateTask
               isModal={true}
-              onClose={() => {
-                setShowCreateTask(false);
-                setTimeout(() => {
-                  refetchTasks();
-                  console.log("Refreshing tasks after creation");
-                }, 500);
-              }}
+              onClose={handleTaskCreationSuccess}
             />
           </div>
         </div>
@@ -1138,6 +1163,77 @@ const AdminPage = () => {
                   </div>
                 )}
               </div>
+              {pagination.totalPages > 1 && (
+                <div className="flex justify-center items-center mt-6 space-x-2">
+                  <button
+                    onClick={() => handlePageChange(currentPage - 1)}
+                    disabled={currentPage === 1}
+                    className={`px-3 py-1 rounded-md ${
+                      currentPage === 1
+                        ? "bg-gray-200 text-gray-500 cursor-not-allowed"
+                        : "bg-indigo-100 text-indigo-700 hover:bg-indigo-200"
+                    }`}
+                  >
+                    <FaChevronLeft />
+                  </button>
+                  
+                  <div className="flex space-x-1">
+                    {Array.from({ length: pagination.totalPages }, (_, i) => i + 1)
+                      .filter(page => 
+                        page === 1 || 
+                        page === pagination.totalPages || 
+                        (page >= currentPage - 1 && page <= currentPage + 1)
+                      )
+                      .map((page, index, array) => {
+                        // Add ellipsis
+                        if (index > 0 && array[index - 1] !== page - 1) {
+                          return (
+                            <React.Fragment key={`ellipsis-${page}`}>
+                              <span className="px-3 py-1 text-gray-500">...</span>
+                              <button
+                                key={page}
+                                onClick={() => handlePageChange(page)}
+                                className={`px-3 py-1 rounded-md ${
+                                  currentPage === page
+                                    ? "bg-indigo-600 text-white"
+                                    : "bg-indigo-100 text-indigo-700 hover:bg-indigo-200"
+                                }`}
+                              >
+                                {page}
+                              </button>
+                            </React.Fragment>
+                          );
+                        }
+                        
+                        return (
+                          <button
+                            key={page}
+                            onClick={() => handlePageChange(page)}
+                            className={`px-3 py-1 rounded-md ${
+                              currentPage === page
+                                ? "bg-indigo-600 text-white"
+                                : "bg-indigo-100 text-indigo-700 hover:bg-indigo-200"
+                            }`}
+                          >
+                            {page}
+                          </button>
+                        );
+                      })}
+                  </div>
+                  
+                  <button
+                    onClick={() => handlePageChange(currentPage + 1)}
+                    disabled={currentPage === pagination.totalPages}
+                    className={`px-3 py-1 rounded-md ${
+                      currentPage === pagination.totalPages
+                        ? "bg-gray-200 text-gray-500 cursor-not-allowed"
+                        : "bg-indigo-100 text-indigo-700 hover:bg-indigo-200"
+                    }`}
+                  >
+                    <FaChevronRight />
+                  </button>
+                </div>
+              )}
             </div>
           )}
 

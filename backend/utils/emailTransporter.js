@@ -5,8 +5,6 @@ const logger = require("../logs/logger");
 
 // Create a Nodemailer transporter
 const transporter = nodemailer.createTransport({
-  pool: true,
-  maxConnections: 10,
   host: "smtp-relay.brevo.com",
   port: 587,
   secure: false,
@@ -37,42 +35,41 @@ function sendEmail(
   text = null
 ) {
   return new Promise((resolve, reject) => {
-    let subjectMap = new Map([["inviteUser", "You have been invited to "]]);
+    // Default subject for invite emails
+    const defaultSubject =
+      "You have been invited to join our task management system";
 
-    // Ensure plain text is provided if no template is used.
-    if (!template && !text) {
-      return reject(new Error("Plain text email requires a text body."));
-    }
-    if (template && !subjectMap.has(template)) {
-      return reject(
-        new Error(`The template '${template}' has not been implemented`)
-      );
+    // Create the email content
+    let emailContent = "";
+    if (template === "inviteUser") {
+      emailContent = `
+Hello ${handlebarData.name},
+
+You have been invited to join our task management system. Please click the link below to complete your registration:
+
+${handlebarData.link}
+
+This link will expire in 24 hours.
+
+Best regards,
+Task Management Team
+      `;
+    } else if (text) {
+      emailContent = text;
+    } else {
+      return reject(new Error("No email content provided"));
     }
 
     const mailOptions = {
-      from: "abdullahmohsin21007@gmail.com",
+      from: process.env.BREVO_USER,
       to,
-      subject: subject ? subject : subjectMap.get(template),
+      subject: subject || defaultSubject,
+      text: emailContent,
     };
-
-    if (template) {
-      // Use the Handlebars template with provided data
-      mailOptions.template = template;
-      mailOptions.context = handlebarData;
-      if (text) {
-        mailOptions.text = text;
-      }
-      logger.info(`Message sent to ${to}: ${handlebarData}`);
-    } else {
-      // For plain-text emails, assign the text directly (we already validated it exists)
-      mailOptions.text = text;
-      logger.info(`Message sent to ${to}: ${handlebarData}`);
-    }
-    return; // will be uncommented in prod
 
     transporter.sendMail(mailOptions, (error, info) => {
       if (error) {
-        logger.error("Error sending email alert:", error);
+        logger.error("Error sending email:", error);
         return reject(error);
       }
       logger.info("Message sent:", info.messageId);

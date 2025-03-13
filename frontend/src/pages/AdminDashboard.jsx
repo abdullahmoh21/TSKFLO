@@ -33,14 +33,17 @@ import { useSelector } from "react-redux";
 import {
   useGetAdminTasksQuery,
   useGetAdminUsersQuery,
+  useSearchUsersQuery,
   useDeleteAdminTaskMutation,
   useUpdateAdminTaskMutation,
-  useCreateAdminTaskMutation,
+  useUpdateUserMutation,
+  useDeleteUserMutation,
+  useInviteUserMutation,
   useLockAdminTaskMutation,
-  useSearchUsersQuery,
 } from "../features/admin/adminApiSlice";
 import 'react-tooltip/dist/react-tooltip.css';
 import { Tooltip as ReactTooltip } from 'react-tooltip';
+import { toast } from "react-toastify";
 
 // Add these imports at the top of your file
 import {
@@ -80,7 +83,7 @@ const AdminPage = () => {
   const [newUser, setNewUser] = useState({
     name: "",
     email: "",
-    phoneNumber: "",
+    role: "user",
   });
   const [expandedTask, setExpandedTask] = useState(null);
   const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
@@ -236,16 +239,16 @@ const AdminPage = () => {
     const teamData = topUsers.map(u => u.total > 0 ? Math.round((u.completed / u.total) * 100) : 0);
     
     return {
-      totalUsers: users?.length || 0,
-      totalTasks: tasks?.length || 0,
+    totalUsers: users?.length || 0,
+    totalTasks: tasks?.length || 0,
       completedTasks: tasks?.filter(task => task.status === 'Complete')?.length || 0,
       upcomingDeadlines,
       tasksByStatus,
       tasksByPriority,
-      teamPerformance: {
+    teamPerformance: {
         labels: teamLabels,
         data: teamData,
-      },
+    },
     };
   }, [tasks, users]);
 
@@ -273,6 +276,12 @@ const AdminPage = () => {
   const [lockTaskId, setLockTaskId] = useState(null);
   const [lockSuccess, setLockSuccess] = useState(false);
   const [lockError, setLockError] = useState(null);
+
+  const [updateUser] = useUpdateUserMutation();
+  const [deleteUser] = useDeleteUserMutation();
+  const [inviteUser] = useInviteUserMutation();
+
+  const [editingUser, setEditingUser] = useState(null);
 
   const handleDeleteTask = async (taskId) => {
     if (window.confirm("Are you sure you want to delete this task?")) {
@@ -480,80 +489,96 @@ const AdminPage = () => {
     }
   };
 
+  const handleNewUserChange = (e) => {
+    const { name, value } = e.target;
+    setNewUser(prevState => ({
+      ...prevState,
+      [name]: value
+    }));
+  };
+
+  const handleCreateUser = async (e) => {
+    e.preventDefault();
+    try {
+      if (editingUser) {
+        await updateUser({ userId: editingUser._id, ...newUser }).unwrap();
+        toast.success("User updated successfully");
+      } else {
+        await inviteUser(newUser).unwrap();
+        toast.success("Invitation sent successfully");
+      }
+      setShowCreateUser(false);
+      setEditingUser(null);
+      setNewUser({ name: "", email: "", role: "user" });
+    } catch (error) {
+      toast.error(error.data?.message || "Failed to process user");
+    }
+  };
+
   // Create User Modal
   const CreateUserModal = () => (
-    <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-      <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg font-semibold text-gray-900">
-            Create New User
-          </h3>
-          <button
-            onClick={() => setShowCreateUser(false)}
-            className="text-gray-400 hover:text-gray-500"
-          >
-            <FaTimes />
-          </button>
-        </div>
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white dark:bg-secondary-800 rounded-lg p-6 w-full max-w-md">
+        <h2 className="text-xl font-bold mb-4 text-secondary-900 dark:text-white">
+          Invite New User
+        </h2>
         <form onSubmit={handleCreateUser}>
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700">
+              <label className="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">
                 Name
               </label>
               <input
                 type="text"
+                name="name"
                 value={newUser.name}
-                onChange={(e) =>
-                  setNewUser({ ...newUser, name: e.target.value })
-                }
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                onChange={handleNewUserChange}
+                className="w-full p-2 border border-secondary-300 dark:border-secondary-700 rounded-lg bg-white dark:bg-secondary-900 text-secondary-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
                 required
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700">
+              <label className="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">
                 Email
               </label>
               <input
                 type="email"
+                name="email"
                 value={newUser.email}
-                onChange={(e) =>
-                  setNewUser({ ...newUser, email: e.target.value })
-                }
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                onChange={handleNewUserChange}
+                className="w-full p-2 border border-secondary-300 dark:border-secondary-700 rounded-lg bg-white dark:bg-secondary-900 text-secondary-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
                 required
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700">
-                Phone Number
+              <label className="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">
+                Role
               </label>
-              <input
-                type="tel"
-                value={newUser.phoneNumber}
-                onChange={(e) =>
-                  setNewUser({ ...newUser, phoneNumber: e.target.value })
-                }
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                required
-              />
+              <select
+                name="role"
+                value={newUser.role}
+                onChange={handleNewUserChange}
+                className="w-full p-2 border border-secondary-300 dark:border-secondary-700 rounded-lg bg-white dark:bg-secondary-900 text-secondary-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+              >
+                <option value="user">User</option>
+                <option value="admin">Admin</option>
+              </select>
             </div>
-            <div className="flex justify-end space-x-3 mt-5">
+          </div>
+          <div className="mt-6 flex justify-end space-x-3">
               <button
                 type="button"
                 onClick={() => setShowCreateUser(false)}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md"
+              className="px-4 py-2 text-sm font-medium text-secondary-700 dark:text-secondary-300 hover:text-primary-600 dark:hover:text-primary-400"
               >
                 Cancel
               </button>
               <button
                 type="submit"
-                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md"
+              className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 text-sm font-medium"
               >
-                Create User
+              Invite User
               </button>
-            </div>
           </div>
         </form>
       </div>
@@ -574,6 +599,17 @@ const AdminPage = () => {
     setShowCreateTask(true);
   };
 
+  const handleDeleteUser = async (userId) => {
+    if (window.confirm("Are you sure you want to delete this user?")) {
+      try {
+        await deleteUser(userId).unwrap();
+        toast.success("User deleted successfully");
+      } catch (error) {
+        toast.error(error.data?.message || "Failed to delete user");
+      }
+    }
+  };
+
   return (
     <div className={`min-h-screen bg-secondary-50 dark:bg-secondary-900 pt-16 px-4 sm:px-6 lg:px-8 transition-all duration-300 ${isLoaded ? 'opacity-100' : 'opacity-0'}`}>
       {(error || tasksError || usersError) && (
@@ -581,7 +617,7 @@ const AdminPage = () => {
           <div className="bg-danger-50 dark:bg-danger-900/20 border border-danger-200 dark:border-danger-800 text-danger-700 dark:text-danger-300 px-4 py-3 rounded-lg shadow-sm" role="alert">
             <div className="flex items-center">
               <FaExclamationCircle className="mr-2" />
-              <strong className="font-bold">Error!</strong>
+            <strong className="font-bold">Error!</strong>
               <span className="ml-2"> {error || tasksError?.message || usersError?.message}</span>
             </div>
             <div className="mt-2 flex space-x-2">
@@ -609,7 +645,7 @@ const AdminPage = () => {
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-xl font-bold text-secondary-900 dark:text-white">
                 <span className="bg-gradient-to-r from-primary-500 to-primary-700 bg-clip-text text-transparent">
-                  Create New Task
+                Create New Task
                 </span>
               </h3>
               <button
@@ -735,132 +771,120 @@ const AdminPage = () => {
         {/* Navigation Tabs */}
         <div className="glass-morphism rounded-xl shadow-sm mb-6 border border-secondary-200 dark:border-secondary-700 overflow-hidden">
           <nav className="flex">
-            <button
-              onClick={() => setActiveTab("dashboard")}
+              <button
+                onClick={() => setActiveTab("dashboard")}
               className={`px-6 py-4 text-sm font-medium transition-all duration-200 ${
-                activeTab === "dashboard"
+                  activeTab === "dashboard"
                   ? "border-b-2 border-primary-500 text-primary-600 dark:text-primary-400"
                   : "text-secondary-500 dark:text-secondary-400 hover:text-secondary-700 dark:hover:text-secondary-300 hover:bg-secondary-100 dark:hover:bg-secondary-800"
-              }`}
-            >
-              Dashboard
-            </button>
-            <button
-              onClick={() => setActiveTab("users")}
+                }`}
+              >
+                Dashboard
+              </button>
+              <button
+                onClick={() => setActiveTab("users")}
               className={`px-6 py-4 text-sm font-medium transition-all duration-200 ${
-                activeTab === "users"
+                  activeTab === "users"
                   ? "border-b-2 border-primary-500 text-primary-600 dark:text-primary-400"
                   : "text-secondary-500 dark:text-secondary-400 hover:text-secondary-700 dark:hover:text-secondary-300 hover:bg-secondary-100 dark:hover:bg-secondary-800"
-              }`}
-            >
-              Users
-            </button>
-            <button
-              onClick={() => setActiveTab("tasks")}
+                }`}
+              >
+                Users
+              </button>
+              <button
+                onClick={() => setActiveTab("tasks")}
               className={`px-6 py-4 text-sm font-medium transition-all duration-200 ${
-                activeTab === "tasks"
+                  activeTab === "tasks"
                   ? "border-b-2 border-primary-500 text-primary-600 dark:text-primary-400"
                   : "text-secondary-500 dark:text-secondary-400 hover:text-secondary-700 dark:hover:text-secondary-300 hover:bg-secondary-100 dark:hover:bg-secondary-800"
-              }`}
-            >
-              Tasks
-            </button>
-          </nav>
+                }`}
+              >
+                Tasks
+              </button>
+            </nav>
         </div>
 
         {/* Content Sections */}
         <div className="glass-morphism rounded-xl shadow-sm p-6 border border-secondary-200 dark:border-secondary-700">
           {activeTab === "users" && (
-            <div>
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-xl font-bold text-secondary-900 dark:text-white flex items-center">
-                  <span className="bg-gradient-to-r from-primary-500 to-primary-700 bg-clip-text text-transparent">
-                    User Management
-                  </span>
-                </h2>
+            <div className="space-y-4">
+              <div className="flex justify-between items-center">
+                <h2 className="text-xl font-semibold">User Management</h2>
                 <button
-                  onClick={() => setShowCreateUser(true)}
-                  className="flex items-center px-4 py-2 bg-primary-500 hover:bg-primary-600 text-white rounded-lg font-medium shadow-sm hover:shadow-lg transition-all duration-200 hover:-translate-y-1"
+                  onClick={() => {
+                    setEditingUser(null);
+                    setNewUser({ name: "", email: "", role: "user" });
+                    setShowCreateUser(true);
+                  }}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                 >
-                  <FaPlus className="mr-2" />
-                  Add User
+                  Invite User
                 </button>
               </div>
-              <div className="overflow-x-auto rounded-lg border border-secondary-200 dark:border-secondary-700">
-                {isLoadingUsers ? (
-                  <div className="text-center py-8">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-500 mx-auto"></div>
-                    <p className="mt-4 text-secondary-600 dark:text-secondary-400">Loading users...</p>
-                  </div>
-                ) : usersError ? (
-                  <div className="text-center py-8 text-danger-600 dark:text-danger-400">
-                    <FaExclamationCircle className="mx-auto h-12 w-12 mb-4" />
-                    Error loading users: {usersError.message}
-                  </div>
-                ) : (
-                  <table className="min-w-full divide-y divide-secondary-200 dark:divide-secondary-700">
-                    <thead className="bg-secondary-50 dark:bg-secondary-800">
+              <div className="bg-white rounded-lg shadow overflow-hidden">
+                  <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
                       <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-secondary-500 dark:text-secondary-400 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                           Name
                         </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-secondary-500 dark:text-secondary-400 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                           Email
                         </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-secondary-500 dark:text-secondary-400 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                           Role
                         </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-secondary-500 dark:text-secondary-400 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                           Actions
                         </th>
                       </tr>
                     </thead>
-                    <tbody className="bg-white dark:bg-secondary-900 divide-y divide-secondary-200 dark:divide-secondary-700">
-                      {users.map((user) => (
-                        <tr key={user._id || user.id} className="hover:bg-secondary-50 dark:hover:bg-secondary-800 transition-colors duration-150">
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="flex items-center">
-                              <div className="flex-shrink-0 h-10 w-10 bg-primary-100 dark:bg-primary-900/20 text-primary-600 dark:text-primary-400 rounded-full flex items-center justify-center">
-                                <FaUser />
-                              </div>
-                              <div className="ml-4">
-                                <div className="text-sm font-medium text-secondary-900 dark:text-white">
-                                  {user.name}
-                                </div>
-                              </div>
-                            </div>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                    {users?.map((user) => (
+                      <tr key={user._id}>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm font-medium text-gray-900">
+                            {user.name}
+                          </div>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-secondary-500 dark:text-secondary-400">
-                            {user.email}
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-500">{user.email}</div>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-primary-100 dark:bg-primary-900/20 text-primary-800 dark:text-primary-300">
-                              {user.role}
-                            </span>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                            user.role === "admin"
+                              ? "bg-purple-100 text-purple-800"
+                              : "bg-green-100 text-green-800"
+                          }`}>
+                            {user.role}
+                          </span>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                            <div className="flex space-x-3 opacity-70 hover:opacity-100 transition-opacity duration-200">
-                              <button
-                                onClick={() => navigate(`/admin/users/${user.id}/edit`)}
-                                className="text-primary-600 dark:text-primary-400 hover:text-primary-900 dark:hover:text-primary-300 transition-colors duration-200"
-                                aria-label="Edit user"
-                              >
-                                <FaEdit />
-                              </button>
-                              <button
-                                onClick={() => handleDeleteUser(user.id)}
-                                className="text-danger-600 dark:text-danger-400 hover:text-danger-900 dark:hover:text-danger-300 transition-colors duration-200"
-                                aria-label="Delete user"
-                              >
-                                <FaTrash />
-                              </button>
-                            </div>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                            <button
+                            onClick={() => {
+                              setEditingUser(user);
+                              setNewUser({
+                                name: user.name,
+                                email: user.email,
+                                role: user.role,
+                              });
+                              setShowCreateUser(true);
+                            }}
+                            className="text-indigo-600 hover:text-indigo-900 mr-4"
+                          >
+                            Edit
+                            </button>
+                            <button
+                            onClick={() => handleDeleteUser(user._id)}
+                              className="text-red-600 hover:text-red-900"
+                            >
+                            Delete
+                            </button>
                           </td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
-                )}
               </div>
             </div>
           )}
@@ -871,9 +895,9 @@ const AdminPage = () => {
                 <div className="flex flex-col">
                   <h2 className="text-xl font-bold text-secondary-900 dark:text-white flex items-center">
                     <span className="bg-gradient-to-r from-primary-500 to-primary-700 bg-clip-text text-transparent">
-                      Task Management
+                  Task Management
                     </span>
-                  </h2>
+                </h2>
                   <p className="text-sm text-secondary-500 dark:text-secondary-400 mt-1">
                     Manage and monitor all tasks in the system
                   </p>
@@ -895,14 +919,14 @@ const AdminPage = () => {
                   </div>
 
                   <div className="relative">
-                    <button
+                <button
                       onClick={() => setShowFilterDropdown(!showFilterDropdown)}
                       className="flex items-center px-4 py-2 bg-white dark:bg-secondary-800 text-primary-600 dark:text-primary-400 rounded-lg border border-secondary-200 dark:border-secondary-700 hover:bg-secondary-50 dark:hover:bg-secondary-700 transition-all duration-200"
-                    >
+                >
                       <FaFilter className="mr-2" />
                       Filters
                       <FaChevronDown className={`ml-2 transform transition-transform duration-200 ${showFilterDropdown ? 'rotate-180' : ''}`} />
-                    </button>
+                </button>
                     
                     {showFilterDropdown && (
                       <div className="absolute mt-2 right-0 w-72 bg-white dark:bg-secondary-800 rounded-lg shadow-lg border border-secondary-200 dark:border-secondary-700 z-10 p-4">
@@ -919,7 +943,7 @@ const AdminPage = () => {
                                 <option key={status} value={status}>{status}</option>
                               ))}
                             </select>
-                          </div>
+              </div>
 
                           <div>
                             <label className="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Priority</label>
@@ -1000,16 +1024,16 @@ const AdminPage = () => {
                         <tr>
                           <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-secondary-500 dark:text-secondary-400 uppercase tracking-wider">
                             Title & Description
-                          </th>
+                        </th>
                           <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-secondary-500 dark:text-secondary-400 uppercase tracking-wider">
-                            Status
-                          </th>
+                          Status
+                        </th>
                           <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-secondary-500 dark:text-secondary-400 uppercase tracking-wider">
                             Priority
-                          </th>
+                        </th>
                           <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-secondary-500 dark:text-secondary-400 uppercase tracking-wider">
-                            Due Date
-                          </th>
+                          Due Date
+                        </th>
                           <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-secondary-500 dark:text-secondary-400 uppercase tracking-wider">
                             Lock Status
                           </th>
@@ -1017,10 +1041,10 @@ const AdminPage = () => {
                             Assignees
                           </th>
                           <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-secondary-500 dark:text-secondary-400 uppercase tracking-wider">
-                            Actions
-                          </th>
-                        </tr>
-                      </thead>
+                          Actions
+                        </th>
+                      </tr>
+                    </thead>
                       <tbody className="bg-white dark:bg-secondary-800 divide-y divide-secondary-200 dark:divide-secondary-700">
                         {sortedAndFilteredTasks.map((task) => (
                           <tr 
@@ -1037,7 +1061,7 @@ const AdminPage = () => {
                               >
                                 <div className="flex items-center justify-between">
                                   <div className="text-sm font-medium text-secondary-900 dark:text-white group-hover:text-primary-600 dark:group-hover:text-primary-400">
-                                    {task.title || 'No Title'}
+                              {task.title || 'No Title'}
                                   </div>
                                   <FaChevronDown className={`text-secondary-400 dark:text-secondary-500 transform transition-transform duration-200 ${
                                     expandedTask === task._id ? 'rotate-180' : ''
@@ -1064,7 +1088,7 @@ const AdminPage = () => {
                             </td>
                             <td className="px-6 py-4">
                               <span className={`text-sm ${isOverdue(task.dueDate) ? 'text-danger-600 dark:text-danger-400' : 'text-secondary-700 dark:text-secondary-300'}`}>
-                                {task.dueDate ? new Date(task.dueDate).toLocaleDateString() : 'No Due Date'}
+                              {task.dueDate ? new Date(task.dueDate).toLocaleDateString() : 'No Due Date'}
                               </span>
                             </td>
                             <td className="px-6 py-4">
@@ -1099,16 +1123,16 @@ const AdminPage = () => {
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-secondary-500 dark:text-secondary-400">
                               <div className="flex items-center space-x-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                                <button
+                              <button
                                   onClick={(e) => {
                                     e.stopPropagation(); // Prevent triggering the row expand
                                     handleEditTask(task);
                                   }}
                                   className="text-primary-600 dark:text-primary-400 hover:text-primary-900 dark:hover:text-primary-300 transition-colors duration-200"
-                                >
-                                  <FaEdit />
-                                </button>
-                                <button
+                              >
+                                <FaEdit />
+                              </button>
+                              <button
                                   onClick={(e) => {
                                     e.stopPropagation(); // Prevent triggering the row expand
                                     handleDeleteTask(task._id);
@@ -1118,11 +1142,11 @@ const AdminPage = () => {
                                 >
                                   {isDeleting && deleteTaskId === task._id ? 
                                     <FaSpinner className="animate-spin" /> : 
-                                    <FaTrash />
+                                <FaTrash />
                                   }
-                                </button>
+                              </button>
                                 <div className="relative">
-                                  <button
+                              <button
                                     onClick={(e) => {
                                       e.stopPropagation(); // Prevent triggering the row expand
                                       handleLockTask(task._id, task.locked);
@@ -1145,7 +1169,7 @@ const AdminPage = () => {
                                         <div className="absolute -top-2 -right-2 w-2 h-2 bg-success-500 rounded-full"></div>
                                       </div>
                                     )}
-                                  </button>
+                              </button>
                                 </div>
                               </div>
                               {deleteSuccess && deleteTaskId === task._id && (
@@ -1171,8 +1195,8 @@ const AdminPage = () => {
                             </td>
                           </tr>
                         ))}
-                      </tbody>
-                    </table>
+                    </tbody>
+                  </table>
                   </div>
                 ) : (
                   <div className="text-center py-12">
@@ -1246,11 +1270,11 @@ const AdminPage = () => {
                                   }
                                 }
                               },
-                            }}
-                          />
-                        </div>
+                          }}
+                        />
                       </div>
                     </div>
+                  </div>
                   </div>
                   
                   {/* Task Priority Distribution */}
@@ -1297,9 +1321,9 @@ const AdminPage = () => {
                               },
                             },
                           },
-                        }}
-                      />
-                    </div>
+                              }}
+                            />
+                          </div>
                   </div>
                 </div>
 
@@ -1309,7 +1333,7 @@ const AdminPage = () => {
                     User Performance
                   </h3>
                   {metrics.teamPerformance.labels.length > 0 ? (
-                    <div className="h-64">
+                  <div className="h-64">
                       <BarChart
                         data={{
                           labels: metrics.teamPerformance.labels,
@@ -1344,7 +1368,7 @@ const AdminPage = () => {
                           },
                         }}
                       />
-                    </div>
+                  </div>
                   ) : (
                     <div className="h-64 flex items-center justify-center">
                       <p className="text-gray-500">No team performance data available</p>
@@ -1354,15 +1378,15 @@ const AdminPage = () => {
               </div>
             </div>
           )}
-        </div>
-      </div>
+                </div>
+              </div>
 
       <ReactTooltip 
         id="lock-tooltip"
         place="top"
         variant="dark"
       />
-    </div>
+                        </div>
   );
 };
 
@@ -1436,14 +1460,14 @@ const EditTaskForm = ({ task, onClose }) => {
         <div className="mb-4 p-3 bg-danger-50 dark:bg-danger-900/20 border border-danger-200 dark:border-danger-800 text-danger-700 dark:text-danger-300 rounded-lg flex items-center">
           <FaExclamationCircle className="mr-2 flex-shrink-0" />
           <span>{error}</span>
-        </div>
+                      </div>
       )}
       
       {success && (
         <div className="mb-4 p-3 bg-success-50 dark:bg-success-900/20 border border-success-200 dark:border-success-800 text-success-700 dark:text-success-300 rounded-lg flex items-center">
           <FaCheckCircle className="mr-2 flex-shrink-0" />
           <span>Task updated successfully!</span>
-        </div>
+                      </div>
       )}
 
       <form onSubmit={handleSubmit} className="space-y-5">
@@ -1461,7 +1485,7 @@ const EditTaskForm = ({ task, onClose }) => {
             className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all"
             required
           />
-        </div>
+                    </div>
 
         <div className="flex flex-col">
           <label htmlFor="description" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -1476,7 +1500,7 @@ const EditTaskForm = ({ task, onClose }) => {
             className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all resize-none"
             rows={4}
           />
-        </div>
+                        </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
           <div className="relative flex flex-col">
@@ -1486,7 +1510,7 @@ const EditTaskForm = ({ task, onClose }) => {
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                 <FaCalendarAlt className="text-gray-400 dark:text-gray-500" />
-              </div>
+                      </div>
               <input
                 type="date"
                 id="dueDate"
@@ -1495,8 +1519,8 @@ const EditTaskForm = ({ task, onClose }) => {
                 onChange={handleChange}
                 className="w-full pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all"
               />
-            </div>
-          </div>
+                      </div>
+                    </div>
 
           <div className="relative flex flex-col">
             <label htmlFor="priority" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -1505,7 +1529,7 @@ const EditTaskForm = ({ task, onClose }) => {
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                 <FaExclamationCircle className="text-gray-400 dark:text-gray-500" />
-              </div>
+                  </div>
               <select
                 name="priority"
                 value={editedTask.priority}
@@ -1518,9 +1542,9 @@ const EditTaskForm = ({ task, onClose }) => {
               </select>
               <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
                 <FaChevronDown className="text-gray-400 dark:text-gray-500" />
+                </div>
               </div>
             </div>
-          </div>
 
           <div className="relative flex flex-col">
             <label htmlFor="status" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -1529,7 +1553,7 @@ const EditTaskForm = ({ task, onClose }) => {
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                 <FaCheckCircle className="text-gray-400 dark:text-gray-500" />
-              </div>
+        </div>
               <select
                 name="status"
                 value={editedTask.status}
@@ -1542,7 +1566,7 @@ const EditTaskForm = ({ task, onClose }) => {
               </select>
               <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
                 <FaChevronDown className="text-gray-400 dark:text-gray-500" />
-              </div>
+      </div>
             </div>
           </div>
         </div>

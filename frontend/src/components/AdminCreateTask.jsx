@@ -16,10 +16,11 @@ import {
 } from "react-icons/fa";
 import {
   useCreateAdminTaskMutation,
-  useSearchUsersQuery
+  useSearchUsersQuery,
 } from "../features/admin/adminApiSlice";
 import { useSelector } from "react-redux";
 import { selectCurrentUserId } from "../features/auth/authSlice";
+import { toast } from "react-toastify";
 
 // Maximum length constants
 const MAX_TITLE_LENGTH = 100;
@@ -131,7 +132,7 @@ const AdminCreateTask = ({ isModal = false, onClose }) => {
       console.log("Task creation result:", result);
       
       // Show success alert
-      alert(result.message || "Task created successfully!");
+      toast.success(result.message || "Task created successfully!");
       
       // Simple success behavior - just redirect
       if (isModal && onClose) {
@@ -161,7 +162,7 @@ const AdminCreateTask = ({ isModal = false, onClose }) => {
         errorMessage = "Failed to create task. Please try again.";
       }
       
-      alert(errorMessage);
+      toast.error(errorMessage);
       
       // Update form errors for display
       setFormErrors({

@@ -17,7 +17,6 @@ import { useSelector, useDispatch } from "react-redux";
 import { selectCurrentUserName, logOut } from "../features/auth/authSlice";
 import { useLogoutMutation } from "../features/auth/authApiSlice";
 import { useGetMyDataQuery } from "../features/user/userApiSlice";
-import NotificationPanel from "./NotificationPanel";
 import UserProfilePopup from "./UserProfilePopup";
 import { useNotification } from "../context/NotificationContext";
 

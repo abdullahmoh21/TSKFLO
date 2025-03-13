@@ -1,17 +1,17 @@
 // AdminDashNavbar.jsx
 import React, { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { 
-  FaTasks, 
-  FaUserCircle, 
-  FaEnvelope, 
-  FaSignOutAlt, 
-  FaMoon, 
-  FaSun, 
+import {
+  FaTasks,
+  FaUserCircle,
+  FaEnvelope,
+  FaSignOutAlt,
+  FaMoon,
+  FaSun,
   FaChartBar,
   FaBars,
   FaTimes,
-  FaBell
+  FaBell,
 } from "react-icons/fa";
 import { useSelector, useDispatch } from "react-redux";
 import { selectCurrentUserName, logOut } from "../features/auth/authSlice";
@@ -19,6 +19,7 @@ import { useLogoutMutation } from "../features/auth/authApiSlice";
 import { useGetMyDataQuery } from "../features/user/userApiSlice";
 import NotificationPanel from "./NotificationPanel";
 import UserProfilePopup from "./UserProfilePopup";
+import { useNotification } from "../context/NotificationContext";
 
 const AdminNavbar = () => {
   const location = useLocation();
@@ -30,7 +31,7 @@ const AdminNavbar = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [notifications, setNotifications] = useState([
     { id: 1, text: "New user registration", isRead: false },
-    { id: 2, text: "System maintenance scheduled", isRead: false }
+    { id: 2, text: "System maintenance scheduled", isRead: false },
   ]);
   const [showNotifications, setShowNotifications] = useState(false);
   const [showProfilePopup, setShowProfilePopup] = useState(false);
@@ -49,26 +50,26 @@ const AdminNavbar = () => {
 
   // Handle dark mode toggle
   useEffect(() => {
-    const isDark = localStorage.getItem('darkMode') === 'true';
+    const isDark = localStorage.getItem("darkMode") === "true";
     setDarkMode(isDark);
     if (isDark) {
-      document.documentElement.classList.add('dark');
+      document.documentElement.classList.add("dark");
     } else {
-      document.documentElement.classList.remove('dark');
+      document.documentElement.classList.remove("dark");
     }
   }, []);
-  
+
   const toggleDarkMode = () => {
     const newDarkMode = !darkMode;
     setDarkMode(newDarkMode);
-    localStorage.setItem('darkMode', newDarkMode);
+    localStorage.setItem("darkMode", newDarkMode);
     if (newDarkMode) {
-      document.documentElement.classList.add('dark');
+      document.documentElement.classList.add("dark");
     } else {
-      document.documentElement.classList.remove('dark');
+      document.documentElement.classList.remove("dark");
     }
   };
-  
+
   // Handle navbar style on scroll
   useEffect(() => {
     const handleScroll = () => {
@@ -78,9 +79,9 @@ const AdminNavbar = () => {
         setIsScrolled(false);
       }
     };
-    
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
+
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
   const isActivePath = (path) => location.pathname.startsWith(path);
@@ -104,23 +105,20 @@ const AdminNavbar = () => {
   };
 
   // Get unread notification count
-  const unreadCount = notifications.filter(n => !n.isRead).length;
+  const unreadCount = notifications.filter((n) => !n.isRead).length;
 
-  // Toggle notifications panel
-  const toggleNotifications = () => {
-    setShowNotifications(!showNotifications);
-  };
+  const { unreadMessages } = useNotification();
 
   const handleClosePopup = () => {
     setShowProfilePopup(false);
   };
 
   return (
-    <header 
+    <header
       className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-        isScrolled 
-          ? 'bg-white/85 dark:bg-secondary-900/85 backdrop-blur-lg shadow-md' 
-          : 'bg-white dark:bg-secondary-900'
+        isScrolled
+          ? "bg-white/85 dark:bg-secondary-900/85 backdrop-blur-lg shadow-md"
+          : "bg-white dark:bg-secondary-900"
       }`}
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -132,7 +130,9 @@ const AdminNavbar = () => {
               className="flex items-center gap-2 text-lg font-bold text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-300 transition-colors duration-300"
             >
               <FaTasks className="h-6 w-6 animate-bounce-light" />
-              <span className="bg-gradient-to-r from-primary-600 to-primary-800 dark:from-primary-400 dark:to-primary-600 bg-clip-text text-transparent">Admin Panel</span>
+              <span className="bg-gradient-to-r from-primary-600 to-primary-800 dark:from-primary-400 dark:to-primary-600 bg-clip-text text-transparent">
+                Admin Panel
+              </span>
             </Link>
           </div>
 
@@ -152,51 +152,34 @@ const AdminNavbar = () => {
                   <span>Dashboard</span>
                 </span>
               </Link>
-              
+
               <Link
                 to="/messaging"
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 hover-lift ${
+                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 hover-lift flex items-center gap-1 ${
                   isActivePath("/messaging")
                     ? "bg-primary-50 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400 shadow-sm"
                     : "text-secondary-700 dark:text-secondary-300 hover:bg-secondary-50 dark:hover:bg-secondary-800"
                 }`}
               >
-                <span className="flex items-center gap-1.5">
-                  <FaEnvelope className="h-4 w-4" />
-                  <span>Messages</span>
-                </span>
+                <FaEnvelope className="h-3.5 w-3.5" />
+                <span>Messages</span>
+                {unreadMessages > 0 && (
+                  <span className="absolute top-0 right-0 inline-flex items-center justify-center px-1.5 py-0.5 text-xs font-bold leading-none text-white transform translate-x-1/4 -translate-y-1/4 bg-primary-600 rounded-full">
+                    {unreadMessages > 9 ? "9+" : unreadMessages}
+                  </span>
+                )}
               </Link>
             </nav>
 
             {/* User actions */}
             <div className="flex items-center gap-2">
-              {/* Notifications */}
-              <div className="relative">
-                <button 
-                  onClick={toggleNotifications}
-                  className="p-2 rounded-full hover:bg-secondary-100 dark:hover:bg-secondary-800 transition-colors text-secondary-600 dark:text-secondary-400"
-                  aria-label="Notifications"
-                >
-                  <FaBell className="h-5 w-5" />
-                  {unreadCount > 0 && (
-                    <span className="absolute top-0 right-0 bg-danger-500 text-white text-xs rounded-full h-4 w-4 flex items-center justify-center animate-pulse">
-                      {unreadCount}
-                    </span>
-                  )}
-                </button>
-                
-                {/* Notification Panel */}
-                <NotificationPanel 
-                  isOpen={showNotifications} 
-                  onClose={() => setShowNotifications(false)} 
-                />
-              </div>
-              
               {/* Dark mode toggle */}
-              <button 
+              <button
                 onClick={toggleDarkMode}
                 className="p-2 rounded-full hover:bg-secondary-100 dark:hover:bg-secondary-800 transition-colors text-secondary-600 dark:text-secondary-400"
-                aria-label={darkMode ? "Switch to light mode" : "Switch to dark mode"}
+                aria-label={
+                  darkMode ? "Switch to light mode" : "Switch to dark mode"
+                }
               >
                 {darkMode ? (
                   <FaSun className="h-5 w-5 text-warning-400" />
@@ -204,7 +187,7 @@ const AdminNavbar = () => {
                   <FaMoon className="h-5 w-5" />
                 )}
               </button>
-              
+
               {/* User profile */}
               <div className="relative">
                 <button
@@ -234,14 +217,16 @@ const AdminNavbar = () => {
               </button>
             </div>
           </div>
-          
+
           {/* Mobile menu button */}
           <div className="flex md:hidden items-center gap-3">
             {/* Dark mode toggle (mobile) */}
-            <button 
+            <button
               onClick={toggleDarkMode}
               className="p-2 rounded-full hover:bg-secondary-100 dark:hover:bg-secondary-800 transition-colors text-secondary-600 dark:text-secondary-400"
-              aria-label={darkMode ? "Switch to light mode" : "Switch to dark mode"}
+              aria-label={
+                darkMode ? "Switch to light mode" : "Switch to dark mode"
+              }
             >
               {darkMode ? (
                 <FaSun className="h-5 w-5 text-warning-400" />
@@ -249,10 +234,10 @@ const AdminNavbar = () => {
                 <FaMoon className="h-5 w-5" />
               )}
             </button>
-            
+
             {/* Notifications (mobile) */}
             <div className="relative">
-              <button 
+              <button
                 className="p-2 rounded-full hover:bg-secondary-100 dark:hover:bg-secondary-800 transition-colors text-secondary-600 dark:text-secondary-400"
                 aria-label="Notifications"
               >
@@ -264,7 +249,7 @@ const AdminNavbar = () => {
                 )}
               </button>
             </div>
-            
+
             <button
               type="button"
               className="p-2 rounded-md text-secondary-600 dark:text-secondary-400 hover:bg-secondary-100 dark:hover:bg-secondary-800 transition-colors"
@@ -310,6 +295,11 @@ const AdminNavbar = () => {
             <span className="flex items-center gap-1.5">
               <FaEnvelope className="h-4 w-4" />
               <span>Messages</span>
+              {unreadMessages > 0 && (
+                <span className="ml-1 inline-flex items-center justify-center px-1.5 py-0.5 text-xs font-bold leading-none text-white bg-primary-600 rounded-full">
+                  {unreadMessages > 9 ? "9+" : unreadMessages}
+                </span>
+              )}
             </span>
           </Link>
           
@@ -341,7 +331,18 @@ const AdminNavbar = () => {
         </div>
       </div>
 
-      {showProfilePopup && <UserProfilePopup onClose={handleClosePopup} />}
+      {/* Profile popup */}
+      {showProfilePopup && (
+        <UserProfilePopup onClose={handleClosePopup} userData={userData} />
+      )}
+
+      {/* Notification panel */}
+      {showNotifications && (
+        <NotificationPanel
+          notifications={notifications}
+          onClose={() => setShowNotifications(false)}
+        />
+      )}
     </header>
   );
 };

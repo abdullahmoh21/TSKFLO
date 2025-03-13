@@ -88,6 +88,7 @@ const invite = asyncHandler(async (req, res) => {
   });
 
   const link = `${process.env.URL}/register/${token}`;
+  logger.info(`User invited with token: ${token}`);
   await newInvitation.save();
   try {
     await sendEmail(email, "inviteUser", { name, link });
@@ -99,7 +100,7 @@ const invite = asyncHandler(async (req, res) => {
       .json({ message: "Error sending email. Please try again later" });
   }
 
-  return res.sendStatus(200);
+  return res.status(200).json({ link });
 });
 
 //@desc Update given users data

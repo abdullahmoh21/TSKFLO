@@ -1,3 +1,4 @@
+const logger = require("../logs/logger");
 const User = require("../models/User");
 const asyncHandler = require("express-async-handler");
 
@@ -51,23 +52,21 @@ const updateUserData = asyncHandler(async (req, res) => {
   return res.status(200).json(updatedUser);
 });
 
-//@desc return a list of all users and there _id's (only selected fields)
+//@desc search's the db for users with that name or email
 //@param {Object} req with valid JWT
-//@route GET /user/all
+//@route GET /user/search?query=${name}
 //@access Private
-const listAllUsers = asyncHandler(async (req, res) => {
-  let { page, limit } = req.query;
+const searchUser = asyncHandler(async (req, res) => {
+  let { query, page, limit } = req.query;
+
+  if (!query || query.trim() === "") {
+    return res.status(400).json({ error: "Query parameter is required." });
+  }
 
   // Convert page and limit to numbers, and set defaults if not provided
-  // Parse values
-  page = parseInt(page);
-  limit = parseInt(limit);
+  page = parseInt(page) || 1;
+  limit = parseInt(limit) || 10;
 
-  // Set defaults for undefined/NaN values, not for 0
-  if (isNaN(page)) page = 1;
-  if (isNaN(limit)) limit = 10;
-
-  // Ensure page and limit are positive
   if (page < 1 || limit < 1) {
     return res
       .status(400)
@@ -76,28 +75,39 @@ const listAllUsers = asyncHandler(async (req, res) => {
 
   const skip = (page - 1) * limit;
 
-  // Fetch paginated users
-  const users = await User.find()
-    .skip(skip)
-    .limit(limit)
-    .lean()
-    .select("_id name")
-    .exec();
+  try {
+    const filter = {
+      $or: [
+        { name: { $regex: `^${query}`, $options: "i" } },
+        { email: { $regex: `^${query}`, $options: "i" } },
+      ],
+    };
 
-  // Get total number of users
-  const totalUsers = await User.countDocuments();
+    // Fetch matching users with pagination
+    const users = await User.find(filter)
+      .skip(skip)
+      .limit(limit)
+      .lean()
+      .select("_id name email")
+      .exec();
 
-  // Send response with pagination metadata
-  res.json({
-    totalUsers,
-    currentPage: page,
-    totalPages: Math.ceil(totalUsers / limit),
-    users,
-  });
+    // Count total matching users
+    const totalUsers = await User.countDocuments(filter);
+
+    res.json({
+      totalUsers,
+      currentPage: page,
+      totalPages: Math.ceil(totalUsers / limit),
+      users,
+    });
+  } catch (error) {
+    console.error("Search Error:", error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
 });
 
 module.exports = {
   getUserData,
   updateUserData,
-  listAllUsers,
+  searchUser,
 };

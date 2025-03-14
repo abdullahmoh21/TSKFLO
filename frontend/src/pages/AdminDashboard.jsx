@@ -490,11 +490,11 @@ const AdminPage = () => {
   };
 
   const handleNewUserChange = (e) => {
-    const { name, value } = e.target;
-    setNewUser(prevState => ({
-      ...prevState,
-      [name]: value
-    }));
+    const name = e.target.name;
+    const value = e.target.value;
+    
+    // Update state directly without using prevState
+    setNewUser({...newUser, [name]: value});
   };
 
   const handleCreateUser = async (e) => {
@@ -516,74 +516,119 @@ const AdminPage = () => {
   };
 
   // Create User Modal
-  const CreateUserModal = () => (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white dark:bg-secondary-800 rounded-lg p-6 w-full max-w-md">
-        <h2 className="text-xl font-bold mb-4 text-secondary-900 dark:text-white">
-          Invite New User
-        </h2>
-        <form onSubmit={handleCreateUser}>
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">
-                Name
-              </label>
-              <input
-                type="text"
-                name="name"
-                value={newUser.name}
-                onChange={handleNewUserChange}
-                className="w-full p-2 border border-secondary-300 dark:border-secondary-700 rounded-lg bg-white dark:bg-secondary-900 text-secondary-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                required
-              />
+  const CreateUserModal = () => {
+    // Create refs for uncontrolled inputs
+    const nameRef = React.useRef();
+    const emailRef = React.useRef();
+    
+    // Handle form submission using refs
+    const handleSubmit = (e) => {
+      e.preventDefault();
+      // Get values directly from DOM
+      const name = nameRef.current.value;
+      const email = emailRef.current.value;
+      const role = document.querySelector('select[name="role"]').value;
+      
+      // Create user object to submit
+      const userToSubmit = {
+        name,
+        email,
+        role
+      };
+      
+      // Submit the form
+      if (editingUser) {
+        updateUser({ userId: editingUser._id, ...userToSubmit })
+          .then(() => {
+            toast.success("User updated successfully");
+            setShowCreateUser(false);
+            setEditingUser(null);
+          })
+          .catch(error => {
+            toast.error(error.data?.message || "Failed to update user");
+          });
+      } else {
+        inviteUser(userToSubmit)
+          .then(() => {
+            toast.success("Invitation sent successfully");
+            setShowCreateUser(false);
+          })
+          .catch(error => {
+            toast.error(error.data?.message || "Failed to invite user");
+          });
+      }
+    };
+    
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="bg-white dark:bg-secondary-800 rounded-lg p-6 w-full max-w-md">
+          <h2 className="text-xl font-bold mb-4 text-secondary-900 dark:text-white">
+            {editingUser ? "Edit User" : "Invite New User"}
+          </h2>
+          <form onSubmit={handleSubmit}>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">
+                  Name
+                </label>
+                <input
+                  type="text"
+                  name="name"
+                  ref={nameRef}
+                  defaultValue={editingUser?.name || ""}
+                  className="w-full p-2 border border-secondary-300 dark:border-secondary-700 rounded-lg bg-white dark:bg-secondary-900 text-secondary-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                  required
+                  autoComplete="off"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">
+                  Email
+                </label>
+                <input
+                  type="email"
+                  name="email"
+                  ref={emailRef}
+                  defaultValue={editingUser?.email || ""}
+                  className="w-full p-2 border border-secondary-300 dark:border-secondary-700 rounded-lg bg-white dark:bg-secondary-900 text-secondary-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                  required
+                  autoComplete="off"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">
+                  Role
+                </label>
+                <select
+                  name="role"
+                  defaultValue={editingUser?.role || "user"}
+                  className="w-full p-2 border border-secondary-300 dark:border-secondary-700 rounded-lg bg-white dark:bg-secondary-900 text-secondary-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                >
+                  <option value="user">User</option>
+                  <option value="admin">Admin</option>
+                </select>
+              </div>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">
-                Email
-              </label>
-              <input
-                type="email"
-                name="email"
-                value={newUser.email}
-                onChange={handleNewUserChange}
-                className="w-full p-2 border border-secondary-300 dark:border-secondary-700 rounded-lg bg-white dark:bg-secondary-900 text-secondary-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">
-                Role
-              </label>
-              <select
-                name="role"
-                value={newUser.role}
-                onChange={handleNewUserChange}
-                className="w-full p-2 border border-secondary-300 dark:border-secondary-700 rounded-lg bg-white dark:bg-secondary-900 text-secondary-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-              >
-                <option value="user">User</option>
-                <option value="admin">Admin</option>
-              </select>
-            </div>
-          </div>
-          <div className="mt-6 flex justify-end space-x-3">
+            <div className="mt-6 flex justify-end space-x-3">
               <button
                 type="button"
                 onClick={() => setShowCreateUser(false)}
-              className="px-4 py-2 text-sm font-medium text-secondary-700 dark:text-secondary-300 hover:text-primary-600 dark:hover:text-primary-400"
+                className="px-4 py-2 text-sm font-medium text-secondary-700 dark:text-secondary-300 hover:text-primary-600 dark:hover:text-primary-400"
               >
                 Cancel
               </button>
               <button
                 type="submit"
-              className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 text-sm font-medium"
+                className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 text-sm font-medium"
               >
-              Invite User
+                {editingUser ? "Update User" : "Invite User"}
               </button>
-          </div>
-        </form>
+            </div>
+          </form>
+        </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   // Function to handle opening the edit task modal
   const handleEditTask = (task) => {
@@ -809,7 +854,7 @@ const AdminPage = () => {
           {activeTab === "users" && (
             <div className="space-y-4">
               <div className="flex justify-between items-center">
-                <h2 className="text-xl font-semibold">User Management</h2>
+                <h2 className="text-xl font-semibold text-secondary-900 dark:text-white">User Management</h2>
                 <button
                   onClick={() => {
                     setEditingUser(null);
@@ -821,40 +866,40 @@ const AdminPage = () => {
                   Invite User
                 </button>
               </div>
-              <div className="bg-white rounded-lg shadow overflow-hidden">
-                  <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
+              <div className="bg-white dark:bg-secondary-800 rounded-lg shadow overflow-hidden">
+                  <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                  <thead className="bg-gray-50 dark:bg-secondary-700">
                       <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                           Name
                         </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                           Email
                         </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                           Role
                         </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                           Actions
                         </th>
                       </tr>
                     </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
+                    <tbody className="bg-white dark:bg-secondary-800 divide-y divide-gray-200 dark:divide-gray-700">
                     {users?.map((user) => (
-                      <tr key={user._id}>
+                      <tr key={user._id} className="hover:bg-gray-50 dark:hover:bg-secondary-700/50">
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm font-medium text-gray-900">
+                          <div className="text-sm font-medium text-gray-900 dark:text-white">
                             {user.name}
                           </div>
                           </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-500">{user.email}</div>
+                          <div className="text-sm text-gray-500 dark:text-gray-400">{user.email}</div>
                           </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
                             user.role === "admin"
-                              ? "bg-purple-100 text-purple-800"
-                              : "bg-green-100 text-green-800"
+                              ? "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300"
+                              : "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
                           }`}>
                             {user.role}
                           </span>
@@ -870,13 +915,13 @@ const AdminPage = () => {
                               });
                               setShowCreateUser(true);
                             }}
-                            className="text-indigo-600 hover:text-indigo-900 mr-4"
+                            className="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300 mr-4"
                           >
                             Edit
                             </button>
                             <button
                             onClick={() => handleDeleteUser(user._id)}
-                              className="text-red-600 hover:text-red-900"
+                              className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300"
                             >
                             Delete
                             </button>
@@ -897,7 +942,7 @@ const AdminPage = () => {
                     <span className="bg-gradient-to-r from-primary-500 to-primary-700 bg-clip-text text-transparent">
                   Task Management
                     </span>
-                </h2>
+                  </h2>
                   <p className="text-sm text-secondary-500 dark:text-secondary-400 mt-1">
                     Manage and monitor all tasks in the system
                   </p>
@@ -1393,28 +1438,30 @@ const AdminPage = () => {
 // Edit Task Form Component
 const EditTaskForm = ({ task, onClose }) => {
   const [updateTask, { isLoading }] = useUpdateAdminTaskMutation();
-  const [editedTask, setEditedTask] = useState({
-    title: task.title || '',
-    description: task.description || '',
-    dueDate: task.dueDate || '',
-    priority: task.priority?.toLowerCase() || 'medium',
-    status: task.status || 'Incomplete',
-  });
+  // Create refs for all inputs
+  const titleRef = React.useRef();
+  const descriptionRef = React.useRef();
+  const dueDateRef = React.useRef();
+  const priorityRef = React.useRef();
+  const statusRef = React.useRef();
+  
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(false);
-  
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setEditedTask(prev => ({ ...prev, [name]: value }));
-  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError(null);
     
+    // Get values directly from DOM via refs
+    const title = titleRef.current.value;
+    const description = descriptionRef.current.value;
+    const dueDate = dueDateRef.current.value;
+    const priority = priorityRef.current.value;
+    const status = statusRef.current.value;
+    
     // Validate form fields
     const validationErrors = [];
-    if (!editedTask.title.trim()) {
+    if (!title.trim()) {
       validationErrors.push("Title is required");
     }
     
@@ -1427,19 +1474,16 @@ const EditTaskForm = ({ task, onClose }) => {
       // Create a clean task object with expected fields
       const taskData = {
         taskId: task._id,
-        title: editedTask.title.trim(),
-        description: editedTask.description.trim(),
-        priority: editedTask.priority,
-        status: editedTask.status,
+        title: title.trim(),
+        description: description.trim(),
+        priority: priority,
+        status: status,
       };
       
       // Only include dueDate if it's not empty
-      if (editedTask.dueDate) {
-        taskData.dueDate = editedTask.dueDate;
+      if (dueDate) {
+        taskData.dueDate = dueDate;
       }
-      
-      // The backend doesn't allow updating assignees through the task update endpoint
-      // We need to use a dedicated endpoint for managing assignees
       
       console.log("Updating task:", taskData);
       await updateTask(taskData).unwrap();
@@ -1460,14 +1504,14 @@ const EditTaskForm = ({ task, onClose }) => {
         <div className="mb-4 p-3 bg-danger-50 dark:bg-danger-900/20 border border-danger-200 dark:border-danger-800 text-danger-700 dark:text-danger-300 rounded-lg flex items-center">
           <FaExclamationCircle className="mr-2 flex-shrink-0" />
           <span>{error}</span>
-                      </div>
+        </div>
       )}
       
       {success && (
         <div className="mb-4 p-3 bg-success-50 dark:bg-success-900/20 border border-success-200 dark:border-success-800 text-success-700 dark:text-success-300 rounded-lg flex items-center">
           <FaCheckCircle className="mr-2 flex-shrink-0" />
           <span>Task updated successfully!</span>
-                      </div>
+        </div>
       )}
 
       <form onSubmit={handleSubmit} className="space-y-5">
@@ -1479,13 +1523,13 @@ const EditTaskForm = ({ task, onClose }) => {
             type="text"
             id="title"
             name="title"
+            ref={titleRef}
+            defaultValue={task.title || ''}
             placeholder="Enter task title"
-            value={editedTask.title}
-            onChange={handleChange}
             className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all"
             required
           />
-                    </div>
+        </div>
 
         <div className="flex flex-col">
           <label htmlFor="description" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -1494,13 +1538,13 @@ const EditTaskForm = ({ task, onClose }) => {
           <textarea
             id="description"
             name="description"
+            ref={descriptionRef}
+            defaultValue={task.description || ''}
             placeholder="Enter task description"
-            value={editedTask.description}
-            onChange={handleChange}
             className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all resize-none"
             rows={4}
           />
-                        </div>
+        </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
           <div className="relative flex flex-col">
@@ -1510,17 +1554,17 @@ const EditTaskForm = ({ task, onClose }) => {
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                 <FaCalendarAlt className="text-gray-400 dark:text-gray-500" />
-                      </div>
+              </div>
               <input
                 type="date"
                 id="dueDate"
                 name="dueDate"
-                value={editedTask.dueDate}
-                onChange={handleChange}
+                ref={dueDateRef}
+                defaultValue={task.dueDate ? new Date(task.dueDate).toISOString().split('T')[0] : ''}
                 className="w-full pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all"
               />
-                      </div>
-                    </div>
+            </div>
+          </div>
 
           <div className="relative flex flex-col">
             <label htmlFor="priority" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -1529,22 +1573,20 @@ const EditTaskForm = ({ task, onClose }) => {
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                 <FaExclamationCircle className="text-gray-400 dark:text-gray-500" />
-                  </div>
+              </div>
               <select
                 name="priority"
-                value={editedTask.priority}
-                onChange={handleChange}
+                id="priority"
+                ref={priorityRef}
+                defaultValue={task.priority?.toLowerCase() || 'medium'}
                 className="w-full pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all appearance-none"
               >
                 <option value="low">Low</option>
                 <option value="medium">Medium</option>
                 <option value="high">High</option>
               </select>
-              <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-                <FaChevronDown className="text-gray-400 dark:text-gray-500" />
-                </div>
-              </div>
             </div>
+          </div>
 
           <div className="relative flex flex-col">
             <label htmlFor="status" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -1552,49 +1594,38 @@ const EditTaskForm = ({ task, onClose }) => {
             </label>
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <FaCheckCircle className="text-gray-400 dark:text-gray-500" />
-        </div>
+                <FaUser className="text-gray-400 dark:text-gray-500" />
+              </div>
               <select
                 name="status"
-                value={editedTask.status}
-                onChange={handleChange}
+                id="status"
+                ref={statusRef}
+                defaultValue={task.status || 'Incomplete'}
                 className="w-full pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all appearance-none"
               >
                 <option value="Incomplete">To Do</option>
                 <option value="In Progress">In Progress</option>
-                <option value="Complete">Done</option>
+                <option value="Complete">Completed</option>
               </select>
-              <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-                <FaChevronDown className="text-gray-400 dark:text-gray-500" />
-      </div>
             </div>
           </div>
         </div>
 
-        <div className="p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300 rounded-lg">
-          <div className="flex items-start">
-            <FaInfoCircle className="mt-0.5 mr-2 flex-shrink-0" />
-            <p className="text-sm">
-              <strong>Note:</strong> Task assignees cannot be edited through this form due to backend restrictions. 
-              If you need to update assignees, please use the dedicated endpoint.
-            </p>
-          </div>
-        </div>
-
-        <div className="flex justify-end space-x-3 pt-4">
+        <div className="flex justify-end mt-6 space-x-3">
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg font-medium transition-all"
+            className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400"
           >
             Cancel
           </button>
           <button
             type="submit"
+            className="px-4 py-2.5 bg-primary-600 text-white rounded-lg hover:bg-primary-700 text-sm font-medium flex items-center justify-center space-x-2"
             disabled={isLoading}
-            className="px-4 py-2 bg-primary-500 hover:bg-primary-600 text-white rounded-lg font-medium shadow-sm hover:shadow-lg transition-all"
           >
-            {isLoading ? "Saving..." : "Save Changes"}
+            {isLoading ? <FaSpinner className="animate-spin" /> : <FaSave className="mr-1" />}
+            <span>Save Changes</span>
           </button>
         </div>
       </form>

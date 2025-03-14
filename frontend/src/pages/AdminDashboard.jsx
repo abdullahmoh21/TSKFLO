@@ -40,6 +40,7 @@ import {
   useDeleteUserMutation,
   useInviteUserMutation,
   useLockAdminTaskMutation,
+  useUpdateAdminUserMutation,
 } from "../features/admin/adminApiSlice";
 import 'react-tooltip/dist/react-tooltip.css';
 import { Tooltip as ReactTooltip } from 'react-tooltip';
@@ -74,8 +75,12 @@ ChartJS.register(
 
 const AdminPage = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const token = useSelector((state) => state.auth.token);
-  const [activeTab, setActiveTab] = useState("dashboard");
+  const [activeTab, setActiveTab] = useState(() => {
+    const params = new URLSearchParams(location.search);
+    return params.get('tab') || "dashboard";
+  });
   const [error, setError] = useState(null);
   const [showCreateUser, setShowCreateUser] = useState(false);
   const [showCreateTask, setShowCreateTask] = useState(false);
@@ -99,6 +104,9 @@ const AdminPage = () => {
   // Animation state
   const [isLoaded, setIsLoaded] = useState(false);
   const [hoveredTask, setHoveredTask] = useState(null);
+  const [editUserData, setEditUserData] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize] = useState(10);
 
   // Add the isOverdue function
   const isOverdue = (dueDate) => {
@@ -108,11 +116,11 @@ const AdminPage = () => {
 
   // RTK Query hooks with debug logs
   const {
-    data: tasks = [],
+    data: tasksData = { tasks: [], pagination: { totalTasks: 0, currentPage: 1, totalPages: 1 } },
     isLoading: isLoadingTasks,
     error: tasksError,
     refetch: refetchTasks
-  } = useGetAdminTasksQuery(undefined, {
+  } = useGetAdminTasksQuery({ page: currentPage, limit: pageSize }, {
     onError: (error) => {
       console.error('Tasks Query Error:', error);
       setError(error.message || 'Failed to fetch tasks');
@@ -130,6 +138,10 @@ const AdminPage = () => {
       setError(error.message || 'Failed to fetch users');
     }
   });
+
+  // Extract tasks and pagination from the response
+  const tasks = tasksData.tasks || [];
+  const pagination = tasksData.pagination || { totalTasks: 0, currentPage: 1, totalPages: 1 };
 
   // Log data for debugging
   useEffect(() => {
@@ -240,17 +252,21 @@ const AdminPage = () => {
     
     return {
     totalUsers: users?.length || 0,
-    totalTasks: tasks?.length || 0,
-      completedTasks: tasks?.filter(task => task.status === 'Complete')?.length || 0,
-      upcomingDeadlines,
-      tasksByStatus,
-      tasksByPriority,
+{
+  totalTasks: pagination.totalTasks || tasks?.length || 0,
+  completedTasks: tasks?.filter(task => task.status === 'completed')?.length || 0,
+  upcomingDeadlines: tasks?.filter(task => new Date(task.dueDate) > new Date())?.length || 0,
+  tasksByStatus,
+  tasksByPriority,
+  weeklyTaskCompletion: [65, 72, 78, 85, 82, 90, 88],
+}
+
     teamPerformance: {
         labels: teamLabels,
         data: teamData,
     },
-    };
-  }, [tasks, users]);
+  }, [tasks, users, pagination.totalTasks]);
+
 
   // Add retry functionality with loading state
   const [isRetrying, setIsRetrying] = useState(false);
@@ -655,6 +671,59 @@ const AdminPage = () => {
     }
   };
 
+  // Update activeTab when URL changes
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const tab = params.get('tab');
+    if (tab) {
+      setActiveTab(tab);
+    } else if (location.pathname === '/admindashboard') {
+      setActiveTab('dashboard');
+    }
+  }, [location]);
+
+  // Handle tab changes
+  const handleTabChange = (tab) => {
+    setActiveTab(tab);
+    navigate(`/admindashboard${tab === 'dashboard' ? '' : `?tab=${tab}`}`);
+  };
+
+  // Function to handle opening the edit user modal
+  const handleEditUser = (user) => {
+    setEditUserData(user);
+  };
+
+  // Function to handle closing the edit user modal
+  const handleCloseEditUser = () => {
+    setEditUserData(null);
+    refetchUsers(); // Refresh the users list after edit
+  };
+
+  // Add pagination handlers
+  const handlePageChange = (newPage) => {
+    if (newPage >= 1 && newPage <= pagination.totalPages) {
+      setCurrentPage(newPage);
+    }
+  };
+
+  // Add this function to go to the last page (for newly created tasks)
+  const goToLastPage = () => {
+    setCurrentPage(pagination.totalPages);
+  };
+
+  // Update the task creation success handler
+  const handleTaskCreationSuccess = () => {
+    setShowCreateTask(false);
+    setTimeout(() => {
+      refetchTasks();
+      // Go to the last page to see the newly created task
+      goToLastPage();
+      console.log("Refreshing tasks after creation");
+    }, 500);
+  };
+
+  };
+
   return (
     <div className={`min-h-screen bg-secondary-50 dark:bg-secondary-900 pt-16 px-4 sm:px-6 lg:px-8 transition-all duration-300 ${isLoaded ? 'opacity-100' : 'opacity-0'}`}>
       {(error || tasksError || usersError) && (
@@ -702,13 +771,7 @@ const AdminPage = () => {
             </div>
             <AdminCreateTask
               isModal={true}
-              onClose={() => {
-                setShowCreateTask(false);
-                setTimeout(() => {
-                  refetchTasks();
-                  console.log("Refreshing tasks after creation");
-                }, 500);
-              }}
+              onClose={handleTaskCreationSuccess}
             />
           </div>
         </div>
@@ -740,6 +803,27 @@ const AdminPage = () => {
           </div>
         </div>
       )}
+      {/* Edit User Modal */}
+      {editUserData && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm overflow-y-auto h-full w-full z-50 flex items-center justify-center">
+          <div className="relative mx-auto p-5 border max-w-xl shadow-xl rounded-xl bg-white dark:bg-secondary-800 animate-scale-in">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-xl font-bold text-secondary-900 dark:text-white">
+                <span className="bg-gradient-to-r from-primary-500 to-primary-700 bg-clip-text text-transparent">
+                  Edit User
+                </span>
+              </h3>
+              <button
+                onClick={handleCloseEditUser}
+                className="p-2 rounded-full hover:bg-secondary-100 dark:hover:bg-secondary-700 text-secondary-500 dark:text-secondary-400 transition-colors"
+              >
+                <FaTimes />
+              </button>
+            </div>
+            <EditUserForm user={editUserData} onClose={handleCloseEditUser} />
+          </div>
+        </div>
+      )}
       <div className="max-w-7xl mx-auto">
         {/* Welcome Section */}
         <div className="glass-morphism rounded-xl shadow-sm p-6 mb-6 mt-6 border border-secondary-200 dark:border-secondary-700 transform transition-all duration-300 hover:shadow-md">
@@ -753,101 +837,117 @@ const AdminPage = () => {
           </p>
         </div>
 
-        {/* Metrics Overview */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
-          <div className="glass-morphism rounded-xl shadow-sm p-6 border border-secondary-200 dark:border-secondary-700 transform transition-all duration-300 hover:shadow-md hover:-translate-y-1">
-            <div className="flex items-center">
-              <div className="p-3 rounded-full bg-primary-100 dark:bg-primary-900/20 text-primary-500 dark:text-primary-400">
-                <FaUsers className="h-6 w-6" />
+        {/* Only show metrics overview on dashboard tab */}
+        {activeTab === "dashboard" && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+            <div className="glass-morphism rounded-xl shadow-sm p-6 border border-secondary-200 dark:border-secondary-700 transform transition-all duration-300 hover:shadow-md hover:-translate-y-1">
+              <div className="flex items-center">
+                <div className="p-3 rounded-full bg-primary-100 dark:bg-primary-900/20 text-primary-500 dark:text-primary-400">
+                  <FaUsers className="h-6 w-6" />
+                </div>
+                <div className="ml-4">
+                  <p className="text-sm font-medium text-secondary-500 dark:text-secondary-400">Total Users</p>
+                  <h3 className="text-2xl font-bold text-secondary-900 dark:text-white">
+                    {metrics.totalUsers}
+                  </h3>
+                </div>
               </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-secondary-500 dark:text-secondary-400">Total Users</p>
-                <h3 className="text-2xl font-bold text-secondary-900 dark:text-white">
-                  {metrics.totalUsers}
-                </h3>
+            </div>
+            <div className="glass-morphism rounded-xl shadow-sm p-6 border border-secondary-200 dark:border-secondary-700 transform transition-all duration-300 hover:shadow-md hover:-translate-y-1">
+              <div className="flex items-center">
+                <div className="p-3 rounded-full bg-success-100 dark:bg-success-900/20 text-success-500 dark:text-success-400">
+                  <FaTasks className="h-6 w-6" />
+                </div>
+                <div className="ml-4">
+                  <p className="text-sm font-medium text-secondary-500 dark:text-secondary-400">Total Tasks</p>
+                  <h3 className="text-2xl font-bold text-secondary-900 dark:text-white">
+                    {metrics.totalTasks}
+                  </h3>
+                </div>
+              </div>
+            </div>
+            <div className="glass-morphism rounded-xl shadow-sm p-6 border border-secondary-200 dark:border-secondary-700 transform transition-all duration-300 hover:shadow-md hover:-translate-y-1">
+              <div className="flex items-center">
+                <div className="p-3 rounded-full bg-warning-100 dark:bg-warning-900/20 text-warning-500 dark:text-warning-400">
+                  <FaChartLine className="h-6 w-6" />
+                </div>
+                <div className="ml-4">
+                  <p className="text-sm font-medium text-secondary-500 dark:text-secondary-400">
+                    Completed Tasks
+                  </p>
+                  <h3 className="text-2xl font-bold text-secondary-900 dark:text-white">
+                    {metrics.completedTasks}
+                  </h3>
+                </div>
+              </div>
+            </div>
+            <div className="glass-morphism rounded-xl shadow-sm p-6 border border-secondary-200 dark:border-secondary-700 transform transition-all duration-300 hover:shadow-md hover:-translate-y-1">
+              <div className="flex items-center">
+                <div className="p-3 rounded-full bg-danger-100 dark:bg-danger-900/20 text-danger-500 dark:text-danger-400">
+                  <FaClock className="h-6 w-6" />
+                </div>
+                <div className="ml-4">
+                  <p className="text-sm font-medium text-secondary-500 dark:text-secondary-400">
+                    Upcoming Deadlines
+                  </p>
+                  <h3 className="text-2xl font-bold text-secondary-900 dark:text-white">
+                    {metrics.upcomingDeadlines}
+                  </h3>
+                </div>
               </div>
             </div>
           </div>
-          <div className="glass-morphism rounded-xl shadow-sm p-6 border border-secondary-200 dark:border-secondary-700 transform transition-all duration-300 hover:shadow-md hover:-translate-y-1">
-            <div className="flex items-center">
-              <div className="p-3 rounded-full bg-success-100 dark:bg-success-900/20 text-success-500 dark:text-success-400">
-                <FaTasks className="h-6 w-6" />
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-secondary-500 dark:text-secondary-400">Total Tasks</p>
-                <h3 className="text-2xl font-bold text-secondary-900 dark:text-white">
-                  {metrics.totalTasks}
-                </h3>
-              </div>
-            </div>
-          </div>
-          <div className="glass-morphism rounded-xl shadow-sm p-6 border border-secondary-200 dark:border-secondary-700 transform transition-all duration-300 hover:shadow-md hover:-translate-y-1">
-            <div className="flex items-center">
-              <div className="p-3 rounded-full bg-warning-100 dark:bg-warning-900/20 text-warning-500 dark:text-warning-400">
-                <FaChartLine className="h-6 w-6" />
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-secondary-500 dark:text-secondary-400">
-                  Completed Tasks
-                </p>
-                <h3 className="text-2xl font-bold text-secondary-900 dark:text-white">
-                  {metrics.completedTasks}
-                </h3>
-              </div>
-            </div>
-          </div>
-          <div className="glass-morphism rounded-xl shadow-sm p-6 border border-secondary-200 dark:border-secondary-700 transform transition-all duration-300 hover:shadow-md hover:-translate-y-1">
-            <div className="flex items-center">
-              <div className="p-3 rounded-full bg-danger-100 dark:bg-danger-900/20 text-danger-500 dark:text-danger-400">
-                <FaClock className="h-6 w-6" />
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-secondary-500 dark:text-secondary-400">
-                  Upcoming Deadlines
-                </p>
-                <h3 className="text-2xl font-bold text-secondary-900 dark:text-white">
-                  {metrics.upcomingDeadlines}
-                </h3>
-              </div>
-            </div>
-          </div>
-        </div>
+// Chart components for handling null data
+const BarChart = ({ data, options }) => {
+  if (!data || !data.labels || !data.datasets) {
+    return <div className="h-full flex items-center justify-center text-gray-500">No data available</div>;
+  }
+  return <Bar data={data} options={options} />;
+};
 
-        {/* Navigation Tabs */}
-        <div className="glass-morphism rounded-xl shadow-sm mb-6 border border-secondary-200 dark:border-secondary-700 overflow-hidden">
-          <nav className="flex">
-              <button
-                onClick={() => setActiveTab("dashboard")}
-              className={`px-6 py-4 text-sm font-medium transition-all duration-200 ${
-                  activeTab === "dashboard"
-                  ? "border-b-2 border-primary-500 text-primary-600 dark:text-primary-400"
-                  : "text-secondary-500 dark:text-secondary-400 hover:text-secondary-700 dark:hover:text-secondary-300 hover:bg-secondary-100 dark:hover:bg-secondary-800"
-                }`}
-              >
-                Dashboard
-              </button>
-              <button
-                onClick={() => setActiveTab("users")}
-              className={`px-6 py-4 text-sm font-medium transition-all duration-200 ${
-                  activeTab === "users"
-                  ? "border-b-2 border-primary-500 text-primary-600 dark:text-primary-400"
-                  : "text-secondary-500 dark:text-secondary-400 hover:text-secondary-700 dark:hover:text-secondary-300 hover:bg-secondary-100 dark:hover:bg-secondary-800"
-                }`}
-              >
-                Users
-              </button>
-              <button
-                onClick={() => setActiveTab("tasks")}
-              className={`px-6 py-4 text-sm font-medium transition-all duration-200 ${
-                  activeTab === "tasks"
-                  ? "border-b-2 border-primary-500 text-primary-600 dark:text-primary-400"
-                  : "text-secondary-500 dark:text-secondary-400 hover:text-secondary-700 dark:hover:text-secondary-300 hover:bg-secondary-100 dark:hover:bg-secondary-800"
-                }`}
-              >
-                Tasks
-              </button>
-            </nav>
-        </div>
+const PieChart = ({ data, options }) => {
+  if (!data || !data.labels || !data.datasets) {
+    return <div className="h-full flex items-center justify-center text-gray-500">No data available</div>;
+  }
+  return <Pie data={data} options={options} />;
+};
+
+// Navigation Tabs (from development branch)
+<div className="glass-morphism rounded-xl shadow-sm mb-6 border border-secondary-200 dark:border-secondary-700 overflow-hidden">
+  <nav className="flex">
+    <button
+      onClick={() => setActiveTab("dashboard")}
+      className={`px-6 py-4 text-sm font-medium transition-all duration-200 ${
+        activeTab === "dashboard"
+          ? "border-b-2 border-primary-500 text-primary-600 dark:text-primary-400"
+          : "text-secondary-500 dark:text-secondary-400 hover:text-secondary-700 dark:hover:text-secondary-300 hover:bg-secondary-100 dark:hover:bg-secondary-800"
+      }`}
+    >
+      Dashboard
+    </button>
+    <button
+      onClick={() => setActiveTab("users")}
+      className={`px-6 py-4 text-sm font-medium transition-all duration-200 ${
+        activeTab === "users"
+          ? "border-b-2 border-primary-500 text-primary-600 dark:text-primary-400"
+          : "text-secondary-500 dark:text-secondary-400 hover:text-secondary-700 dark:hover:text-secondary-300 hover:bg-secondary-100 dark:hover:bg-secondary-800"
+      }`}
+    >
+      Users
+    </button>
+    <button
+      onClick={() => setActiveTab("tasks")}
+      className={`px-6 py-4 text-sm font-medium transition-all duration-200 ${
+        activeTab === "tasks"
+          ? "border-b-2 border-primary-500 text-primary-600 dark:text-primary-400"
+          : "text-secondary-500 dark:text-secondary-400 hover:text-secondary-700 dark:hover:text-secondary-300 hover:bg-secondary-100 dark:hover:bg-secondary-800"
+      }`}
+    >
+      Tasks
+    </button>
+  </nav>
+</div>
+
 
         {/* Content Sections */}
         <div className="glass-morphism rounded-xl shadow-sm p-6 border border-secondary-200 dark:border-secondary-700">
@@ -904,27 +1004,33 @@ const AdminPage = () => {
                             {user.role}
                           </span>
                           </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                            <button
-                            onClick={() => {
-                              setEditingUser(user);
-                              setNewUser({
-                                name: user.name,
-                                email: user.email,
-                                role: user.role,
-                              });
-                              setShowCreateUser(true);
-                            }}
-                            className="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300 mr-4"
-                          >
-                            Edit
-                            </button>
-                            <button
-                            onClick={() => handleDeleteUser(user._id)}
-                              className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300"
-                            >
-                            Delete
-                            </button>
+<td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+  <div className="flex space-x-3 opacity-70 hover:opacity-100 transition-opacity duration-200">
+    <button
+      onClick={() => {
+        setEditingUser(user);
+        setNewUser({
+          name: user.name,
+          email: user.email,
+          role: user.role,
+        });
+        setShowCreateUser(true);
+      }}
+      className="text-primary-600 dark:text-primary-400 hover:text-primary-900 dark:hover:text-primary-300 transition-colors duration-200"
+      aria-label="Edit user"
+    >
+      <FaEdit />
+    </button>
+    <button
+      onClick={() => handleDeleteUser(user.id)}
+      className="text-danger-600 dark:text-danger-400 hover:text-danger-900 dark:hover:text-danger-300 transition-colors duration-200"
+      aria-label="Delete user"
+    >
+      <FaTrash />
+    </button>
+  </div>
+</td>
+
                           </td>
                         </tr>
                       ))}
@@ -1258,6 +1364,77 @@ const AdminPage = () => {
                   </div>
                 )}
               </div>
+              {pagination.totalPages > 1 && (
+                <div className="flex justify-center items-center mt-6 space-x-2">
+                  <button
+                    onClick={() => handlePageChange(currentPage - 1)}
+                    disabled={currentPage === 1}
+                    className={`px-3 py-1 rounded-md ${
+                      currentPage === 1
+                        ? "bg-gray-200 text-gray-500 cursor-not-allowed"
+                        : "bg-indigo-100 text-indigo-700 hover:bg-indigo-200"
+                    }`}
+                  >
+                    <FaChevronLeft />
+                  </button>
+                  
+                  <div className="flex space-x-1">
+                    {Array.from({ length: pagination.totalPages }, (_, i) => i + 1)
+                      .filter(page => 
+                        page === 1 || 
+                        page === pagination.totalPages || 
+                        (page >= currentPage - 1 && page <= currentPage + 1)
+                      )
+                      .map((page, index, array) => {
+                        // Add ellipsis
+                        if (index > 0 && array[index - 1] !== page - 1) {
+                          return (
+                            <React.Fragment key={`ellipsis-${page}`}>
+                              <span className="px-3 py-1 text-gray-500">...</span>
+                              <button
+                                key={page}
+                                onClick={() => handlePageChange(page)}
+                                className={`px-3 py-1 rounded-md ${
+                                  currentPage === page
+                                    ? "bg-indigo-600 text-white"
+                                    : "bg-indigo-100 text-indigo-700 hover:bg-indigo-200"
+                                }`}
+                              >
+                                {page}
+                              </button>
+                            </React.Fragment>
+                          );
+                        }
+                        
+                        return (
+                          <button
+                            key={page}
+                            onClick={() => handlePageChange(page)}
+                            className={`px-3 py-1 rounded-md ${
+                              currentPage === page
+                                ? "bg-indigo-600 text-white"
+                                : "bg-indigo-100 text-indigo-700 hover:bg-indigo-200"
+                            }`}
+                          >
+                            {page}
+                          </button>
+                        );
+                      })}
+                  </div>
+                  
+                  <button
+                    onClick={() => handlePageChange(currentPage + 1)}
+                    disabled={currentPage === pagination.totalPages}
+                    className={`px-3 py-1 rounded-md ${
+                      currentPage === pagination.totalPages
+                        ? "bg-gray-200 text-gray-500 cursor-not-allowed"
+                        : "bg-indigo-100 text-indigo-700 hover:bg-indigo-200"
+                    }`}
+                  >
+                    <FaChevronRight />
+                  </button>
+                </div>
+              )}
             </div>
           )}
 
@@ -1646,6 +1823,162 @@ const PieChart = ({ data, options }) => {
     return <div className="h-full flex items-center justify-center text-gray-500">No data available</div>;
   }
   return <Pie data={data} options={options} />;
+};
+
+// Add EditUserForm component
+const EditUserForm = ({ user, onClose }) => {
+  const [updateUser] = useUpdateAdminUserMutation();
+  const [editedUser, setEditedUser] = useState({
+    name: user.name || '',
+    email: user.email || '',
+    phone: user.phone || '',
+    role: user.role || 'user'
+  });
+  const [error, setError] = useState(null);
+  const [success, setSuccess] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setEditedUser(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError(null);
+    setSuccess(false);
+    setIsLoading(true);
+
+    try {
+      const updates = {};
+      Object.keys(editedUser).forEach(key => {
+        if (editedUser[key] !== user[key]) {
+          updates[key] = editedUser[key];
+        }
+      });
+
+      if (Object.keys(updates).length === 0) {
+        onClose();
+        return;
+      }
+
+      await updateUser({ userId: user.id, ...updates }).unwrap();
+      setSuccess(true);
+      setTimeout(() => {
+        onClose();
+      }, 1500);
+    } catch (err) {
+      console.error('Failed to update user:', err);
+      setError(err?.data?.message || 'Failed to update user. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      {error && (
+        <div className="p-3 bg-danger-50 dark:bg-danger-900/20 border border-danger-200 dark:border-danger-800 text-danger-700 dark:text-danger-300 rounded-lg">
+          {error}
+        </div>
+      )}
+      
+      {success && (
+        <div className="p-3 bg-success-50 dark:bg-success-900/20 border border-success-200 dark:border-success-800 text-success-700 dark:text-success-300 rounded-lg">
+          User updated successfully!
+        </div>
+      )}
+
+      <div>
+        <label className="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">
+          Name
+        </label>
+        <input
+          type="text"
+          name="name"
+          value={editedUser.name}
+          onChange={handleChange}
+          className="w-full px-3 py-2 border border-secondary-300 dark:border-secondary-700 rounded-lg focus:ring-2 focus:ring-primary-500 dark:bg-secondary-800 dark:text-white"
+          required
+        />
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">
+          Email
+        </label>
+        <input
+          type="email"
+          name="email"
+          value={editedUser.email}
+          onChange={handleChange}
+          className="w-full px-3 py-2 border border-secondary-300 dark:border-secondary-700 rounded-lg focus:ring-2 focus:ring-primary-500 dark:bg-secondary-800 dark:text-white"
+          required
+        />
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">
+          Phone
+        </label>
+        <input
+          type="tel"
+          name="phone"
+          value={editedUser.phone}
+          onChange={handleChange}
+          className="w-full px-3 py-2 border border-secondary-300 dark:border-secondary-700 rounded-lg focus:ring-2 focus:ring-primary-500 dark:bg-secondary-800 dark:text-white"
+        />
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">
+          Role
+        </label>
+        <select
+          name="role"
+          value={editedUser.role}
+          onChange={handleChange}
+          className="w-full px-3 py-2 border border-secondary-300 dark:border-secondary-700 rounded-lg focus:ring-2 focus:ring-primary-500 dark:bg-secondary-800 dark:text-white"
+          required
+        >
+          <option value="user">User</option>
+          <option value="admin">Admin</option>
+        </select>
+      </div>
+
+      <div className="flex justify-end space-x-3 pt-4 border-t border-secondary-200 dark:border-secondary-700">
+        <button
+          type="button"
+          onClick={onClose}
+          className="px-4 py-2 bg-secondary-100 dark:bg-secondary-800 hover:bg-secondary-200 dark:hover:bg-secondary-700 text-secondary-700 dark:text-secondary-300 rounded-lg font-medium transition-all"
+        >
+          Cancel
+        </button>
+        <button
+          type="submit"
+          disabled={isLoading}
+          className="px-6 py-2 bg-primary-500 hover:bg-primary-600 text-white rounded-lg font-medium shadow-sm hover:shadow-lg transition-all hover:-translate-y-1 flex items-center"
+        >
+          {isLoading ? (
+            <>
+              <FaSpinner className="animate-spin mr-2" />
+              Updating...
+            </>
+          ) : (
+            <>
+              <FaSave className="mr-2" />
+              Update User
+            </>
+          )}
+        </button>
+      </div>
+    </form>
+  );
+};
+
 };
 
 export default AdminPage;

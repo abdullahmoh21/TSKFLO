@@ -1,4 +1,3 @@
-// AdminDashNavbar.jsx
 import React, { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
@@ -28,6 +27,7 @@ const AdminNavbar = () => {
   const [darkMode, setDarkMode] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
   const [notifications, setNotifications] = useState([
     { id: 1, text: "New user registration", isRead: false },
     { id: 2, text: "System maintenance scheduled", isRead: false },
@@ -85,6 +85,12 @@ const AdminNavbar = () => {
 
   const isActivePath = (path) => location.pathname.startsWith(path);
 
+  // Check if a tab is active based on URL search params
+  const isTabActive = (tab) => {
+    const params = new URLSearchParams(location.search);
+    return params.get('tab') === tab;
+  };
+
   const handleLogout = async () => {
     try {
       // First, manually dispatch the logout action to clear the Redux state
@@ -105,7 +111,6 @@ const AdminNavbar = () => {
 
   // Get unread notification count
   const unreadCount = notifications.filter((n) => !n.isRead).length;
-
   const { unreadMessages } = useNotification();
 
   const handleClosePopup = () => {
@@ -141,7 +146,7 @@ const AdminNavbar = () => {
               <Link
                 to="/admindashboard"
                 className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 hover-lift ${
-                  isActivePath("/admindashboard") && !isActivePath("/messaging")
+                  isActivePath("/admindashboard") && !location.search
                     ? "bg-primary-50 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400 shadow-sm"
                     : "text-secondary-700 dark:text-secondary-300 hover:bg-secondary-50 dark:hover:bg-secondary-800"
                 }`}
@@ -149,6 +154,34 @@ const AdminNavbar = () => {
                 <span className="flex items-center gap-1.5">
                   <FaChartBar className="h-4 w-4" />
                   <span>Dashboard</span>
+                </span>
+              </Link>
+
+              <Link
+                to="/admindashboard?tab=users"
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 hover-lift ${
+                  isTabActive("users")
+                    ? "bg-primary-50 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400 shadow-sm"
+                    : "text-secondary-700 dark:text-secondary-300 hover:bg-secondary-50 dark:hover:bg-secondary-800"
+                }`}
+              >
+                <span className="flex items-center gap-1.5">
+                  <FaUserCircle className="h-4 w-4" />
+                  <span>Users</span>
+                </span>
+              </Link>
+
+              <Link
+                to="/admindashboard?tab=tasks"
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 hover-lift ${
+                  isTabActive("tasks")
+                    ? "bg-primary-50 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400 shadow-sm"
+                    : "text-secondary-700 dark:text-secondary-300 hover:bg-secondary-50 dark:hover:bg-secondary-800"
+                }`}
+              >
+                <span className="flex items-center gap-1.5">
+                  <FaTasks className="h-4 w-4" />
+                  <span>Tasks</span>
                 </span>
               </Link>
 
@@ -190,158 +223,74 @@ const AdminNavbar = () => {
               {/* User profile */}
               <div className="relative">
                 <button
-                  onClick={() => setShowProfilePopup(true)}
-                  className="flex items-center gap-2 text-sm font-medium text-secondary-700 dark:text-secondary-300 hover:text-primary-600 dark:hover:text-primary-400 transition-colors py-2 px-3 rounded-lg hover:bg-secondary-50 dark:hover:bg-secondary-800"
+                  onClick={() => setShowProfilePopup(!showProfilePopup)}
+                  className="p-2 rounded-full hover:bg-secondary-100 dark:hover:bg-secondary-800 transition-colors text-secondary-600 dark:text-secondary-400"
+                  aria-label="User profile"
                 >
-                  <span className="hidden md:inline-block">
-                    {isUserLoading
-                      ? "Loading..."
-                      : userData?.name
-                      ? userData.name
-                      : userName || "Admin"}
-                  </span>
-                  <div className="h-8 w-8 rounded-full bg-primary-100 dark:bg-primary-900 flex items-center justify-center text-primary-600 dark:text-primary-400 overflow-hidden">
-                    <FaUserCircle className="h-7 w-7" />
-                  </div>
+                  <FaUserCircle className="h-5 w-5" />
                 </button>
+                {showProfilePopup && (
+                  <UserProfilePopup
+                    userData={userData}
+                    onClose={handleClosePopup}
+                  />
+                )}
               </div>
 
+              {/* Notifications */}
+              <div className="relative">
+                <button
+                  onClick={() => setShowNotifications(!showNotifications)}
+                  className="p-2 rounded-full hover:bg-secondary-100 dark:hover:bg-secondary-800 transition-colors text-secondary-600 dark:text-secondary-400"
+                  aria-label="Notifications"
+                >
+                  <FaBell className="h-5 w-5" />
+                </button>
+                {showNotifications && (
+                  <div className="absolute right-0 mt-2 w-64 bg-white dark:bg-secondary-800 p-4 rounded-lg shadow-md">
+                    <h3 className="font-bold text-primary-600 dark:text-primary-400">
+                      Notifications
+                    </h3>
+                    <ul className="space-y-2">
+                      {notifications.map((notif) => (
+                        <li
+                          key={notif.id}
+                          className={`${
+                            notif.isRead ? "text-gray-500" : "font-semibold"
+                          }`}
+                        >
+                          {notif.text}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
               {/* Logout button */}
               <button
                 onClick={handleLogout}
-                className="hidden md:flex items-center gap-1.5 text-sm font-medium text-secondary-700 dark:text-secondary-300 hover:text-danger-600 dark:hover:text-danger-400 transition-colors py-2 px-3 rounded-lg hover:bg-secondary-50 dark:hover:bg-secondary-800"
+                className="p-2 rounded-full hover:bg-secondary-100 dark:hover:bg-secondary-800 transition-colors text-secondary-600 dark:text-secondary-400"
+                aria-label="Logout"
               >
-                <FaSignOutAlt className="h-4 w-4" />
-                <span>Logout</span>
+                <FaSignOutAlt className="h-5 w-5" />
               </button>
             </div>
           </div>
 
           {/* Mobile menu button */}
-          <div className="flex md:hidden items-center gap-3">
-            {/* Dark mode toggle (mobile) */}
-            <button
-              onClick={toggleDarkMode}
-              className="p-2 rounded-full hover:bg-secondary-100 dark:hover:bg-secondary-800 transition-colors text-secondary-600 dark:text-secondary-400"
-              aria-label={
-                darkMode ? "Switch to light mode" : "Switch to dark mode"
-              }
-            >
-              {darkMode ? (
-                <FaSun className="h-5 w-5 text-warning-400" />
-              ) : (
-                <FaMoon className="h-5 w-5" />
-              )}
-            </button>
-
-            {/* Notifications (mobile) */}
-            <div className="relative">
-              <button
-                className="p-2 rounded-full hover:bg-secondary-100 dark:hover:bg-secondary-800 transition-colors text-secondary-600 dark:text-secondary-400"
-                aria-label="Notifications"
-              >
-                <FaBell className="h-5 w-5" />
-                {unreadCount > 0 && (
-                  <span className="absolute top-0 right-0 bg-danger-500 text-white text-xs rounded-full h-4 w-4 flex items-center justify-center animate-pulse">
-                    {unreadCount}
-                  </span>
-                )}
-              </button>
-            </div>
-
-            <button
-              type="button"
-              className="p-2 rounded-md text-secondary-600 dark:text-secondary-400 hover:bg-secondary-100 dark:hover:bg-secondary-800 transition-colors"
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            >
-              {mobileMenuOpen ? (
-                <FaTimes className="h-6 w-6" />
-              ) : (
-                <FaBars className="h-6 w-6" />
-              )}
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Mobile menu */}
-      <div className={`md:hidden transition-all duration-300 overflow-hidden ${mobileMenuOpen ? 'max-h-60' : 'max-h-0'}`}>
-        <div className="px-2 pt-2 pb-3 space-y-1 border-t border-secondary-200 dark:border-secondary-700">
-          <Link
-            to="/admindashboard"
-            className={`block px-3 py-2 rounded-md text-base font-medium ${
-              isActivePath("/admindashboard") && !isActivePath("/messaging")
-                ? "bg-primary-50 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400"
-                : "text-secondary-700 dark:text-secondary-300 hover:bg-secondary-50 dark:hover:bg-secondary-800"
-            }`}
-            onClick={() => setMobileMenuOpen(false)}
-          >
-            <span className="flex items-center gap-1.5">
-              <FaChartBar className="h-4 w-4" />
-              <span>Dashboard</span>
-            </span>
-          </Link>
-          
-          <Link
-            to="/messaging"
-            className={`block px-3 py-2 rounded-md text-base font-medium ${
-              isActivePath("/messaging")
-                ? "bg-primary-50 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400"
-                : "text-secondary-700 dark:text-secondary-300 hover:bg-secondary-50 dark:hover:bg-secondary-800"
-            }`}
-            onClick={() => setMobileMenuOpen(false)}
-          >
-            <span className="flex items-center gap-1.5">
-              <FaEnvelope className="h-4 w-4" />
-              <span>Messages</span>
-              {unreadMessages > 0 && (
-                <span className="ml-1 inline-flex items-center justify-center px-1.5 py-0.5 text-xs font-bold leading-none text-white bg-primary-600 rounded-full">
-                  {unreadMessages > 9 ? "9+" : unreadMessages}
-                </span>
-              )}
-            </span>
-          </Link>
-          
           <button
-            onClick={() => {
-              setMobileMenuOpen(false);
-              setShowProfilePopup(true);
-            }}
-            className="w-full text-left block px-3 py-2 rounded-md text-base font-medium text-secondary-700 dark:text-secondary-300 hover:bg-secondary-50 dark:hover:bg-secondary-800"
+            className="md:hidden p-2 rounded-full"
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            aria-label="Toggle mobile menu"
           >
-            <span className="flex items-center gap-1.5">
-              <FaUserCircle className="h-4 w-4" />
-              <span>Profile</span>
-            </span>
-          </button>
-          
-          <button
-            onClick={() => {
-              setMobileMenuOpen(false);
-              handleLogout();
-            }}
-            className="w-full text-left block px-3 py-2 rounded-md text-base font-medium text-secondary-700 dark:text-secondary-300 hover:bg-secondary-50 dark:hover:bg-secondary-800"
-          >
-            <span className="flex items-center gap-1.5">
-              <FaSignOutAlt className="h-4 w-4" />
-              <span>Logout</span>
-            </span>
+            {mobileMenuOpen ? (
+              <FaTimes className="h-5 w-5 text-secondary-600 dark:text-secondary-400" />
+            ) : (
+              <FaBars className="h-5 w-5 text-secondary-600 dark:text-secondary-400" />
+            )}
           </button>
         </div>
       </div>
-
-      {/* Profile popup */}
-      {showProfilePopup && (
-        <UserProfilePopup onClose={handleClosePopup} userData={userData} />
-      )}
-
-      {/* Notification panel */}
-      {showNotifications && (
-        <NotificationPanel
-          notifications={notifications}
-          onClose={() => setShowNotifications(false)}
-        />
-      )}
     </header>
   );
 };

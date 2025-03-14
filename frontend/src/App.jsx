@@ -10,6 +10,7 @@ import { useSelector, useDispatch } from "react-redux";
 import {
   selectCurrentToken,
   selectCurrentUserRole,
+  checkTokenExpiration,
 } from "./features/auth/authSlice";
 import HomeNavBar from "./components/homeNavBar";
 import UserNavbar from "./components/userNavBar";
@@ -33,9 +34,15 @@ import "react-toastify/dist/ReactToastify.css";
 // Create a wrapper component that uses location
 function AppContent() {
   const location = useLocation();
+  const dispatch = useDispatch();
   const token = useSelector(selectCurrentToken);
   const userRole = useSelector(selectCurrentUserRole);
   const isAdmin = userRole === "admin";
+
+  // Check token expiration on component mount and location change
+  useEffect(() => {
+    dispatch(checkTokenExpiration());
+  }, [dispatch, location]);
 
   // Decide which Navbar to show based on the current path and user role
   let NavbarComponent;

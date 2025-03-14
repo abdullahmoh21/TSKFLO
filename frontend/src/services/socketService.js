@@ -15,11 +15,14 @@ export const initializeSocket = (token) => {
   socket = io("http://localhost:3200", {
     withCredentials: true,
     transports: ["websocket", "polling"],
-    reconnectionAttempts: 5,
-    reconnectionDelay: 1000,
     auth: {
       token,
     },
+    reconnection: true,
+    reconnectionAttempts: 30,
+    reconnectionDelay: 1000,
+    reconnectionDelayMax: 10000,
+    autoConnect: true,
   });
 
   // Add debugging listeners
@@ -27,7 +30,7 @@ export const initializeSocket = (token) => {
     console.log("Socket connected with ID:", socket.id);
   });
 
-  socket.on("newMessage", (data) => {
+  socket.on("messageCreated", (data) => {
     console.log("Socket message received:", data);
   });
 

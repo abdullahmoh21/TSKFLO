@@ -1,7 +1,8 @@
 const nodemailer = require("nodemailer");
 const path = require("path");
 const logger = require("../logs/logger");
-// const handlebars = require("nodemailer-express-handlebars");
+const fs = require("fs").promises;
+const handlebars = require("handlebars");
 
 // Create a Nodemailer transporter
 const transporter = nodemailer.createTransport({
@@ -16,18 +17,22 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-// Configure Handlebars for Nodemailer
-// const handlebarOptions = {
-//   viewEngine: {
-//     extName: ".hbs",
-//     defaultLayout: "",
-//   },
-//   viewPath: path.resolve(__dirname, "emailTemplates"),
-//   extName: ".hbs",
-// };
-
-// transporter.use("compile", handlebars(handlebarOptions));
-// transporter.use("compile", handlebars(handlebarOptions));
+// Custom function to compile a template with handlebars
+async function compileTemplate(templateName, data) {
+  try {
+    const templatePath = path.resolve(
+      __dirname,
+      "emailTemplates",
+      `${templateName}.hbs`
+    );
+    const templateSource = await fs.readFile(templatePath, "utf-8");
+    const template = handlebars.compile(templateSource);
+    return template(data);
+  } catch (error) {
+    logger.error(`Failed to compile template ${templateName}:`, error);
+    throw new Error(`Template compilation failed: ${error.message}`);
+  }
+}
 
 function sendEmail(
   to,
@@ -36,7 +41,7 @@ function sendEmail(
   subject = null,
   text = null
 ) {
-  return new Promise((resolve, reject) => {
+  return new Promise(async (resolve, reject) => {
     let subjectMap = new Map([["inviteUser", "You have been invited to "]]);
 
     // Ensure plain text is provided if no template is used.
@@ -55,29 +60,36 @@ function sendEmail(
       subject: subject ? subject : subjectMap.get(template),
     };
 
-    if (template) {
-      // Use the Handlebars template with provided data
-      mailOptions.template = template;
-      mailOptions.context = handlebarData;
-      if (text) {
-        mailOptions.text = text;
-      }
-      logger.info(`Message sent to ${to}: ${handlebarData}`);
-    } else {
-      // For plain-text emails, assign the text directly (we already validated it exists)
-      mailOptions.text = text;
-      logger.info(`Message sent to ${to}: ${handlebarData}`);
-    }
-    return; // will be uncommented in prod
+    try {
+      if (template) {
+        // Compile the handlebars template with the provided data
+        const htmlContent = await compileTemplate(template, handlebarData);
+        mailOptions.html = htmlContent;
 
-    transporter.sendMail(mailOptions, (error, info) => {
-      if (error) {
-        logger.error("Error sending email alert:", error);
-        return reject(error);
+        if (text) {
+          mailOptions.text = text;
+        }
+        logger.info(`Email prepared for ${to} using template: ${template}`);
+      } else {
+        // For plain-text emails, assign the text directly
+        mailOptions.text = text;
+        logger.info(`Plain text email prepared for ${to}`);
       }
-      logger.info("Message sent:", info.messageId);
-      resolve(info);
-    });
+
+      // development bypass
+      return resolve();
+
+      transporter.sendMail(mailOptions, (error, info) => {
+        if (error) {
+          logger.error("Error sending email alert:", error);
+          return reject(error);
+        }
+        logger.info("Message sent:", info.messageId);
+        resolve(info);
+      });
+    } catch (error) {
+      reject(error);
+    }
   });
 }
 

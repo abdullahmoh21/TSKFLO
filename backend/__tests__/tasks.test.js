@@ -46,7 +46,11 @@ describe("Task API Endpoints", () => {
       Task.find.mockImplementation(() => ({
         lean: () => ({
           select: () => ({
-            exec: () => Promise.resolve([mockTask]),
+            populate: () => ({
+              populate: () => ({
+                exec: () => Promise.resolve([mockTask]),
+              }),
+            }),
           }),
         }),
       }));

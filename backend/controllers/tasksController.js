@@ -19,7 +19,9 @@ const getUserTasks = asyncHandler(async (req, res) => {
     $or: [{ owner: user._id }, { assignees: user._id }],
   })
     .lean()
-    .select("-owner -updatedAt -__v")
+    .select(" -updatedAt -__v")
+    .populate("owner", "name _id")
+    .populate("assignees", "name _id")
     .exec();
 
   return res.status(200).json(tasks);
@@ -55,7 +57,12 @@ const createTask = asyncHandler(async (req, res) => {
 //@access Private
 const getTask = asyncHandler(async (req, res) => {
   const { taskId } = req.params;
-  const task = await Task.findOne({ _id: taskId }).lean().exec();
+  const task = await Task.findOne({ _id: taskId })
+    .lean()
+    .select(" -updatedAt -__v")
+    .populate("owner", "name _id")
+    .populate("assignees", "name _id")
+    .exec();
   if (!task) {
     return res.status(404).json({ message: "No Task with provided ID found" });
   }

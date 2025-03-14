@@ -1,0 +1,45 @@
+name: CI for task-managment
+
+# Run these jobs on pushes and pull requests to 'main'. Adjust branches as needed.
+on:
+  push:
+    branches: ["main", "development"]
+  pull_request:
+    branches: ["main", "development"]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1) Check out the repository
+      - name: Check out code
+        uses: actions/checkout@v3
+
+      # 2) Set up Node version
+      - name: Set up Node
+        uses: actions/setup-node@v3
+        with:
+          node-version: 16
+
+      # 3) Install and Test Backend
+      - name: Install dependencies (Backend)
+        run: |
+          cd backend
+          npm install
+
+      - name: Test (Backend)
+        run: |
+          cd backend
+          npm test
+
+      # 4) Install and Test Frontend
+      - name: Install dependencies (Frontend)
+        run: |
+          cd frontend
+          npm install
+
+      - name: Test (Frontend)
+        run: |
+          cd frontend
+          npm test

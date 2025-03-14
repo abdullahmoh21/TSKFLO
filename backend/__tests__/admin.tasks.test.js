@@ -5,6 +5,7 @@ const Task = require("../models/Task");
 jest.mock("../utils/emailTransporter"); // if you have the same mock
 const sendEmail = require("../utils/emailTransporter"); // if needed
 const logger = require("../logs/logger");
+const { populate } = require("../models/User");
 
 // Example mocks
 const mockTask = {
@@ -44,8 +45,10 @@ describe("Admin Task Endpoints", () => {
       Task.find.mockImplementation(() => ({
         skip: () => ({
           limit: () => ({
-            lean: () => ({
-              exec: () => Promise.resolve([mockTask]),
+            populate: () => ({
+              lean: () => ({
+                exec: () => Promise.resolve([mockTask]),
+              }),
             }),
           }),
         }),
@@ -71,8 +74,10 @@ describe("Admin Task Endpoints", () => {
       Task.find.mockImplementation(() => ({
         skip: () => ({
           limit: () => ({
-            lean: () => ({
-              exec: () => Promise.resolve([mockTask, mockTask2]),
+            populate: () => ({
+              lean: () => ({
+                exec: () => Promise.resolve([mockTask, mockTask2]),
+              }),
             }),
           }),
         }),

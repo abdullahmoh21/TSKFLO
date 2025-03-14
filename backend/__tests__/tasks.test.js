@@ -131,7 +131,13 @@ describe("Task API Endpoints", () => {
     it("should return the requested task", async () => {
       Task.findOne.mockImplementation(() => ({
         lean: () => ({
-          exec: () => Promise.resolve(mockTask),
+          select: () => ({
+            populate: () => ({
+              populate: () => ({
+                exec: () => Promise.resolve(mockTask),
+              }),
+            }),
+          }),
         }),
       }));
 
@@ -146,7 +152,13 @@ describe("Task API Endpoints", () => {
     it("should return 404 if task not found", async () => {
       Task.findOne.mockImplementation(() => ({
         lean: () => ({
-          exec: () => Promise.resolve(null),
+          select: () => ({
+            populate: () => ({
+              populate: () => ({
+                exec: () => Promise.resolve(null),
+              }),
+            }),
+          }),
         }),
       }));
       const response = await request(app).get(

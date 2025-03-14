@@ -2,9 +2,9 @@ name: Task Management CI
 
 on:
   push:
-    branches: [ main, feature/workflowAutomation ]
+    branches: [ main, feature/workflowAutomation, development ]
   pull_request:
-    branches: [ main ]
+    branches: [ main, development ]
 
 jobs:
   build-and-test:

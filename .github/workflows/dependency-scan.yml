@@ -2,9 +2,9 @@ name: Dependency Security Scan
 
 on:
   push:
-    branches: [ main, feature/workflowAutomation ]
+    branches: [ main, feature/workflowAutomation, development ]
   pull_request:
-    branches: [ main ]
+    branches: [ main, development ]
   schedule:
     - cron: '0 0 * * 1'  # Run weekly on Mondays
 

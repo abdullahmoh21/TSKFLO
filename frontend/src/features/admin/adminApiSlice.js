@@ -125,6 +125,32 @@ export const adminApiSlice = apiSlice.injectEndpoints({
       }),
       invalidatesTags: ["AdminTasks"],
     }),
+    updateUser: builder.mutation({
+      query: ({ userId, ...update }) => ({
+        url: `/users/${userId}`,
+        method: "PATCH",
+        body: update,
+        credentials: "include",
+      }),
+      invalidatesTags: ["AdminUsers"],
+    }),
+    deleteUser: builder.mutation({
+      query: (userId) => ({
+        url: `/users/${userId}`,
+        method: "DELETE",
+        credentials: "include",
+      }),
+      invalidatesTags: ["AdminUsers"],
+    }),
+    inviteUser: builder.mutation({
+      query: (userData) => ({
+        url: "/users",
+        method: "POST",
+        body: userData,
+        credentials: "include",
+      }),
+      invalidatesTags: ["AdminUsers"],
+    }),
     createAdminTask: builder.mutation({
       query: (task) => ({
         url: "/admin/tasks",
@@ -172,9 +198,12 @@ export const adminApiSlice = apiSlice.injectEndpoints({
 export const {
   useGetAdminTasksQuery,
   useGetAdminUsersQuery,
+  useSearchUsersQuery,
   useDeleteAdminTaskMutation,
   useUpdateAdminTaskMutation,
-  useCreateAdminTaskMutation,
+  useUpdateUserMutation,
+  useDeleteUserMutation,
+  useInviteUserMutation,
   useLockAdminTaskMutation,
   useUpdateAdminUserMutation,
   useDeleteAdminUserMutation,

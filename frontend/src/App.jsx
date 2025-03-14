@@ -25,6 +25,7 @@ import AdminRoute from "./components/AdminRoute";
 import AdminPage from "./pages/AdminDashboard";
 import MessagingPage from "./pages/MessagingPage";
 import PersistLogin from "./components/PersistLogin";
+import AdminCreateTask from "./components/AdminCreateTask";
 import SocketInitializer from "./features/socket/SocketInitializer";
 import { NotificationProvider } from "./context/NotificationContext";
 import { ToastContainer } from "react-toastify";
@@ -48,7 +49,8 @@ function AppContent() {
   if (
     isAdmin &&
     (location.pathname.startsWith("/admindashboard") ||
-      location.pathname.startsWith("/messaging"))
+      location.pathname.startsWith("/messaging") ||
+      location.pathname.startsWith("/admin-create-task"))
   ) {
     NavbarComponent = AdminNavbar;
   } else if (
@@ -92,6 +94,14 @@ function AppContent() {
             element={
               <AdminRoute>
                 <AdminPage />
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="/admin-create-task"
+            element={
+              <AdminRoute>
+                <AdminCreateTask />
               </AdminRoute>
             }
           />

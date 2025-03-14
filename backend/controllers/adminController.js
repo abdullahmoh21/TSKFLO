@@ -14,7 +14,7 @@ const logger = require("../logs/logger");
 //@route GET /admin/users
 //@access Private
 const getAllUsers = asyncHandler(async (req, res) => {
-  let { page, limit } = req.query;
+  let { page, limit, search } = req.query;
 
   // Convert page and limit to numbers, and set defaults if not provided
   // Parse values
@@ -34,11 +34,22 @@ const getAllUsers = asyncHandler(async (req, res) => {
 
   const skip = (page - 1) * limit;
 
-  // Fetch paginated users
-  const users = await User.find().skip(skip).limit(limit).lean().exec();
+  // Build search query if search parameter exists
+  let query = {};
+  if (search) {
+    query = {
+      $or: [
+        { name: { $regex: search, $options: "i" } },
+        { email: { $regex: search, $options: "i" } },
+      ],
+    };
+  }
 
-  // Get total number of users
-  const totalUsers = await User.countDocuments();
+  // Fetch paginated users with search filter if provided
+  const users = await User.find(query).skip(skip).limit(limit).lean().exec();
+
+  // Get total number of users matching the search criteria
+  const totalUsers = await User.countDocuments(query);
 
   // Send response with pagination metadata
   res.json({

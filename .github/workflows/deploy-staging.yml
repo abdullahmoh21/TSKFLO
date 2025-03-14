@@ -1,0 +1,62 @@
+name: Deploy to Staging
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18.x'
+        cache: 'npm'
+    
+    - name: Backend - Install dependencies
+      working-directory: ./backend
+      run: npm ci
+    
+    - name: Frontend - Install dependencies
+      working-directory: ./frontend
+      run: npm ci
+    
+    - name: Frontend - Build
+      working-directory: ./frontend
+      run: npm run build
+    
+    - name: Deploy to staging server
+      # This is a placeholder. In a real-world scenario, you would use a deployment action
+      # like SSH deploy, AWS Elastic Beanstalk deploy, or a service like Vercel/Netlify
+      run: |
+        echo "Deploying to staging environment..."
+        
+        # Example for deploying to a server via SSH
+        # Uses secrets stored in GitHub repository settings
+        # ssh -i ${{ secrets.SSH_PRIVATE_KEY }} ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} << EOF
+        #   cd /path/to/deployment
+        #   git pull origin main
+        #   cd backend
+        #   npm ci
+        #   pm2 restart taskmanagement-api
+        #   cd ../frontend
+        #   npm ci
+        #   npm run build
+        #   # Copy build files to web server directory
+        #   cp -R build/* /var/www/html/
+        # EOF
+        
+        echo "Deployment complete (simulated)"
+    
+    - name: Notify team of deployment
+      run: |
+        echo "Notifying team of successful deployment..."
+        # In a real scenario, you might use Slack notifications or email
+        # curl -X POST -H 'Content-type: application/json' \
+        #   --data '{"text":"Application deployed to staging environment"}' \
+        #   ${{ secrets.SLACK_WEBHOOK_URL }} 

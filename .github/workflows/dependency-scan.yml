@@ -1,0 +1,44 @@
+name: Dependency Security Scan
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  schedule:
+    - cron: '0 0 * * 1'  # Run weekly on Mondays
+
+jobs:
+  security-scan:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18.x'
+    
+    - name: Run npm audit (Backend)
+      working-directory: ./backend
+      run: npm audit --production
+      continue-on-error: true
+    
+    - name: Run npm audit (Frontend)
+      working-directory: ./frontend
+      run: npm audit --production
+      continue-on-error: true
+      
+    - name: Check for outdated dependencies (Backend)
+      working-directory: ./backend
+      run: npm outdated
+      continue-on-error: true
+      
+    - name: Check for outdated dependencies (Frontend)
+      working-directory: ./frontend
+      run: npm outdated
+      continue-on-error: true
+      
+    # Using Dependabot to scan for vulnerabilities automatically
+    # Note: Dependabot is configured via .github/dependabot.yml 

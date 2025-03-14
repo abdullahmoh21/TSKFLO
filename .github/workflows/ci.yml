@@ -1,0 +1,59 @@
+name: Task Management CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        node-version: [16.x, 18.x]
+        mongodb-version: [4.4, 5.0]
+
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Setup Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v3
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+        
+    - name: Start MongoDB
+      uses: supercharge/mongodb-github-action@1.9.0
+      with:
+        mongodb-version: ${{ matrix.mongodb-version }}
+        mongodb-replica-set: test-rs
+        
+    - name: Install root dependencies
+      run: npm ci
+      
+    - name: Backend - Install dependencies
+      working-directory: ./backend
+      run: npm ci
+      
+    - name: Backend - Run tests
+      working-directory: ./backend
+      run: npm test
+      env:
+        NODE_ENV: test
+        MONGO_URI: mongodb://localhost:27017/taskmanagement_test
+        ACCESS_TOKEN_SECRET: test_access_token_secret
+        REFRESH_TOKEN_SECRET: test_refresh_token_secret
+      
+    - name: Frontend - Install dependencies
+      working-directory: ./frontend
+      run: npm ci
+      
+    - name: Frontend - Lint check
+      working-directory: ./frontend
+      run: npm run lint
+      
+    - name: Frontend - Build
+      working-directory: ./frontend
+      run: npm run build 

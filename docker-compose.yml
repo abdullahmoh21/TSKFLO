@@ -1,0 +1,48 @@
+version: '3.8'
+
+services:
+  backend:
+    build: ./backend
+    container_name: task-management-backend
+    ports:
+      - "3200:3200"
+    environment:
+      - URL=http://localhost:5173
+      - PORT=3200
+      - MONGO_URI=mongodb+srv://Task-Management:Task-Management@task-management.hv94y.mongodb.net/?retryWrites=true&w=majority&appName=Task-management
+      - REFRESH_TOKEN_SECRET=765c067688757d7b626a9d7485d65488f2bdb4b3b4d8f6db5d5c788f2114d18d
+      - ACCESS_TOKEN_SECRET=9bde322987a3bd56f4bdf4cc9448e8e43eb8a050cbd0e647a9d0b80a7f8ff64e
+      - BREVO_USER=86ee30001@smtp-brevo.com
+      - BREVO_PASS=IUQCtfTH6Yq0A3Ra
+    restart: unless-stopped
+    networks:
+      - task-management-network
+
+  frontend:
+    build: ./frontend
+    container_name: task-management-frontend
+    ports:
+      - "5173:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+    networks:
+      - task-management-network
+
+  nginx:
+    image: nginx:latest
+    container_name: task-management-nginx
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf
+    depends_on:
+      - backend
+      - frontend
+    restart: unless-stopped
+    networks:
+      - task-management-network
+
+networks:
+  task-management-network:
+    driver: bridge

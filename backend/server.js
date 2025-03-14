@@ -4,7 +4,7 @@ const logger = require("./logs/logger");
 const http = require("http");
 const socketIo = require("socket.io");
 const app = require("./app");
-const socketVerifyJWT = require("./middleware/socketVerifyJWT"); // <-- ADDED
+const socketVerifyJWT = require("./middleware/socketVerifyJWT"); 
 require("dotenv").config();
 
 let server;
@@ -14,8 +14,9 @@ if (process.env.NODE_ENV !== "test") {
 
   const io = socketIo(server, {
     cors: {
-      origin: "*",
+      origin: ["http://localhost:5173", "http://localhost:80", "http://localhost", "http://127.0.0.1:63417"],
       methods: ["GET", "POST"],
+      credentials: true
     },
   });
 

@@ -12,7 +12,7 @@ export const initializeSocket = (token) => {
   }
 
   // Create new socket connection
-  socket = io("http://localhost:3200", {
+  socket = io("/api", {
     withCredentials: true,
     transports: ["websocket", "polling"],
     reconnectionAttempts: 5,

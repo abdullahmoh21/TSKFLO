@@ -4,7 +4,7 @@ const Invitation = require("../models/Invitation");
 const asyncHandler = require("express-async-handler");
 const sendEmail = require("../utils/emailTransporter");
 const crypto = require("crypto");
-const bcrypt = require("bcrypt");
+const bcrypt = require("bcryptjs");
 const logger = require("../logs/logger");
 
 // ------------------- /admin/users ------------------- //

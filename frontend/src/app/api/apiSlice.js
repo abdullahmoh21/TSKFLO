@@ -2,7 +2,7 @@ import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 import { setCredentials, logOut } from "../../features/auth/authSlice";
 
 const baseQuery = fetchBaseQuery({
-  baseUrl: "http://localhost:3200", // production: change to domain
+  baseUrl: "/api", // Changed from http://localhost:3200 to work with Docker and Nginx
   credentials: "include",
   prepareHeaders: (headers, { getState }) => {
     const token = getState().auth.token;

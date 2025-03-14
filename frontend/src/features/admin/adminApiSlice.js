@@ -3,7 +3,7 @@ import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 export const adminApiSlice = createApi({
   reducerPath: "adminApi",
   baseQuery: fetchBaseQuery({
-    baseUrl: "http://localhost:3200/admin",
+    baseUrl: "/api/admin",
     prepareHeaders: (headers, { getState }) => {
       const token = getState().auth.token;
       if (token) {

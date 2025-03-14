@@ -2,7 +2,7 @@ name: Deploy to Staging
 
 on:
   push:
-    branches: [ main, feature/workflowAutomation ]
+    branches: [ main, feature/workflowAutomation, development ]
   workflow_dispatch:
 
 jobs:

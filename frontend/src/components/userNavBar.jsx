@@ -1,6 +1,7 @@
 // UserDashNavbar.jsx
 import React, { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
+
 import {
   FaTasks,
   FaUserCircle,
@@ -20,7 +21,9 @@ import {
 import { useLogoutMutation } from "../features/auth/authApiSlice";
 import { useGetMyDataQuery } from "../features/user/userApiSlice";
 import UserProfilePopup from "./UserProfilePopup";
+
 import { useNotification } from "../context/NotificationContext";
+
 
 const UserDashNavbar = () => {
   const location = useLocation();
@@ -48,11 +51,13 @@ const UserDashNavbar = () => {
   const [showPopup, setShowPopup] = useState(false);
   const [darkMode, setDarkMode] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
+
   const [showNotifications, setShowNotifications] = useState(false);
   const [notifications, setNotifications] = useState([
     { id: 1, text: "New task assigned to you", isRead: false },
     { id: 2, text: "Task deadline approaching", isRead: false },
   ]);
+
 
   // Handle dark mode toggle
   useEffect(() => {
@@ -116,6 +121,7 @@ const UserDashNavbar = () => {
     }
   };
 
+
   // Get unread notification count
   const unreadCount = notifications.filter((n) => !n.isRead).length;
 
@@ -125,6 +131,7 @@ const UserDashNavbar = () => {
   };
 
   const { unreadMessages } = useNotification();
+
 
   return (
     <header

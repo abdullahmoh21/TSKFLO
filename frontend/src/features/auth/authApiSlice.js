@@ -27,8 +27,7 @@ export const authApiSlice = apiSlice.injectEndpoints({
       transformErrorResponse: (response) => {
         return {
           status: response.status,
-          message:
-            response.data?.message || "Registration failed. Please try again.",
+          message: response.data?.message || "Registration failed. Please try again.",
         };
       },
       invalidatesTags: [{ type: "User" }],
@@ -42,7 +41,10 @@ export const authApiSlice = apiSlice.injectEndpoints({
       async onQueryStarted(arg, { dispatch, queryFulfilled }) {
         try {
           const result = await queryFulfilled;
+          console.log("Logout API response in slice:", result);
+          // Clear the auth state
           dispatch(logOut());
+          // Reset all api state (clear cache/queries)
           setTimeout(() => {
             dispatch(apiSlice.util.resetApiState());
           }, 0);
@@ -61,6 +63,7 @@ export const authApiSlice = apiSlice.injectEndpoints({
         try {
           const { data } = await queryFulfilled;
           if (data && data.accessToken) {
+            console.log("Refresh token success, setting credentials");
             dispatch(setCredentials({ accessToken: data.accessToken }));
             return true;
           } else {
@@ -69,14 +72,10 @@ export const authApiSlice = apiSlice.injectEndpoints({
           }
         } catch (err) {
           console.error("Error refreshing token:", err);
-          // Handle token refresh failure - only log out if it's a 401/403 error
+          // Only log out if it's a 401/403 error
           if (err?.error?.status === 401 || err?.error?.status === 403) {
-            console.log("Refresh token expired, logging out");
+            console.log("Refresh token expired or invalid, logging out");
             dispatch(logOut());
-            setTimeout(() => {
-              dispatch(apiSlice.util.resetApiState());
-            }, 0);
-            Navigate("/login");
           }
           return false;
         }

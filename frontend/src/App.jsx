@@ -10,13 +10,13 @@ import { useSelector, useDispatch } from "react-redux";
 import {
   selectCurrentToken,
   selectCurrentUserRole,
+  checkTokenExpiration,
 } from "./features/auth/authSlice";
 import HomeNavBar from "./components/homeNavBar";
 import UserNavbar from "./components/userNavBar";
 import AdminNavbar from "./components/adminNavbar";
 import HomePage from "./pages/HomePage";
 import LoginPage from "./pages/LoginPage";
-import RegisterPage from "./pages/RegisterPage";
 import UserDashboard from "./pages/UserDashboard";
 import CreateTask from "./pages/CreateTask";
 import AboutPage from "./pages/AboutPage";
@@ -33,9 +33,15 @@ import "react-toastify/dist/ReactToastify.css";
 // Create a wrapper component that uses location
 function AppContent() {
   const location = useLocation();
+  const dispatch = useDispatch();
   const token = useSelector(selectCurrentToken);
   const userRole = useSelector(selectCurrentUserRole);
   const isAdmin = userRole === "admin";
+
+  // Check token expiration on component mount and location change
+  useEffect(() => {
+    dispatch(checkTokenExpiration());
+  }, [dispatch, location]);
 
   // Decide which Navbar to show based on the current path and user role
   let NavbarComponent;
@@ -57,13 +63,12 @@ function AppContent() {
 
   return (
     <>
-      {!location.pathname.startsWith("/register") && <NavbarComponent />}
+      <NavbarComponent />
       <Routes>
         {/* Public routes */}
         <Route path="/" element={<HomePage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/about" element={<AboutPage />} />
-        <Route path="/register/:token" element={<RegisterPage />} />
 
         <Route element={<PersistLogin />}>
           <Route
@@ -99,6 +104,9 @@ function AppContent() {
             }
           />
         </Route>
+
+        {/* Fallback route */}
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </>
   );

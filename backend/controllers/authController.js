@@ -60,8 +60,8 @@ const login = asyncHandler(async (req, res) => {
 
   res.cookie("refreshToken", refreshToken, {
     httpOnly: true,
-    secure: true,
-    sameSite: "Strict",
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "Lax",
     maxAge: 8 * 60 * 60 * 1000,
   });
   res.json({ accessToken });
@@ -182,7 +182,11 @@ const logout = asyncHandler(async (req, res) => {
   foundUser.refreshTokenExp = 0;
   await foundUser.save();
 
-  res.clearCookie("jwt", { httpOnly: true, sameSite: "None", secure: true }); //ADD secure: true in production
+  res.clearCookie("refreshToken", { 
+    httpOnly: true, 
+    sameSite: "Lax", 
+    secure: process.env.NODE_ENV === "production" 
+  });
   res.sendStatus(200); //no content
 });
 

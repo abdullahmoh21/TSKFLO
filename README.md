@@ -54,6 +54,29 @@ A comprehensive task management system designed for team collaboration, with rol
 ### Architectural Pattern
 - **Layered Architecture**: Clear separation between presentation (frontend), business logic (controllers), and data access (models) layers.
 
+## Workflow Automation
+
+### Continuous Integration (CI)
+A GitHub Actions workflow (`ci.yml`) has been implemented to provide continuous integration, which:
+- Runs on every push to the main branch and pull requests
+- Tests with multiple Node.js and MongoDB versions
+- Installs dependencies and runs tests for both backend and frontend
+- Performs linting checks and ensures the application builds correctly
+
+### Continuous Deployment (CD)
+A GitHub Actions workflow (`deploy-staging.yml`) has been set up for continuous deployment, which:
+- Automatically deploys the application to a staging environment when changes are pushed to main
+- Builds the frontend application
+- Includes placeholders for server deployment via SSH
+- Provides notifications upon successful deployment
+
+### Repository Management
+Several automation tools have been implemented to improve repository management:
+- **Pull Request Template**: Standardizes PR descriptions and ensures necessary information is provided
+- **Issue Templates**: Separate templates for bug reports and feature requests
+- **Dependabot Configuration**: Automatically checks for dependency updates and creates PRs
+- **Dependency Security Scanning**: Weekly automated checks for vulnerable dependencies
+
 ## Installation and Setup
 
 ### Prerequisites

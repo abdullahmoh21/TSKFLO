@@ -16,8 +16,10 @@ const baseQuery = fetchBaseQuery({
 });
 
 const baseQueryWithReauth = async (args, api, extraOptions) => {
+  console.log("Making request:", args);
   // Attempt the initial query
   let result = await baseQuery(args, api, extraOptions);
+  console.log("Request result:", result);
 
   // Handle 401 and 403 status codes for token expiration
   if (result?.error?.status === 401 || result?.error?.status === 403) {
@@ -25,6 +27,7 @@ const baseQueryWithReauth = async (args, api, extraOptions) => {
 
     // Send refresh token to get new access token
     const refreshResult = await baseQuery("/auth/refresh", api, extraOptions);
+    console.log("Refresh result:", refreshResult);
 
     if (refreshResult?.data?.accessToken) {
       console.log("Token refresh successful");

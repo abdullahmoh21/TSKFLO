@@ -9,28 +9,29 @@ const logger = require("../logs/logger");
 //@access Private
 const getUserTasks = asyncHandler(async (req, res) => {
   try {
-    const userQuery = User.findOne({ _id: req.user.id });
-    userQuery.lean();
-    const user = await userQuery.exec();
-    
+    // Simplified chaining approach
+    const user = await User.findOne({ _id: req.user.id }).lean().exec();
+
     if (!user) {
       return res
         .status(404)
         .json({ message: "No user found for provided email" });
     }
 
-    const taskQuery = Task.find({
+    // Simplified chaining approach
+    const tasks = await Task.find({
       $or: [{ owner: user._id }, { assignees: user._id }],
-    });
-    taskQuery.select("-owner -updatedAt -__v");
-    taskQuery.lean();
-    
-    const tasks = await taskQuery.exec();
+    })
+      .select("-owner -updatedAt -__v")
+      .lean()
+      .exec();
 
     return res.status(200).json(tasks);
   } catch (err) {
     console.error("Error in getUserTasks:", err);
-    return res.status(500).json({ message: "Error retrieving tasks", error: err.message });
+    return res
+      .status(500)
+      .json({ message: "Error retrieving tasks", error: err.message });
   }
 });
 
@@ -41,7 +42,7 @@ const getUserTasks = asyncHandler(async (req, res) => {
 const createTask = asyncHandler(async (req, res) => {
   const { title, description, priority, dueDate, assignees } = req.body;
 
-  const user = await User.findOne({ _id: req.user.id }).lean();
+  const user = await User.findOne({ _id: req.user.id }).lean().exec();
   if (!user) {
     return res.status(404).json({ message: "No user found in DB" });
   }
@@ -65,19 +66,22 @@ const createTask = asyncHandler(async (req, res) => {
 const getTask = asyncHandler(async (req, res) => {
   try {
     const { taskId } = req.params;
-    
-    const taskQuery = Task.findOne({ _id: taskId });
-    taskQuery.lean();
-    const task = await taskQuery.exec();
-    
+
+    // Simplified chaining approach
+    const task = await Task.findOne({ _id: taskId }).lean().exec();
+
     if (!task) {
-      return res.status(404).json({ message: "No Task with provided ID found" });
+      return res
+        .status(404)
+        .json({ message: "No Task with provided ID found" });
     }
 
     return res.status(200).json(task);
   } catch (err) {
     console.error("Error in getTask:", err);
-    return res.status(500).json({ message: "Error retrieving task", error: err.message });
+    return res
+      .status(500)
+      .json({ message: "Error retrieving task", error: err.message });
   }
 });
 

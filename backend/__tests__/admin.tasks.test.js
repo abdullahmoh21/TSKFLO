@@ -2,8 +2,8 @@ process.env.NODE_ENV = "test";
 const request = require("supertest");
 const app = require("../app"); // your Express app
 const Task = require("../models/Task");
+jest.mock("../models/Task");
 jest.mock("../utils/emailTransporter"); // if you have the same mock
-const sendEmail = require("../utils/emailTransporter"); // if needed
 const logger = require("../logs/logger");
 
 // Example mocks
@@ -31,7 +31,6 @@ describe("Admin Task Endpoints", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     process.env.NODE_ENV = "test";
-    // You might not need emailTransporter for tasks, but if your app logs or uses it, keep it
   });
 
   //
@@ -41,16 +40,19 @@ describe("Admin Task Endpoints", () => {
   //
   describe("GET /admin/tasks", () => {
     it("should return a list of tasks with pagination info", async () => {
-      Task.find.mockImplementation(() => ({
-        skip: () => ({
-          limit: () => ({
-            lean: () => ({
-              exec: () => Promise.resolve([mockTask]),
-            }),
-          }),
-        }),
-      }));
-      Task.countDocuments.mockResolvedValue(1);
+      // Create a mock that returns a chainable object where ANY method returns the same chain
+      const findMock = Task.find.mockReturnValue({
+        skip: jest.fn().mockReturnThis(),
+        limit: jest.fn().mockReturnThis(),
+        populate: jest.fn().mockReturnThis(),
+        lean: jest.fn().mockReturnThis(),
+        exec: jest.fn().mockResolvedValue([mockTask]),
+      });
+
+      // Update this line to use the chainable pattern
+      Task.countDocuments.mockReturnValue({
+        exec: jest.fn().mockResolvedValue(1),
+      });
 
       const res = await request(app).get("/admin/tasks?page=1&limit=5");
       expect(res.status).toBe(200);
@@ -68,16 +70,19 @@ describe("Admin Task Endpoints", () => {
     });
 
     it("should default page=1 and limit=10 if not provided", async () => {
-      Task.find.mockImplementation(() => ({
-        skip: () => ({
-          limit: () => ({
-            lean: () => ({
-              exec: () => Promise.resolve([mockTask, mockTask2]),
-            }),
-          }),
-        }),
-      }));
-      Task.countDocuments.mockResolvedValue(2);
+      // Similar approach for this test
+      const findMock = Task.find.mockReturnValue({
+        skip: jest.fn().mockReturnThis(),
+        limit: jest.fn().mockReturnThis(),
+        populate: jest.fn().mockReturnThis(),
+        lean: jest.fn().mockReturnThis(),
+        exec: jest.fn().mockResolvedValue([mockTask, mockTask2]),
+      });
+
+      // Update this line to use the chainable pattern
+      Task.countDocuments.mockReturnValue({
+        exec: jest.fn().mockResolvedValue(2),
+      });
 
       const res = await request(app).get("/admin/tasks");
       expect(res.status).toBe(200);
@@ -129,11 +134,10 @@ describe("Admin Task Endpoints", () => {
   //
   describe("GET /admin/tasks/:taskId", () => {
     it("should return 404 if task not found", async () => {
-      Task.findOne.mockImplementation(() => ({
-        lean: () => ({
-          exec: () => Promise.resolve(null),
-        }),
-      }));
+      Task.findOne.mockReturnValue({
+        lean: jest.fn().mockReturnThis(),
+        exec: jest.fn().mockResolvedValue(null),
+      });
 
       const res = await request(app).get(
         "/admin/tasks/642f9bb96d3c5a4779229999"
@@ -143,11 +147,10 @@ describe("Admin Task Endpoints", () => {
     });
 
     it("should return the task if found", async () => {
-      Task.findOne.mockImplementation(() => ({
-        lean: () => ({
-          exec: () => Promise.resolve(mockTask),
-        }),
-      }));
+      Task.findOne.mockReturnValue({
+        lean: jest.fn().mockReturnThis(),
+        exec: jest.fn().mockResolvedValue(mockTask),
+      });
 
       const res = await request(app).get(`/admin/tasks/${mockTask._id}`);
       expect(res.status).toBe(200);
@@ -165,11 +168,11 @@ describe("Admin Task Endpoints", () => {
   //
   describe("PATCH /admin/tasks/:taskId", () => {
     it("should return 404 if no task exists", async () => {
-      Task.findOneAndUpdate.mockImplementation(() => ({
-        lean: () => ({
-          exec: () => Promise.resolve(null),
-        }),
-      }));
+      // Mock exactly what the controller calls: findOneAndUpdate().lean()
+      Task.findOneAndUpdate = jest.fn().mockReturnValue({
+        // The lean() function should resolve to null for this test
+        lean: jest.fn().mockResolvedValue(null),
+      });
 
       const res = await request(app)
         .patch("/admin/tasks/642f9bb96d3c5a4779220000")
@@ -182,11 +185,12 @@ describe("Admin Task Endpoints", () => {
 
     it("should update the task and return it", async () => {
       const updatedTask = { ...mockTask, title: "Updated Title" };
-      Task.findOneAndUpdate.mockImplementation(() => ({
-        lean: () => ({
-          exec: () => Promise.resolve(updatedTask),
-        }),
-      }));
+
+      // Mock exactly what the controller calls: findOneAndUpdate().lean()
+      Task.findOneAndUpdate = jest.fn().mockReturnValue({
+        // The lean() function should resolve to the updated task
+        lean: jest.fn().mockResolvedValue(updatedTask),
+      });
 
       const res = await request(app)
         .patch(`/admin/tasks/${mockTask._id}`)
@@ -205,9 +209,9 @@ describe("Admin Task Endpoints", () => {
   //
   describe("DELETE /admin/tasks/:taskId", () => {
     it("should return 404 if task is not found", async () => {
-      Task.deleteOne.mockImplementation(() => ({
-        exec: () => Promise.resolve({ deletedCount: 0 }),
-      }));
+      Task.deleteOne.mockReturnValue({
+        exec: jest.fn().mockResolvedValue({ deletedCount: 0 }),
+      });
 
       const res = await request(app).delete(
         "/admin/tasks/642f9bb96d3c5a4770000000"
@@ -217,9 +221,9 @@ describe("Admin Task Endpoints", () => {
     });
 
     it("should delete task successfully (200)", async () => {
-      Task.deleteOne.mockImplementation(() => ({
-        exec: () => Promise.resolve({ deletedCount: 1 }),
-      }));
+      Task.deleteOne.mockReturnValue({
+        exec: jest.fn().mockResolvedValue({ deletedCount: 1 }),
+      });
 
       const res = await request(app).delete(`/admin/tasks/${mockTask._id}`);
       expect(res.status).toBe(200);

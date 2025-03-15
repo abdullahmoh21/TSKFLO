@@ -7,6 +7,10 @@ jest.mock("../utils/emailTransporter");
 const sendEmail = require("../utils/emailTransporter");
 const logger = require("../logs/logger");
 
+// Mock the required models
+jest.mock("../models/User");
+jest.mock("../models/Invitation");
+
 describe("Admin User Endpoints", () => {
   // Example mocks for user & invitation
   const mockUser = {
@@ -46,16 +50,16 @@ describe("Admin User Endpoints", () => {
   describe("GET /admin/users", () => {
     it("should return a list of users with pagination info", async () => {
       // Setup Mocks
-      User.find.mockImplementation(() => ({
-        skip: () => ({
-          limit: () => ({
-            lean: () => ({
-              exec: () => Promise.resolve([mockUser]),
-            }),
-          }),
-        }),
-      }));
-      User.countDocuments.mockResolvedValue(15); // total user count
+      User.find.mockReturnValue({
+        skip: jest.fn().mockReturnThis(),
+        limit: jest.fn().mockReturnThis(),
+        lean: jest.fn().mockReturnThis(),
+        exec: jest.fn().mockResolvedValue([mockUser]),
+      });
+
+      // The issue is likely how the controller calls countDocuments
+      // Try mocking it as a direct Promise instead of a chainable method
+      User.countDocuments.mockResolvedValue(15);
 
       const response = await request(app).get("/admin/users?page=1&limit=5");
       expect(response.status).toBe(200);
@@ -68,15 +72,14 @@ describe("Admin User Endpoints", () => {
     });
 
     it("should default page=1, limit=10 if not provided", async () => {
-      User.find.mockImplementation(() => ({
-        skip: () => ({
-          limit: () => ({
-            lean: () => ({
-              exec: () => Promise.resolve([mockUser, mockUser]),
-            }),
-          }),
-        }),
-      }));
+      User.find.mockReturnValue({
+        skip: jest.fn().mockReturnThis(),
+        limit: jest.fn().mockReturnThis(),
+        lean: jest.fn().mockReturnThis(),
+        exec: jest.fn().mockResolvedValue([mockUser, mockUser]),
+      });
+
+      // Same issue here - mock as direct Promise
       User.countDocuments.mockResolvedValue(2);
 
       const response = await request(app).get("/admin/users");
@@ -94,60 +97,77 @@ describe("Admin User Endpoints", () => {
   //
   describe("POST /admin/users", () => {
     it("should return 400 if user already exists", async () => {
-      User.findOne.mockImplementation(() => ({
-        lean: () => ({
-          exec: () => Promise.resolve({ ...mockUser }), // means user found
-        }),
-      }));
-      Invitation.findOne.mockImplementation(() => ({
-        lean: () => ({
-          exec: () => Promise.resolve(null),
-        }),
-      }));
+      // Mock that the user already exists
+      User.findOne.mockReturnValue({
+        lean: jest.fn().mockReturnThis(),
+        exec: jest.fn().mockResolvedValue(mockUser),
+      });
+
+      // Mock that no invitation exists
+      Invitation.findOne.mockReturnValue({
+        lean: jest.fn().mockReturnThis(),
+        exec: jest.fn().mockResolvedValue(null),
+      });
 
       const response = await request(app)
         .post("/admin/users")
         .send({ email: mockUser.email, name: "TestUser", role: "user" });
+
       expect(response.status).toBe(400);
       expect(response.body.message).toBe("User already exists");
     });
 
     it("should return 204 if user has already been invited", async () => {
-      // no existing user, but invitation found
-      User.findOne.mockImplementation(() => ({
-        lean: () => ({
-          exec: () => Promise.resolve(null),
-        }),
-      }));
-      Invitation.findOne.mockImplementation(() => ({
-        lean: () => ({
-          exec: () => Promise.resolve(mockInvitation),
-        }),
-      }));
+      // Mock that no user exists
+      User.findOne.mockReturnValue({
+        lean: jest.fn().mockReturnThis(),
+        exec: jest.fn().mockResolvedValue(null),
+      });
+
+      // Mock that invitation exists
+      Invitation.findOne.mockReturnValue({
+        lean: jest.fn().mockReturnThis(),
+        exec: jest.fn().mockResolvedValue(mockInvitation),
+      });
 
       const response = await request(app)
         .post("/admin/users")
         .send({ email: "invited@example.com", name: "TestUser", role: "user" });
+
       expect(response.status).toBe(204);
     });
 
     it("should return 500 if email fails to send and rollback invitation", async () => {
-      // no user found, no invitation found
-      User.findOne.mockImplementation(() => ({
-        lean: () => ({
-          exec: () => Promise.resolve(null),
-        }),
-      }));
-      Invitation.findOne.mockImplementation(() => ({
-        lean: () => ({
-          exec: () => Promise.resolve(null),
-        }),
-      }));
+      // Mock that no user exists
+      User.findOne.mockReturnValue({
+        lean: jest.fn().mockReturnThis(),
+        exec: jest.fn().mockResolvedValue(null),
+      });
 
-      Invitation.prototype.save = jest.fn().mockResolvedValue(mockInvitation);
-      Invitation.deleteOne.mockResolvedValue({});
+      // Mock that no invitation exists
+      Invitation.findOne.mockReturnValue({
+        lean: jest.fn().mockReturnThis(),
+        exec: jest.fn().mockResolvedValue(null),
+      });
 
-      // Force sendEmail to throw
+      // Mock successful invitation creation
+      const mockInvitationWithSave = {
+        ...mockInvitation,
+        email: "invite@example.com",
+        save: jest.fn().mockResolvedValue(true),
+      };
+
+      // Override prototype save to return the mock
+      Invitation.prototype.save = jest
+        .fn()
+        .mockResolvedValue(mockInvitationWithSave);
+
+      // Mock deleteOne for rollback
+      Invitation.deleteOne.mockReturnValue({
+        exec: jest.fn().mockResolvedValue({ deletedCount: 1 }),
+      });
+
+      // Force email to fail
       sendEmail.mockRejectedValue(new Error("Email service down"));
 
       const response = await request(app)
@@ -160,24 +180,43 @@ describe("Admin User Endpoints", () => {
     });
 
     it("should return 200 if invite is successful", async () => {
-      User.findOne.mockImplementation(() => ({
-        lean: () => ({
-          exec: () => Promise.resolve(null),
+      // Mock that no user exists
+      User.findOne.mockReturnValue({
+        lean: jest.fn().mockReturnThis(),
+        exec: jest.fn().mockResolvedValue(null),
+      });
+
+      // Mock that no invitation exists
+      Invitation.findOne.mockReturnValue({
+        lean: jest.fn().mockReturnThis(),
+        exec: jest.fn().mockResolvedValue(null),
+      });
+
+      // Mock successful invitation creation
+      const mockInvitationWithSave = {
+        ...mockInvitation,
+        email: "brand_new@example.com",
+        save: jest.fn().mockResolvedValue(true),
+        toJSON: jest.fn().mockReturnValue({
+          ...mockInvitation,
+          email: "brand_new@example.com",
         }),
-      }));
-      Invitation.findOne.mockImplementation(() => ({
-        lean: () => ({
-          exec: () => Promise.resolve(null),
-        }),
-      }));
-      Invitation.prototype.save = jest.fn().mockResolvedValue(mockInvitation);
-      sendEmail.mockResolvedValue("Email sent OK"); // no error thrown
+      };
+
+      // Override prototype save to return the mock
+      Invitation.prototype.save = jest
+        .fn()
+        .mockResolvedValue(mockInvitationWithSave);
+
+      // Mock successful email sending
+      sendEmail.mockResolvedValue(true);
 
       const response = await request(app).post("/admin/users").send({
         email: "brand_new@example.com",
         name: "NewUser",
         role: "user",
       });
+
       expect(response.status).toBe(200);
     });
   });
@@ -189,9 +228,9 @@ describe("Admin User Endpoints", () => {
   //
   describe("PATCH /admin/users/:userId", () => {
     it("should update the user and return the updated data", async () => {
-      User.findOneAndUpdate.mockImplementation(() => ({
-        select: () => Promise.resolve(mockUpdatedUser),
-      }));
+      User.findOneAndUpdate.mockReturnValue({
+        select: jest.fn().mockResolvedValue(mockUpdatedUser),
+      });
 
       const response = await request(app)
         .patch("/admin/users/abc123abc123abc123abc123")
@@ -210,9 +249,9 @@ describe("Admin User Endpoints", () => {
     });
 
     it("should return 404 if user not found for update", async () => {
-      User.findOneAndUpdate.mockImplementation(() => ({
-        select: () => Promise.resolve(null),
-      }));
+      User.findOneAndUpdate.mockReturnValue({
+        select: jest.fn().mockResolvedValue(null),
+      });
 
       const response = await request(app)
         .patch("/admin/users/67b68a813a0980f15e455efd")
@@ -231,9 +270,9 @@ describe("Admin User Endpoints", () => {
   describe("DELETE /admin/users/:userId", () => {
     it("should delete user successfully", async () => {
       // deletedCount = 1 means success
-      User.deleteOne.mockImplementation(() => ({
-        exec: () => Promise.resolve({ deletedCount: 1 }),
-      }));
+      User.deleteOne.mockReturnValue({
+        exec: jest.fn().mockResolvedValue({ deletedCount: 1 }),
+      });
 
       const response = await request(app).delete(
         "/admin/users/67b68a813a0980f15e455efd"
@@ -244,9 +283,9 @@ describe("Admin User Endpoints", () => {
 
     it("should return 404 if user not found", async () => {
       // no user to delete
-      User.deleteOne.mockImplementation(() => ({
-        exec: () => Promise.resolve({ deletedCount: 0 }),
-      }));
+      User.deleteOne.mockReturnValue({
+        exec: jest.fn().mockResolvedValue({ deletedCount: 0 }),
+      });
 
       const response = await request(app).delete(
         "/admin/users/67b68a813a0980f15e455efd"
@@ -255,4 +294,12 @@ describe("Admin User Endpoints", () => {
       expect(response.body.message).toBe("No user found with this user ID");
     });
   });
+});
+
+afterAll(async () => {
+  jest.clearAllMocks();
+  await new Promise((resolve) => setImmediate(resolve));
+  if (logger.close) {
+    await logger.close();
+  }
 });

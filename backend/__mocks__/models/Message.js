@@ -5,6 +5,31 @@ function MessageConstructor(data) {
   };
 }
 
+// Create proper chainable mock methods
+const createChainableMock = (returnValue = null) => {
+  return {
+    lean: jest.fn(function () {
+      return this;
+    }),
+    select: jest.fn(function () {
+      return this;
+    }),
+    skip: jest.fn(function () {
+      return this;
+    }),
+    limit: jest.fn(function () {
+      return this;
+    }),
+    populate: jest.fn(function () {
+      return this;
+    }),
+    sort: jest.fn(function () {
+      return this;
+    }),
+    exec: jest.fn().mockResolvedValue(returnValue),
+  };
+};
+
 const mockMessage = {
   findOne: jest.fn(),
   findById: jest.fn(),
@@ -17,23 +42,20 @@ const mockMessage = {
   },
 };
 
-// Create chainable mock methods
-const chainableMock = {
-  lean: jest.fn().mockReturnThis(),
-  select: jest.fn().mockReturnThis(),
-  skip: jest.fn().mockReturnThis(),
-  limit: jest.fn().mockReturnThis(),
-  populate: jest.fn().mockReturnThis(),
-  sort: jest.fn().mockReturnThis(),
-  exec: jest.fn(),
-};
-
 // Setup default implementations
-mockMessage.findOne = jest.fn().mockReturnValue(chainableMock);
-mockMessage.findById = jest.fn().mockReturnValue(chainableMock);
-mockMessage.find = jest.fn().mockReturnValue(chainableMock);
-mockMessage.deleteOne = jest.fn().mockReturnValue(chainableMock);
-mockMessage.countDocuments = jest.fn().mockResolvedValue(0);
+mockMessage.findOne = jest
+  .fn()
+  .mockImplementation(() => createChainableMock(null));
+mockMessage.findById = jest
+  .fn()
+  .mockImplementation(() => createChainableMock(null));
+mockMessage.find = jest.fn().mockImplementation(() => createChainableMock([]));
+mockMessage.deleteOne = jest
+  .fn()
+  .mockImplementation(() => createChainableMock({ deletedCount: 0 }));
+mockMessage.countDocuments = jest
+  .fn()
+  .mockImplementation(() => createChainableMock(0));
 mockMessage.create = jest.fn();
 
 // Add the constructor functionality

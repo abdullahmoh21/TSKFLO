@@ -38,22 +38,19 @@ describe("Task API Endpoints", () => {
     });
 
     it("should return a list of tasks for the user", async () => {
-      User.findOne.mockImplementation(() => ({
-        lean: () => ({
-          exec: () => Promise.resolve(mockUser),
-        }),
-      }));
-      Task.find.mockImplementation(() => ({
-        lean: () => ({
-          select: () => ({
-            populate: () => ({
-              populate: () => ({
-                exec: () => Promise.resolve([mockTask]),
-              }),
-            }),
-          }),
-        }),
-      }));
+      // Create a chainable mock that correctly returns when exec() is called
+      const userChainMock = {
+        lean: jest.fn().mockReturnThis(),
+        exec: jest.fn().mockResolvedValue(mockUser),
+      };
+      User.findOne.mockReturnValue(userChainMock);
+
+      const taskChainMock = {
+        select: jest.fn().mockReturnThis(),
+        lean: jest.fn().mockReturnThis(),
+        exec: jest.fn().mockResolvedValue([mockTask]),
+      };
+      Task.find.mockReturnValue(taskChainMock);
 
       const response = await request(app).get("/tasks");
 
@@ -62,12 +59,11 @@ describe("Task API Endpoints", () => {
     });
 
     it("should return 404 if user is not found", async () => {
-      // ✅ Correctly mock User.findOne() returning null
-      User.findOne.mockImplementation(() => ({
-        lean: () => ({
-          exec: () => Promise.resolve(null),
-        }),
-      }));
+      const userChainMock = {
+        lean: jest.fn().mockReturnThis(),
+        exec: jest.fn().mockResolvedValue(null),
+      };
+      User.findOne.mockReturnValue(userChainMock);
 
       const response = await request(app).get("/tasks");
 
@@ -85,9 +81,8 @@ describe("Task API Endpoints", () => {
 
     it("should create a task successfully", async () => {
       User.findOne.mockImplementation(() => ({
-        lean: () => ({
-          exec: () => Promise.resolve(mockUser),
-        }),
+        lean: jest.fn().mockReturnThis(),
+        exec: jest.fn().mockResolvedValue(mockUser),
       }));
       Task.prototype.save = jest.fn().mockResolvedValue(mockTask);
 
@@ -105,11 +100,9 @@ describe("Task API Endpoints", () => {
     });
 
     it("should return 404 if user not found", async () => {
-      // no user passed in to simulate db returning null
       User.findOne.mockImplementation(() => ({
-        lean: () => ({
-          exec: () => Promise.resolve(null),
-        }),
+        lean: jest.fn().mockReturnThis(),
+        exec: jest.fn().mockResolvedValue(null),
       }));
 
       const response = await request(app)
@@ -130,9 +123,8 @@ describe("Task API Endpoints", () => {
   describe("GET /tasks/:taskId", () => {
     it("should return the requested task", async () => {
       Task.findOne.mockImplementation(() => ({
-        lean: () => ({
-          exec: () => Promise.resolve(mockTask),
-        }),
+        lean: jest.fn().mockReturnThis(),
+        exec: jest.fn().mockResolvedValue(mockTask),
       }));
 
       const response = await request(app).get(
@@ -145,10 +137,10 @@ describe("Task API Endpoints", () => {
 
     it("should return 404 if task not found", async () => {
       Task.findOne.mockImplementation(() => ({
-        lean: () => ({
-          exec: () => Promise.resolve(null),
-        }),
+        lean: jest.fn().mockReturnThis(),
+        exec: jest.fn().mockResolvedValue(null),
       }));
+
       const response = await request(app).get(
         "/tasks/67bc2cb47654cf035032732b"
       );
@@ -230,9 +222,8 @@ describe("Task API Endpoints", () => {
   describe("PATCH /tasks/:taskId/assignees", () => {
     it("should add an assignee successfully", async () => {
       User.findById.mockImplementation(() => ({
-        lean: () => ({
-          exec: () => Promise.resolve(mockUser),
-        }),
+        lean: jest.fn().mockReturnThis(),
+        exec: jest.fn().mockResolvedValue(mockUser),
       }));
       Task.findOne.mockImplementation(() => ({
         exec: () =>

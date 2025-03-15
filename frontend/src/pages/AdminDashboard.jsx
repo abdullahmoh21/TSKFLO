@@ -507,6 +507,17 @@ const AdminPage = () => {
     setEditTaskData(formattedTask);
   };
 
+  // Update the task creation success handler
+  const handleTaskCreationSuccess = () => {
+    setShowCreateTask(false);
+    setTimeout(() => {
+      refetchTasks();
+      // Go to the last page to see the newly created task
+      goToLastPage();
+      console.log("Refreshing tasks after creation");
+    }, 500);
+  };
+
   return (
     <div className={`min-h-screen bg-secondary-50 dark:bg-secondary-900 pt-16 px-4 sm:px-6 lg:px-8 transition-all duration-300 ${isLoaded ? 'opacity-100' : 'opacity-0'}`}>
       {(error || tasksError || usersError) && (
@@ -554,13 +565,7 @@ const AdminPage = () => {
             </div>
             <CreateTask
               isModal={true}
-              onClose={() => {
-                setShowCreateTask(false);
-                setTimeout(() => {
-                  refetchTasks();
-                  console.log("Refreshing tasks after creation");
-                }, 500);
-              }}
+              onClose={handleTaskCreationSuccess}
             />
           </div>
         </div>

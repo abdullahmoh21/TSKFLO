@@ -1,0 +1,32 @@
+name: CI
+
+on:
+  push:
+    branches: ["main", "development"]
+  pull_request:
+    branches: ["main", "development"]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v3
+
+      - name: Set up Node
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+
+      - name: Install and Test (Backend)
+        run: |
+          cd backend
+          npm install
+          npm test
+
+      - name: Install and Test (Frontend)
+        run: |
+          cd frontend
+          npm install
+          npm test

@@ -1,8 +1,7 @@
 const nodemailer = require("nodemailer");
 const path = require("path");
 const logger = require("../logs/logger");
-const fs = require("fs").promises;
-const handlebars = require("handlebars");
+// const handlebars = require("nodemailer-express-handlebars");
 
 // Create a Nodemailer transporter
 const transporter = nodemailer.createTransport({
@@ -15,22 +14,18 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-// Custom function to compile a template with handlebars
-async function compileTemplate(templateName, data) {
-  try {
-    const templatePath = path.resolve(
-      __dirname,
-      "emailTemplates",
-      `${templateName}.hbs`
-    );
-    const templateSource = await fs.readFile(templatePath, "utf-8");
-    const template = handlebars.compile(templateSource);
-    return template(data);
-  } catch (error) {
-    logger.error(`Failed to compile template ${templateName}:`, error);
-    throw new Error(`Template compilation failed: ${error.message}`);
-  }
-}
+// Configure Handlebars for Nodemailer
+// const handlebarOptions = {
+//   viewEngine: {
+//     extName: ".hbs",
+//     defaultLayout: "",
+//   },
+//   viewPath: path.resolve(__dirname, "emailTemplates"),
+//   extName: ".hbs",
+// };
+
+// transporter.use("compile", handlebars(handlebarOptions));
+// transporter.use("compile", handlebars(handlebarOptions));
 
 function sendEmail(
   to,
@@ -39,7 +34,7 @@ function sendEmail(
   subject = null,
   text = null
 ) {
-  return new Promise(async (resolve, reject) => {
+  return new Promise((resolve, reject) => {
     // Default subject for invite emails
     const defaultSubject =
       "You have been invited to join our task management system";
@@ -72,39 +67,15 @@ Task Management Team
       text: emailContent,
     };
 
-    try {
-      if (template) {
-        // Compile the handlebars template with the provided data
-        const htmlContent = await compileTemplate(template, handlebarData);
-        mailOptions.html = htmlContent;
-
-        if (text) {
-          mailOptions.text = text;
-        }
-        logger.info(`Email prepared for ${to} using template: ${template}`);
-      } else {
-        // For plain-text emails, assign the text directly
-        mailOptions.text = text;
-        logger.info(`Plain text email prepared for ${to}`);
+    transporter.sendMail(mailOptions, (error, info) => {
+      if (error) {
+        logger.error("Error sending email:", error);
+        return reject(error);
       }
-
-      // development bypass
-      return resolve();
-
-      // Send the email
-      transporter.sendMail(mailOptions, (error, info) => {
-        if (error) {
-          logger.error("Error sending email alert:", error);
-          return reject(error);
-        }
-        logger.info("Message sent:", info.messageId);
-        resolve(info);
-      });
-    } catch (error) {
-      reject(error);
-    }
+      logger.info("Message sent:", info.messageId);
+      resolve(info);
+    });
   });
 }
 
 module.exports = sendEmail;
-

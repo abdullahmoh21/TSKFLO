@@ -1,42 +1,34 @@
-import { apiSlice } from "../../app/api/apiSlice";
+import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 
-export const adminApiSlice = apiSlice.injectEndpoints({
+export const adminApiSlice = createApi({
+  reducerPath: "adminApi",
+  baseQuery: fetchBaseQuery({
+    baseUrl: "http://localhost:3200/admin",
+    prepareHeaders: (headers, { getState }) => {
+      const token = getState().auth.token;
+      if (token) {
+        headers.set("authorization", `Bearer ${token}`);
+      }
+      console.log("Request Headers:", Object.fromEntries(headers.entries()));
+      return headers;
+    },
+  }),
+  tagTypes: ["AdminTasks", "AdminUsers"],
   endpoints: (builder) => ({
     getAdminTasks: builder.query({
-      query: (params = { page: 1, limit: 10 }) => ({
-        url: "/admin/tasks",
+      query: () => ({
+        url: "/tasks",
         method: "GET",
         credentials: "include",
-        params: params,
       }),
       providesTags: ["AdminTasks"],
       transformResponse: (response) => {
         console.log("Tasks Response:", response);
-        if (!response) return { tasks: [], pagination: { totalTasks: 0, currentPage: 1, totalPages: 1 } };
-        
-        // Return both the tasks and pagination info
-        if (response.tasks) {
-          return {
-            tasks: response.tasks,
-            pagination: {
-              totalTasks: response.totalTasks || 0,
-              currentPage: response.currentPage || 1,
-              totalPages: response.totalPages || 1
-            }
-          };
-        }
-        
-        if (Array.isArray(response)) {
-          return { 
-            tasks: response,
-            pagination: { totalTasks: response.length, currentPage: 1, totalPages: 1 }
-          };
-        }
-        
-        return { 
-          tasks: [],
-          pagination: { totalTasks: 0, currentPage: 1, totalPages: 1 }
-        };
+        if (!response) return [];
+        if (Array.isArray(response)) return response;
+        if (response.tasks) return response.tasks;
+        if (response.data) return response.data;
+        return [];
       },
       transformErrorResponse: (response) => {
         console.error("Tasks Error:", response);
@@ -48,7 +40,7 @@ export const adminApiSlice = apiSlice.injectEndpoints({
     }),
     getAdminUsers: builder.query({
       query: () => ({
-        url: "/admin/users",
+        url: "/users",
         method: "GET",
         credentials: "include",
       }),
@@ -69,48 +61,29 @@ export const adminApiSlice = apiSlice.injectEndpoints({
         };
       },
     }),
-    updateAdminUser: builder.mutation({
-      query: ({ userId, ...update }) => ({
-        url: `/admin/users/${userId}`,
-        method: "PATCH",
-        body: update,
+    searchUsers: builder.query({
+      query: (text) => ({
+        url: `/users?search=${encodeURIComponent(text)}`,
+        method: "GET",
         credentials: "include",
       }),
-      invalidatesTags: ["AdminUsers"],
       transformResponse: (response) => {
-        console.log("Update User Response:", response);
-        return response;
-      },
-      transformErrorResponse: (response) => {
-        console.error("Update User Error:", response);
-        return {
-          status: response.status,
-          message: response.data?.message || "Failed to update user",
-        };
-      },
-    }),
-    deleteAdminUser: builder.mutation({
-      query: (userId) => ({
-        url: `/admin/users/${userId}`,
-        method: "DELETE",
-        credentials: "include",
-      }),
-      invalidatesTags: ["AdminUsers"],
-      transformResponse: (response) => {
-        console.log("Delete User Response:", response);
-        return response;
-      },
-      transformErrorResponse: (response) => {
-        console.error("Delete User Error:", response);
-        return {
-          status: response.status,
-          message: response.data?.message || "Failed to delete user",
-        };
+        console.log("Search Users Response:", response);
+        // Handle the response based on the structure
+        if (!response) return { users: [] };
+        if (response.users) return response;
+
+        // If the response is an array, wrap it in a users property
+        if (Array.isArray(response)) {
+          return { users: response };
+        }
+
+        return { users: [] };
       },
     }),
     deleteAdminTask: builder.mutation({
       query: (taskId) => ({
-        url: `/admin/tasks/${taskId}`,
+        url: `/tasks/${taskId}`,
         method: "DELETE",
         credentials: "include",
       }),
@@ -118,7 +91,7 @@ export const adminApiSlice = apiSlice.injectEndpoints({
     }),
     updateAdminTask: builder.mutation({
       query: ({ taskId, ...update }) => ({
-        url: `/admin/tasks/${taskId}`,
+        url: `/tasks/${taskId}`,
         method: "PATCH",
         body: update,
         credentials: "include",
@@ -153,27 +126,20 @@ export const adminApiSlice = apiSlice.injectEndpoints({
     }),
     createAdminTask: builder.mutation({
       query: (task) => ({
-        url: "/admin/tasks",
+        url: "/tasks",
         method: "POST",
         body: task,
         credentials: "include",
         responseHandler: (response) => {
-          // Handle both JSON and text responses
-          const contentType = response.headers.get("content-type");
-          if (contentType && contentType.includes("application/json")) {
-            return response.json().catch(() => ({}));
+          // For this specific endpoint, don't try to parse as JSON if it's just "OK"
+          if (response.status === 200) {
+            return { success: true, message: "Task created successfully" };
           }
-          return response.text().then(text => ({ message: text }));
+          return response.json().catch(() => {
+            return { success: true, message: "Task created successfully" };
+          });
         },
       }),
-      transformResponse: (response) => {
-        console.log("Create Task Response:", response);
-        // If the response is just "OK" or other text, create a success object
-        if (typeof response === 'string' || response.message === "OK") {
-          return { success: true, message: "Task created successfully" };
-        }
-        return response;
-      },
       transformErrorResponse: (response) => {
         console.error("Create Task Error:", response);
         if (response.status === 400) {
@@ -185,9 +151,8 @@ export const adminApiSlice = apiSlice.injectEndpoints({
     }),
     lockAdminTask: builder.mutation({
       query: ({ taskId, locked }) => ({
-        url: `/admin/tasks/${taskId}/lock`,
+        url: locked ? `/tasks/${taskId}/unlock` : `/tasks/${taskId}/lock`,
         method: "PATCH",
-        body: { locked },
         credentials: "include",
       }),
       invalidatesTags: ["AdminTasks"],
@@ -205,6 +170,5 @@ export const {
   useDeleteUserMutation,
   useInviteUserMutation,
   useLockAdminTaskMutation,
-  useUpdateAdminUserMutation,
-  useDeleteAdminUserMutation,
+  useCreateAdminTaskMutation,
 } = adminApiSlice;

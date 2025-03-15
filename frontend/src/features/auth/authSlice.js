@@ -1,20 +1,6 @@
 import { createSlice } from "@reduxjs/toolkit";
 import { jwtDecode } from "jwt-decode";
 
-// Helper function to check if token is expired
-const isTokenExpired = (token) => {
-  if (!token) return true;
-  
-  try {
-    const decoded = jwtDecode(token);
-    const currentTime = Date.now() / 1000;
-    return decoded.exp < currentTime;
-  } catch (err) {
-    console.error("Error checking token expiration:", err);
-    return true;
-  }
-};
-
 // Initialize default auth state
 const initialAuthState = {
   token: null,
@@ -56,17 +42,10 @@ const authSlice = createSlice({
       state.name = null;
       state.email = null;
     },
-    checkTokenExpiration: (state) => {
-      if (state.token && isTokenExpired(state.token)) {
-        state.token = null;
-        state.role = null;
-        state.id = null;
-      }
-    }
   },
 });
 
-export const { setCredentials, setUserData, logOut, checkTokenExpiration } = authSlice.actions;
+export const { setCredentials, setUserData, logOut } = authSlice.actions;
 
 export default authSlice.reducer;
 

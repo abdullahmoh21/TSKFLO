@@ -1,17 +1,15 @@
 // src/features/socket/SocketInitializer.js
 import React, { useEffect, useRef } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { setConnected, clearJoinedConversations } from "./socketSlice";
+import { setConnected } from "./socketSlice";
 import { selectCurrentUserId, selectCurrentToken } from "../auth/authSlice";
 import {
   initializeSocket,
   disconnectSocket,
 } from "../../services/socketService";
-import { useRefreshMutation } from "../auth/authApiSlice";
 
 const SocketInitializer = () => {
   const dispatch = useDispatch();
-  const [refresh, { isError }] = useRefreshMutation();
   const currentUserId = useSelector(selectCurrentUserId);
   const token = useSelector(selectCurrentToken);
   const hasInitialized = useRef(false);
@@ -26,23 +24,28 @@ const SocketInitializer = () => {
       });
 
       socket.on("connect_error", (error) => {
-        if (error.message.includes("Authentication error: Invalid token")) {
-          refresh();
-        }
+        console.error("Socket connection error:", error);
       });
 
       socket.on("disconnect", (reason) => {
         console.log("Disconnected from WebSocket server:", reason);
         dispatch(setConnected(false));
-        dispatch(clearJoinedConversations()); // Clear joined conversations on disconnect
+
+        // If the disconnection was not initiated by the client, attempt to reconnect
+        if (reason === "io server disconnect" || reason === "transport close") {
+          socket.connect();
+        }
       });
+
+      return () => {
+        // We'll handle disconnection separately
+      };
     } else if (!currentUserId && hasInitialized.current) {
       // User logged out, disconnect socket
       disconnectSocket();
-      dispatch(clearJoinedConversations()); // Clear joined conversations when logging out
       hasInitialized.current = false;
     }
-  }, [currentUserId, token, dispatch, refresh]);
+  }, [currentUserId, token, dispatch]);
 
   return null;
 };

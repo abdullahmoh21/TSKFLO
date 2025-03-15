@@ -639,7 +639,6 @@ const AdminPage = () => {
     };
     setEditTaskData(formattedTask);
   };
-
   const handleCreateTask = () => {
     setShowCreateTask(true);
   };
@@ -702,13 +701,7 @@ const AdminPage = () => {
             </div>
             <AdminCreateTask
               isModal={true}
-              onClose={() => {
-                setShowCreateTask(false);
-                setTimeout(() => {
-                  refetchTasks();
-                  console.log("Refreshing tasks after creation");
-                }, 500);
-              }}
+              onClose={handleTaskCreationSuccess}
             />
           </div>
         </div>

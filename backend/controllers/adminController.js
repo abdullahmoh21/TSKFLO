@@ -65,42 +65,55 @@ const getAllUsers = asyncHandler(async (req, res) => {
 //@route POST /admin/users
 //@access Private
 const invite = asyncHandler(async (req, res) => {
-  const { email, name, role } = req.body;
-
-  const [invited, existingUser] = await Promise.all([
-    Invitation.findOne({ email }).lean().exec(),
-    User.findOne({ email }).lean().exec(),
-  ]);
-
-  if (existingUser) {
-    return res.status(400).json({ message: "User already exists" });
-  }
-  if (invited) {
-    return res.status(204).json({ message: "User has already been invited" });
-  }
-
-  const token = crypto.randomBytes(16).toString("hex");
-  const newInvitation = new Invitation({
-    email,
-    name,
-    token,
-    role,
-  });
-
-  const link = `${process.env.URL}/register/${token}`;
-  logger.info(`User invited with token: ${token}`);
-  await newInvitation.save();
   try {
-    await sendEmail(email, "inviteUser", { name, link });
-  } catch (err) {
-    // rollback if email sending failed
-    await Invitation.deleteOne({ _id: newInvitation._id });
-    return res
-      .status(500)
-      .json({ message: "Error sending email. Please try again later" });
-  }
+    const { email, name, role } = req.body;
 
-  return res.status(200).json({ link });
+    // Create queries
+    const invitedQuery = Invitation.findOne({ email });
+    invitedQuery.lean();
+    
+    const existingUserQuery = User.findOne({ email });
+    existingUserQuery.lean();
+    
+    // Execute queries in parallel
+    const [invited, existingUser] = await Promise.all([
+      invitedQuery.exec(),
+      existingUserQuery.exec(),
+    ]);
+
+    if (existingUser) {
+      return res.status(400).json({ message: "User already exists" });
+    }
+    if (invited) {
+      return res.status(204).json({ message: "User has already been invited" });
+    }
+
+    const token = crypto.randomBytes(16).toString("hex");
+    const newInvitation = new Invitation({
+      email,
+      name,
+      token,
+      role,
+    });
+
+    const link = `${process.env.URL}/register/${token}`;
+    logger.info(`User invited with token: ${token}`);
+    await newInvitation.save();
+    try {
+      await sendEmail(email, "inviteUser", { name, link });
+    } catch (err) {
+      // rollback if email sending failed
+      await Invitation.deleteOne({ _id: newInvitation._id });
+      return res
+        .status(500)
+        .json({ message: "Error sending email. Please try again later" });
+    }
+
+    return res.status(200).json({ link });
+  } catch (err) {
+    console.error("Error in invite:", err);
+    return res.status(500).json({ message: "Error inviting user", error: err.message });
+  }
 });
 
 //@desc Update given users data
@@ -169,24 +182,34 @@ const getAllTasks = asyncHandler(async (req, res) => {
 
   const skip = (page - 1) * limit;
 
-  // Fetch paginated users
-  const tasks = await Task.find()
-    .skip(skip)
-    .limit(limit)
-    .populate("assignees", "_id name email")
-    .lean()
-    .exec();
+  try {
+    // Get all tasks first
+    const query = Task.find();
+    // Apply pagination
+    query.skip(skip);
+    query.limit(limit);
+    // Apply population
+    query.populate("assignees", "_id name email");
+    // Get as plain objects
+    query.lean();
+    
+    // Execute the query
+    const tasks = await query.exec();
+    
+    // Get total count in a separate query
+    const totalTasks = await Task.countDocuments().exec();
 
-  // Get total number of users
-  const totalTasks = await Task.countDocuments();
-
-  // Send response with pagination metadata
-  res.json({
-    totalTasks,
-    currentPage: page,
-    totalPages: Math.ceil(totalTasks / limit),
-    tasks,
-  });
+    // Send response with pagination metadata
+    res.json({
+      totalTasks,
+      currentPage: page,
+      totalPages: Math.ceil(totalTasks / limit),
+      tasks,
+    });
+  } catch (err) {
+    console.error("Error in getAllTasks:", err);
+    res.status(500).json({ message: "Error retrieving tasks", error: err.message });
+  }
 });
 
 //@desc returns list of all tasks with paging
@@ -215,15 +238,22 @@ const createTask = asyncHandler(async (req, res) => {
 //@route GET /admin/tasks/:taskId
 //@access Private
 const getTask = asyncHandler(async (req, res) => {
-  const { taskId } = req.params;
+  try {
+    const { taskId } = req.params;
 
-  const task = await Task.findOne({ _id: taskId }).lean().exec();
+    const taskQuery = Task.findOne({ _id: taskId });
+    taskQuery.lean();
+    const task = await taskQuery.exec();
 
-  if (!task) {
-    return res.status(404).json({ message: "No such task exists" });
+    if (!task) {
+      return res.status(404).json({ message: "No such task exists" });
+    }
+
+    return res.status(200).json(task);
+  } catch (err) {
+    console.error("Error in getTask:", err);
+    return res.status(500).json({ message: "Error retrieving task", error: err.message });
   }
-
-  return res.status(200).json(task);
 });
 
 //@desc updates a specific task
@@ -237,9 +267,7 @@ const updateTask = asyncHandler(async (req, res) => {
   const updatedTask = await Task.findOneAndUpdate({ _id: taskId }, updates, {
     new: true,
     runValidators: true,
-  })
-    .lean()
-    .exec();
+  }).lean();
 
   if (!updatedTask) {
     return res.status(404).json({ message: "No such task exists" });
@@ -278,9 +306,7 @@ const lockTask = asyncHandler(async (req, res) => {
       new: true,
       runValidators: true,
     }
-  )
-    .lean()
-    .exec();
+  ).lean();
 
   if (!updatedTask) {
     return res.status(404).json({ message: "No such task exists" });
@@ -303,9 +329,7 @@ const unlockTask = asyncHandler(async (req, res) => {
       new: true,
       runValidators: true,
     }
-  )
-    .lean()
-    .exec();
+  ).lean();
 
   if (!updatedTask) {
     return res.status(404).json({ message: "No such task exists" });

@@ -63,7 +63,6 @@ export const authApiSlice = apiSlice.injectEndpoints({
         try {
           const { data } = await queryFulfilled;
           if (data && data.accessToken) {
-            console.log("Refresh token success, setting credentials");
             dispatch(setCredentials({ accessToken: data.accessToken }));
             return true;
           } else {
@@ -72,9 +71,9 @@ export const authApiSlice = apiSlice.injectEndpoints({
           }
         } catch (err) {
           console.error("Error refreshing token:", err);
-          // Only log out if it's a 401/403 error
+          // Handle token refresh failure - only log out if it's a 401/403 error
           if (err?.error?.status === 401 || err?.error?.status === 403) {
-            console.log("Refresh token expired or invalid, logging out");
+            console.log("Refresh token expired, logging out");
             dispatch(logOut());
           }
           return false;

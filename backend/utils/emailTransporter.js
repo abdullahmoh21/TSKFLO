@@ -1,13 +1,10 @@
 const nodemailer = require("nodemailer");
 const path = require("path");
 const logger = require("../logs/logger");
-const fs = require("fs").promises;
-const handlebars = require("handlebars");
+// const handlebars = require("nodemailer-express-handlebars");
 
 // Create a Nodemailer transporter
 const transporter = nodemailer.createTransport({
-  pool: true,
-  maxConnections: 10,
   host: "smtp-relay.brevo.com",
   port: 587,
   secure: false,
@@ -17,22 +14,18 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-// Custom function to compile a template with handlebars
-async function compileTemplate(templateName, data) {
-  try {
-    const templatePath = path.resolve(
-      __dirname,
-      "emailTemplates",
-      `${templateName}.hbs`
-    );
-    const templateSource = await fs.readFile(templatePath, "utf-8");
-    const template = handlebars.compile(templateSource);
-    return template(data);
-  } catch (error) {
-    logger.error(`Failed to compile template ${templateName}:`, error);
-    throw new Error(`Template compilation failed: ${error.message}`);
-  }
-}
+// Configure Handlebars for Nodemailer
+// const handlebarOptions = {
+//   viewEngine: {
+//     extName: ".hbs",
+//     defaultLayout: "",
+//   },
+//   viewPath: path.resolve(__dirname, "emailTemplates"),
+//   extName: ".hbs",
+// };
+
+// transporter.use("compile", handlebars(handlebarOptions));
+// transporter.use("compile", handlebars(handlebarOptions));
 
 function sendEmail(
   to,
@@ -41,55 +34,47 @@ function sendEmail(
   subject = null,
   text = null
 ) {
-  return new Promise(async (resolve, reject) => {
-    let subjectMap = new Map([["inviteUser", "You have been invited to "]]);
+  return new Promise((resolve, reject) => {
+    // Default subject for invite emails
+    const defaultSubject =
+      "You have been invited to join our task management system";
 
-    // Ensure plain text is provided if no template is used.
-    if (!template && !text) {
-      return reject(new Error("Plain text email requires a text body."));
-    }
-    if (template && !subjectMap.has(template)) {
-      return reject(
-        new Error(`The template '${template}' has not been implemented`)
-      );
+    // Create the email content
+    let emailContent = "";
+    if (template === "inviteUser") {
+      emailContent = `
+Hello ${handlebarData.name},
+
+You have been invited to join our task management system. Please click the link below to complete your registration:
+
+${handlebarData.link}
+
+This link will expire in 24 hours.
+
+Best regards,
+Task Management Team
+      `;
+    } else if (text) {
+      emailContent = text;
+    } else {
+      return reject(new Error("No email content provided"));
     }
 
     const mailOptions = {
-      from: "abdullahmohsin21007@gmail.com",
+      from: process.env.BREVO_USER,
       to,
-      subject: subject ? subject : subjectMap.get(template),
+      subject: subject || defaultSubject,
+      text: emailContent,
     };
 
-    try {
-      if (template) {
-        // Compile the handlebars template with the provided data
-        const htmlContent = await compileTemplate(template, handlebarData);
-        mailOptions.html = htmlContent;
-
-        if (text) {
-          mailOptions.text = text;
-        }
-        logger.info(`Email prepared for ${to} using template: ${template}`);
-      } else {
-        // For plain-text emails, assign the text directly
-        mailOptions.text = text;
-        logger.info(`Plain text email prepared for ${to}`);
+    transporter.sendMail(mailOptions, (error, info) => {
+      if (error) {
+        logger.error("Error sending email:", error);
+        return reject(error);
       }
-
-      // development bypass
-      return resolve();
-
-      transporter.sendMail(mailOptions, (error, info) => {
-        if (error) {
-          logger.error("Error sending email alert:", error);
-          return reject(error);
-        }
-        logger.info("Message sent:", info.messageId);
-        resolve(info);
-      });
-    } catch (error) {
-      reject(error);
-    }
+      logger.info("Message sent:", info.messageId);
+      resolve(info);
+    });
   });
 }
 

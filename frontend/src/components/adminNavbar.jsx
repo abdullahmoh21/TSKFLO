@@ -16,6 +16,8 @@ import {
 import { useSelector, useDispatch } from "react-redux";
 import { selectCurrentUserName, logOut } from "../features/auth/authSlice";
 import { useLogoutMutation } from "../features/auth/authApiSlice";
+import { useGetMyDataQuery } from "../features/user/userApiSlice";
+import UserProfilePopup from "./UserProfilePopup";
 import { useNotification } from "../context/NotificationContext";
 
 const AdminNavbar = () => {
@@ -31,12 +33,19 @@ const AdminNavbar = () => {
     { id: 2, text: "System maintenance scheduled", isRead: false },
   ]);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [showProfilePopup, setShowProfilePopup] = useState(false);
 
   // Get user name from Redux state
   const userName = useSelector(selectCurrentUserName);
 
   // API hooks
   const [logout, { isLoading: isLogoutLoading }] = useLogoutMutation();
+  const {
+    data: userData,
+    isLoading: isUserLoading,
+  } = useGetMyDataQuery(undefined, {
+    refetchOnMountOrArgChange: false,
+  });
 
   // Handle dark mode toggle
   useEffect(() => {
@@ -98,6 +107,10 @@ const AdminNavbar = () => {
   const unreadCount = notifications.filter((n) => !n.isRead).length;
 
   const { unreadMessages } = useNotification();
+
+  const handleClosePopup = () => {
+    setShowProfilePopup(false);
+  };
 
   return (
     <header
@@ -176,14 +189,21 @@ const AdminNavbar = () => {
 
               {/* User profile */}
               <div className="relative">
-                <div className="flex items-center gap-2 text-sm font-medium text-secondary-700 dark:text-secondary-300 py-2 px-3 rounded-lg">
+                <button
+                  onClick={() => setShowProfilePopup(true)}
+                  className="flex items-center gap-2 text-sm font-medium text-secondary-700 dark:text-secondary-300 hover:text-primary-600 dark:hover:text-primary-400 transition-colors py-2 px-3 rounded-lg hover:bg-secondary-50 dark:hover:bg-secondary-800"
+                >
                   <span className="hidden md:inline-block">
-                    {userName || "Admin"}
+                    {isUserLoading
+                      ? "Loading..."
+                      : userData?.name
+                      ? userData.name
+                      : userName || "Admin"}
                   </span>
                   <div className="h-8 w-8 rounded-full bg-primary-100 dark:bg-primary-900 flex items-center justify-center text-primary-600 dark:text-primary-400 overflow-hidden">
                     <FaUserCircle className="h-7 w-7" />
                   </div>
-                </div>
+                </button>
               </div>
 
               {/* Logout button */}
@@ -244,58 +264,84 @@ const AdminNavbar = () => {
         </div>
       </div>
 
-      {/* Mobile menu, show/hide based on menu state */}
-      <div
-        className={`md:hidden transition-all duration-300 overflow-hidden ${
-          mobileMenuOpen ? "max-h-80" : "max-h-0"
-        }`}
-      >
-        <div className="border-t border-secondary-100 dark:border-secondary-800 py-3">
-          <div className="space-y-1 px-4">
-            <Link
-              to="/admindashboard"
-              className={`flex items-center px-3 py-2 rounded-lg text-base font-medium ${
-                isActivePath("/admindashboard") && !isActivePath("/messaging")
-                  ? "bg-primary-50 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400"
-                  : "text-secondary-700 dark:text-secondary-300 hover:bg-secondary-50 dark:hover:bg-secondary-800"
-              }`}
-              onClick={() => setMobileMenuOpen(false)}
-            >
-              <FaChartBar className="mr-3 h-5 w-5" />
-              Dashboard
-            </Link>
-
-            <Link
-              to="/messaging"
-              className={`flex items-center px-3 py-2 rounded-lg text-base font-medium ${
-                isActivePath("/messaging")
-                  ? "bg-primary-50 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400"
-                  : "text-secondary-700 dark:text-secondary-300 hover:bg-secondary-50 dark:hover:bg-secondary-800"
-              }`}
-              onClick={() => setMobileMenuOpen(false)}
-            >
-              <FaEnvelope className="mr-3 h-5 w-5" />
-              Messages
+      {/* Mobile menu */}
+      <div className={`md:hidden transition-all duration-300 overflow-hidden ${mobileMenuOpen ? 'max-h-60' : 'max-h-0'}`}>
+        <div className="px-2 pt-2 pb-3 space-y-1 border-t border-secondary-200 dark:border-secondary-700">
+          <Link
+            to="/admindashboard"
+            className={`block px-3 py-2 rounded-md text-base font-medium ${
+              isActivePath("/admindashboard") && !isActivePath("/messaging")
+                ? "bg-primary-50 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400"
+                : "text-secondary-700 dark:text-secondary-300 hover:bg-secondary-50 dark:hover:bg-secondary-800"
+            }`}
+            onClick={() => setMobileMenuOpen(false)}
+          >
+            <span className="flex items-center gap-1.5">
+              <FaChartBar className="h-4 w-4" />
+              <span>Dashboard</span>
+            </span>
+          </Link>
+          
+          <Link
+            to="/messaging"
+            className={`block px-3 py-2 rounded-md text-base font-medium ${
+              isActivePath("/messaging")
+                ? "bg-primary-50 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400"
+                : "text-secondary-700 dark:text-secondary-300 hover:bg-secondary-50 dark:hover:bg-secondary-800"
+            }`}
+            onClick={() => setMobileMenuOpen(false)}
+          >
+            <span className="flex items-center gap-1.5">
+              <FaEnvelope className="h-4 w-4" />
+              <span>Messages</span>
               {unreadMessages > 0 && (
-                <span className="absolute top-0 right-0 inline-flex items-center justify-center px-1.5 py-0.5 text-xs font-bold leading-none text-white transform translate-x-1/4 -translate-y-1/4 bg-primary-600 rounded-full">
+                <span className="ml-1 inline-flex items-center justify-center px-1.5 py-0.5 text-xs font-bold leading-none text-white bg-primary-600 rounded-full">
                   {unreadMessages > 9 ? "9+" : unreadMessages}
                 </span>
               )}
-            </Link>
-
-            <button
-              onClick={() => {
-                setMobileMenuOpen(false);
-                handleLogout();
-              }}
-              className="w-full flex items-center px-3 py-2 rounded-lg text-base font-medium text-secondary-700 dark:text-secondary-300 hover:bg-secondary-50 dark:hover:bg-secondary-800"
-            >
-              <FaSignOutAlt className="mr-3 h-5 w-5 text-danger-500" />
-              Logout
-            </button>
-          </div>
+            </span>
+          </Link>
+          
+          <button
+            onClick={() => {
+              setMobileMenuOpen(false);
+              setShowProfilePopup(true);
+            }}
+            className="w-full text-left block px-3 py-2 rounded-md text-base font-medium text-secondary-700 dark:text-secondary-300 hover:bg-secondary-50 dark:hover:bg-secondary-800"
+          >
+            <span className="flex items-center gap-1.5">
+              <FaUserCircle className="h-4 w-4" />
+              <span>Profile</span>
+            </span>
+          </button>
+          
+          <button
+            onClick={() => {
+              setMobileMenuOpen(false);
+              handleLogout();
+            }}
+            className="w-full text-left block px-3 py-2 rounded-md text-base font-medium text-secondary-700 dark:text-secondary-300 hover:bg-secondary-50 dark:hover:bg-secondary-800"
+          >
+            <span className="flex items-center gap-1.5">
+              <FaSignOutAlt className="h-4 w-4" />
+              <span>Logout</span>
+            </span>
+          </button>
         </div>
       </div>
+
+      {/* Profile popup */}
+      {showProfilePopup && (
+        <UserProfilePopup onClose={handleClosePopup} userData={userData} />
+      )}
+
+      {/* Notification panel */}
+      {showNotifications && (
+        <NotificationPanel
+          notifications={notifications}
+          onClose={() => setShowNotifications(false)}
+        />
+      )}
     </header>
   );
 };

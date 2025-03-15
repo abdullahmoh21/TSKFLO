@@ -23,21 +23,27 @@ import {
   FaSave,
   FaArrowUp,
   FaStar,
+  FaExternalLinkAlt,
+  FaInfoCircle,
 } from "react-icons/fa";
-import { useNavigate } from "react-router-dom";
-import { Line } from "react-chartjs-2";
-import CreateTask from "./CreateTask";
+import { useNavigate, Link } from "react-router-dom";
+import { Line, Bar, Pie } from "react-chartjs-2";
+import AdminCreateTask from "../components/AdminCreateTask";
 import { useSelector } from "react-redux";
 import {
   useGetAdminTasksQuery,
   useGetAdminUsersQuery,
+  useSearchUsersQuery,
   useDeleteAdminTaskMutation,
   useUpdateAdminTaskMutation,
-  useCreateAdminTaskMutation,
+  useUpdateUserMutation,
+  useDeleteUserMutation,
+  useInviteUserMutation,
   useLockAdminTaskMutation,
 } from "../features/admin/adminApiSlice";
 import 'react-tooltip/dist/react-tooltip.css';
 import { Tooltip as ReactTooltip } from 'react-tooltip';
+import { toast } from "react-toastify";
 
 // Add these imports at the top of your file
 import {
@@ -46,8 +52,10 @@ import {
   LinearScale,
   PointElement,
   LineElement,
+  BarElement,
+  ArcElement,
   Title,
-  Tooltip,
+  Tooltip as ChartTooltip,
   Legend,
 } from "chart.js";
 
@@ -57,8 +65,10 @@ ChartJS.register(
   LinearScale,
   PointElement,
   LineElement,
+  BarElement,
+  ArcElement,
   Title,
-  Tooltip,
+  ChartTooltip,
   Legend
 );
 
@@ -73,7 +83,7 @@ const AdminPage = () => {
   const [newUser, setNewUser] = useState({
     name: "",
     email: "",
-    phoneNumber: "",
+    role: "user",
   });
   const [expandedTask, setExpandedTask] = useState(null);
   const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
@@ -141,17 +151,106 @@ const AdminPage = () => {
   }, []);
 
   // Calculate metrics only when data is available
-  const metrics = useMemo(() => ({
+  const metrics = useMemo(() => {
+    // Early return if data isn't loaded yet
+    if (!Array.isArray(tasks) || !Array.isArray(users)) {
+      return {
+        totalUsers: 0,
+        totalTasks: 0,
+        completedTasks: 0,
+        upcomingDeadlines: 0,
+        tasksByStatus: [0, 0, 0], // To Do, In Progress, Completed
+        tasksByPriority: [0, 0, 0], // Low, Medium, High
+        teamPerformance: { labels: [], data: [] },
+      };
+    }
+
+    // Get the current date
+    const today = new Date();
+    const endOfToday = new Date(today);
+    endOfToday.setHours(23, 59, 59, 999);
+    
+    const thirtyDaysAgo = new Date(today);
+    thirtyDaysAgo.setDate(today.getDate() - 30);
+    
+    // Calculate tasks by status
+    const tasksByStatus = [
+      tasks.filter(task => task?.status === 'Complete').length,
+      tasks.filter(task => task?.status === 'In Progress').length,
+      tasks.filter(task => task?.status === 'Incomplete').length
+    ];
+    
+    // Calculate completed tasks in the last 30 days
+    const recentlyCompletedTasks = tasks.filter(task => {
+      if (task?.status !== 'Complete') return false;
+      if (!task?.updatedAt) return false;
+      const completedDate = new Date(task.updatedAt);
+      return completedDate >= thirtyDaysAgo && completedDate <= endOfToday;
+    });
+    
+    // Calculate upcoming deadlines (due in the next 7 days)
+    const nextWeek = new Date(today);
+    nextWeek.setDate(today.getDate() + 7);
+    
+    const upcomingDeadlines = tasks.filter(task => {
+      if (!task?.dueDate) return false;
+      const dueDate = new Date(task.dueDate);
+      return dueDate > today && dueDate <= nextWeek && task.status !== 'Complete';
+    }).length;
+    
+    // Calculate tasks by priority
+    const tasksByPriority = [
+      tasks.filter(task => task?.priority?.toLowerCase() === 'low').length,
+      tasks.filter(task => task?.priority?.toLowerCase() === 'medium').length,
+      tasks.filter(task => task?.priority?.toLowerCase() === 'high').length
+    ];
+    
+    // Calculate user performance (top 5 users by completed tasks)
+    const userTaskCounts = {};
+    
+    tasks.forEach(task => {
+      if (!task.owner) return;
+      
+      const ownerId = typeof task.owner === 'object' ? task.owner._id : task.owner;
+      
+      if (!userTaskCounts[ownerId]) {
+        userTaskCounts[ownerId] = {
+          completed: 0,
+          total: 0,
+          user: users.find(u => u._id === ownerId || u.id === ownerId)
+        };
+      }
+      
+      userTaskCounts[ownerId].total++;
+      
+      if (task.status === 'Complete') {
+        userTaskCounts[ownerId].completed++;
+      }
+    });
+    
+    // Convert to array and sort by completed tasks
+    const topUsers = Object.values(userTaskCounts)
+      .filter(user => user.total > 0)
+      .sort((a, b) => b.completed - a.completed)
+      .slice(0, 5);
+    
+    // Build data for chart
+    const teamLabels = topUsers.map(u => u.user?.name || 'Unknown User');
+    const teamData = topUsers.map(u => u.total > 0 ? Math.round((u.completed / u.total) * 100) : 0);
+    
+    return {
     totalUsers: users?.length || 0,
     totalTasks: tasks?.length || 0,
-    completedTasks: tasks?.filter(task => task.status === 'completed')?.length || 0,
-    upcomingDeadlines: tasks?.filter(task => new Date(task.dueDate) > new Date())?.length || 0,
-    weeklyTaskCompletion: [65, 72, 78, 85, 82, 90, 88],
+      completedTasks: tasks?.filter(task => task.status === 'Complete')?.length || 0,
+      upcomingDeadlines,
+      tasksByStatus,
+      tasksByPriority,
     teamPerformance: {
-      labels: ["Team A", "Team B", "Team C", "Team D"],
-      data: [85, 72, 90, 78],
+        labels: teamLabels,
+        data: teamData,
     },
-  }), [tasks, users]);
+    };
+  }, [tasks, users]);
 
   // Add retry functionality with loading state
   const [isRetrying, setIsRetrying] = useState(false);
@@ -177,6 +276,12 @@ const AdminPage = () => {
   const [lockTaskId, setLockTaskId] = useState(null);
   const [lockSuccess, setLockSuccess] = useState(false);
   const [lockError, setLockError] = useState(null);
+
+  const [updateUser] = useUpdateUserMutation();
+  const [deleteUser] = useDeleteUserMutation();
+  const [inviteUser] = useInviteUserMutation();
+
+  const [editingUser, setEditingUser] = useState(null);
 
   const handleDeleteTask = async (taskId) => {
     if (window.confirm("Are you sure you want to delete this task?")) {
@@ -244,39 +349,6 @@ const AdminPage = () => {
         setLockTaskId(null);
       }, 3000);
     }
-  };
-
-  // Chart data for weekly task completion
-  const chartData = {
-    labels: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
-    datasets: [
-      {
-        label: "Tasks Completed",
-        data: metrics.weeklyTaskCompletion,
-        fill: false,
-        borderColor: "rgb(99, 102, 241)",
-        tension: 0.1,
-        backgroundColor: "rgba(99, 102, 241, 0.5)",
-      },
-    ],
-  };
-
-  const chartOptions = {
-    responsive: true,
-    plugins: {
-      legend: {
-        position: "top",
-      },
-      title: {
-        display: true,
-        text: "Weekly Task Completion",
-      },
-    },
-    scales: {
-      y: {
-        beginAtZero: true,
-      },
-    },
   };
 
   const handleSort = (key) => {
@@ -417,85 +489,146 @@ const AdminPage = () => {
     }
   };
 
+  const handleNewUserChange = (e) => {
+    const name = e.target.name;
+    const value = e.target.value;
+    
+    // Update state directly without using prevState
+    setNewUser({...newUser, [name]: value});
+  };
+
+  const handleCreateUser = async (e) => {
+    e.preventDefault();
+    try {
+      if (editingUser) {
+        await updateUser({ userId: editingUser._id, ...newUser }).unwrap();
+        toast.success("User updated successfully");
+      } else {
+        await inviteUser(newUser).unwrap();
+        toast.success("Invitation sent successfully");
+      }
+      setShowCreateUser(false);
+      setEditingUser(null);
+      setNewUser({ name: "", email: "", role: "user" });
+    } catch (error) {
+      toast.error(error.data?.message || "Failed to process user");
+    }
+  };
+
   // Create User Modal
-  const CreateUserModal = () => (
-    <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-      <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg font-semibold text-gray-900">
-            Create New User
-          </h3>
-          <button
-            onClick={() => setShowCreateUser(false)}
-            className="text-gray-400 hover:text-gray-500"
-          >
-            <FaTimes />
-          </button>
-        </div>
-        <form onSubmit={handleCreateUser}>
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700">
-                Name
-              </label>
-              <input
-                type="text"
-                value={newUser.name}
-                onChange={(e) =>
-                  setNewUser({ ...newUser, name: e.target.value })
-                }
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                required
-              />
+  const CreateUserModal = () => {
+    // Create refs for uncontrolled inputs
+    const nameRef = React.useRef();
+    const emailRef = React.useRef();
+    
+    // Handle form submission using refs
+    const handleSubmit = (e) => {
+      e.preventDefault();
+      // Get values directly from DOM
+      const name = nameRef.current.value;
+      const email = emailRef.current.value;
+      const role = document.querySelector('select[name="role"]').value;
+      
+      // Create user object to submit
+      const userToSubmit = {
+        name,
+        email,
+        role
+      };
+      
+      // Submit the form
+      if (editingUser) {
+        updateUser({ userId: editingUser._id, ...userToSubmit })
+          .then(() => {
+            toast.success("User updated successfully");
+            setShowCreateUser(false);
+            setEditingUser(null);
+          })
+          .catch(error => {
+            toast.error(error.data?.message || "Failed to update user");
+          });
+      } else {
+        inviteUser(userToSubmit)
+          .then(() => {
+            toast.success("Invitation sent successfully");
+            setShowCreateUser(false);
+          })
+          .catch(error => {
+            toast.error(error.data?.message || "Failed to invite user");
+          });
+      }
+    };
+    
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="bg-white dark:bg-secondary-800 rounded-lg p-6 w-full max-w-md">
+          <h2 className="text-xl font-bold mb-4 text-secondary-900 dark:text-white">
+            {editingUser ? "Edit User" : "Invite New User"}
+          </h2>
+          <form onSubmit={handleSubmit}>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">
+                  Name
+                </label>
+                <input
+                  type="text"
+                  name="name"
+                  ref={nameRef}
+                  defaultValue={editingUser?.name || ""}
+                  className="w-full p-2 border border-secondary-300 dark:border-secondary-700 rounded-lg bg-white dark:bg-secondary-900 text-secondary-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                  required
+                  autoComplete="off"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">
+                  Email
+                </label>
+                <input
+                  type="email"
+                  name="email"
+                  ref={emailRef}
+                  defaultValue={editingUser?.email || ""}
+                  className="w-full p-2 border border-secondary-300 dark:border-secondary-700 rounded-lg bg-white dark:bg-secondary-900 text-secondary-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                  required
+                  autoComplete="off"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">
+                  Role
+                </label>
+                <select
+                  name="role"
+                  defaultValue={editingUser?.role || "user"}
+                  className="w-full p-2 border border-secondary-300 dark:border-secondary-700 rounded-lg bg-white dark:bg-secondary-900 text-secondary-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                >
+                  <option value="user">User</option>
+                  <option value="admin">Admin</option>
+                </select>
+              </div>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">
-                Email
-              </label>
-              <input
-                type="email"
-                value={newUser.email}
-                onChange={(e) =>
-                  setNewUser({ ...newUser, email: e.target.value })
-                }
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">
-                Phone Number
-              </label>
-              <input
-                type="tel"
-                value={newUser.phoneNumber}
-                onChange={(e) =>
-                  setNewUser({ ...newUser, phoneNumber: e.target.value })
-                }
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                required
-              />
-            </div>
-            <div className="flex justify-end space-x-3 mt-5">
+            <div className="mt-6 flex justify-end space-x-3">
               <button
                 type="button"
                 onClick={() => setShowCreateUser(false)}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md"
+                className="px-4 py-2 text-sm font-medium text-secondary-700 dark:text-secondary-300 hover:text-primary-600 dark:hover:text-primary-400"
               >
                 Cancel
               </button>
               <button
                 type="submit"
-                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md"
+                className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 text-sm font-medium"
               >
-                Create User
+                {editingUser ? "Update User" : "Invite User"}
               </button>
             </div>
-          </div>
-        </form>
+          </form>
+        </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   // Function to handle opening the edit task modal
   const handleEditTask = (task) => {
@@ -506,16 +639,19 @@ const AdminPage = () => {
     };
     setEditTaskData(formattedTask);
   };
+  const handleCreateTask = () => {
+    setShowCreateTask(true);
+  };
 
-  // Update the task creation success handler
-  const handleTaskCreationSuccess = () => {
-    setShowCreateTask(false);
-    setTimeout(() => {
-      refetchTasks();
-      // Go to the last page to see the newly created task
-      goToLastPage();
-      console.log("Refreshing tasks after creation");
-    }, 500);
+  const handleDeleteUser = async (userId) => {
+    if (window.confirm("Are you sure you want to delete this user?")) {
+      try {
+        await deleteUser(userId).unwrap();
+        toast.success("User deleted successfully");
+      } catch (error) {
+        toast.error(error.data?.message || "Failed to delete user");
+      }
+    }
   };
 
   return (
@@ -525,7 +661,7 @@ const AdminPage = () => {
           <div className="bg-danger-50 dark:bg-danger-900/20 border border-danger-200 dark:border-danger-800 text-danger-700 dark:text-danger-300 px-4 py-3 rounded-lg shadow-sm" role="alert">
             <div className="flex items-center">
               <FaExclamationCircle className="mr-2" />
-              <strong className="font-bold">Error!</strong>
+            <strong className="font-bold">Error!</strong>
               <span className="ml-2"> {error || tasksError?.message || usersError?.message}</span>
             </div>
             <div className="mt-2 flex space-x-2">
@@ -553,7 +689,7 @@ const AdminPage = () => {
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-xl font-bold text-secondary-900 dark:text-white">
                 <span className="bg-gradient-to-r from-primary-500 to-primary-700 bg-clip-text text-transparent">
-                  Create New Task
+                Create New Task
                 </span>
               </h3>
               <button
@@ -563,7 +699,7 @@ const AdminPage = () => {
                 <FaTimes />
               </button>
             </div>
-            <CreateTask
+            <AdminCreateTask
               isModal={true}
               onClose={handleTaskCreationSuccess}
             />
@@ -673,132 +809,120 @@ const AdminPage = () => {
         {/* Navigation Tabs */}
         <div className="glass-morphism rounded-xl shadow-sm mb-6 border border-secondary-200 dark:border-secondary-700 overflow-hidden">
           <nav className="flex">
-            <button
-              onClick={() => setActiveTab("dashboard")}
+              <button
+                onClick={() => setActiveTab("dashboard")}
               className={`px-6 py-4 text-sm font-medium transition-all duration-200 ${
-                activeTab === "dashboard"
+                  activeTab === "dashboard"
                   ? "border-b-2 border-primary-500 text-primary-600 dark:text-primary-400"
                   : "text-secondary-500 dark:text-secondary-400 hover:text-secondary-700 dark:hover:text-secondary-300 hover:bg-secondary-100 dark:hover:bg-secondary-800"
-              }`}
-            >
-              Dashboard
-            </button>
-            <button
-              onClick={() => setActiveTab("users")}
+                }`}
+              >
+                Dashboard
+              </button>
+              <button
+                onClick={() => setActiveTab("users")}
               className={`px-6 py-4 text-sm font-medium transition-all duration-200 ${
-                activeTab === "users"
+                  activeTab === "users"
                   ? "border-b-2 border-primary-500 text-primary-600 dark:text-primary-400"
                   : "text-secondary-500 dark:text-secondary-400 hover:text-secondary-700 dark:hover:text-secondary-300 hover:bg-secondary-100 dark:hover:bg-secondary-800"
-              }`}
-            >
-              Users
-            </button>
-            <button
-              onClick={() => setActiveTab("tasks")}
+                }`}
+              >
+                Users
+              </button>
+              <button
+                onClick={() => setActiveTab("tasks")}
               className={`px-6 py-4 text-sm font-medium transition-all duration-200 ${
-                activeTab === "tasks"
+                  activeTab === "tasks"
                   ? "border-b-2 border-primary-500 text-primary-600 dark:text-primary-400"
                   : "text-secondary-500 dark:text-secondary-400 hover:text-secondary-700 dark:hover:text-secondary-300 hover:bg-secondary-100 dark:hover:bg-secondary-800"
-              }`}
-            >
-              Tasks
-            </button>
-          </nav>
+                }`}
+              >
+                Tasks
+              </button>
+            </nav>
         </div>
 
         {/* Content Sections */}
         <div className="glass-morphism rounded-xl shadow-sm p-6 border border-secondary-200 dark:border-secondary-700">
           {activeTab === "users" && (
-            <div>
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-xl font-bold text-secondary-900 dark:text-white flex items-center">
-                  <span className="bg-gradient-to-r from-primary-500 to-primary-700 bg-clip-text text-transparent">
-                    User Management
-                  </span>
-                </h2>
+            <div className="space-y-4">
+              <div className="flex justify-between items-center">
+                <h2 className="text-xl font-semibold text-secondary-900 dark:text-white">User Management</h2>
                 <button
-                  onClick={() => setShowCreateUser(true)}
-                  className="flex items-center px-4 py-2 bg-primary-500 hover:bg-primary-600 text-white rounded-lg font-medium shadow-sm hover:shadow-lg transition-all duration-200 hover:-translate-y-1"
+                  onClick={() => {
+                    setEditingUser(null);
+                    setNewUser({ name: "", email: "", role: "user" });
+                    setShowCreateUser(true);
+                  }}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                 >
-                  <FaPlus className="mr-2" />
-                  Add User
+                  Invite User
                 </button>
               </div>
-              <div className="overflow-x-auto rounded-lg border border-secondary-200 dark:border-secondary-700">
-                {isLoadingUsers ? (
-                  <div className="text-center py-8">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-500 mx-auto"></div>
-                    <p className="mt-4 text-secondary-600 dark:text-secondary-400">Loading users...</p>
-                  </div>
-                ) : usersError ? (
-                  <div className="text-center py-8 text-danger-600 dark:text-danger-400">
-                    <FaExclamationCircle className="mx-auto h-12 w-12 mb-4" />
-                    Error loading users: {usersError.message}
-                  </div>
-                ) : (
-                  <table className="min-w-full divide-y divide-secondary-200 dark:divide-secondary-700">
-                    <thead className="bg-secondary-50 dark:bg-secondary-800">
+              <div className="bg-white dark:bg-secondary-800 rounded-lg shadow overflow-hidden">
+                  <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                  <thead className="bg-gray-50 dark:bg-secondary-700">
                       <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-secondary-500 dark:text-secondary-400 uppercase tracking-wider">
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                           Name
                         </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-secondary-500 dark:text-secondary-400 uppercase tracking-wider">
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                           Email
                         </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-secondary-500 dark:text-secondary-400 uppercase tracking-wider">
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                           Role
                         </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-secondary-500 dark:text-secondary-400 uppercase tracking-wider">
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                           Actions
                         </th>
                       </tr>
                     </thead>
-                    <tbody className="bg-white dark:bg-secondary-900 divide-y divide-secondary-200 dark:divide-secondary-700">
-                      {users.map((user) => (
-                        <tr key={user._id || user.id} className="hover:bg-secondary-50 dark:hover:bg-secondary-800 transition-colors duration-150">
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="flex items-center">
-                              <div className="flex-shrink-0 h-10 w-10 bg-primary-100 dark:bg-primary-900/20 text-primary-600 dark:text-primary-400 rounded-full flex items-center justify-center">
-                                <FaUser />
-                              </div>
-                              <div className="ml-4">
-                                <div className="text-sm font-medium text-secondary-900 dark:text-white">
-                                  {user.name}
-                                </div>
-                              </div>
-                            </div>
+                    <tbody className="bg-white dark:bg-secondary-800 divide-y divide-gray-200 dark:divide-gray-700">
+                    {users?.map((user) => (
+                      <tr key={user._id} className="hover:bg-gray-50 dark:hover:bg-secondary-700/50">
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm font-medium text-gray-900 dark:text-white">
+                            {user.name}
+                          </div>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-secondary-500 dark:text-secondary-400">
-                            {user.email}
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-500 dark:text-gray-400">{user.email}</div>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-primary-100 dark:bg-primary-900/20 text-primary-800 dark:text-primary-300">
-                              {user.role}
-                            </span>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                            user.role === "admin"
+                              ? "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300"
+                              : "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
+                          }`}>
+                            {user.role}
+                          </span>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                            <div className="flex space-x-3 opacity-70 hover:opacity-100 transition-opacity duration-200">
-                              <button
-                                onClick={() => navigate(`/admin/users/${user.id}/edit`)}
-                                className="text-primary-600 dark:text-primary-400 hover:text-primary-900 dark:hover:text-primary-300 transition-colors duration-200"
-                                aria-label="Edit user"
-                              >
-                                <FaEdit />
-                              </button>
-                              <button
-                                onClick={() => handleDeleteUser(user.id)}
-                                className="text-danger-600 dark:text-danger-400 hover:text-danger-900 dark:hover:text-danger-300 transition-colors duration-200"
-                                aria-label="Delete user"
-                              >
-                                <FaTrash />
-                              </button>
-                            </div>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                            <button
+                            onClick={() => {
+                              setEditingUser(user);
+                              setNewUser({
+                                name: user.name,
+                                email: user.email,
+                                role: user.role,
+                              });
+                              setShowCreateUser(true);
+                            }}
+                            className="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300 mr-4"
+                          >
+                            Edit
+                            </button>
+                            <button
+                            onClick={() => handleDeleteUser(user._id)}
+                              className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300"
+                            >
+                            Delete
+                            </button>
                           </td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
-                )}
               </div>
             </div>
           )}
@@ -809,7 +933,7 @@ const AdminPage = () => {
                 <div className="flex flex-col">
                   <h2 className="text-xl font-bold text-secondary-900 dark:text-white flex items-center">
                     <span className="bg-gradient-to-r from-primary-500 to-primary-700 bg-clip-text text-transparent">
-                      Task Management
+                  Task Management
                     </span>
                   </h2>
                   <p className="text-sm text-secondary-500 dark:text-secondary-400 mt-1">
@@ -833,14 +957,14 @@ const AdminPage = () => {
                   </div>
 
                   <div className="relative">
-                    <button
+                <button
                       onClick={() => setShowFilterDropdown(!showFilterDropdown)}
                       className="flex items-center px-4 py-2 bg-white dark:bg-secondary-800 text-primary-600 dark:text-primary-400 rounded-lg border border-secondary-200 dark:border-secondary-700 hover:bg-secondary-50 dark:hover:bg-secondary-700 transition-all duration-200"
-                    >
+                >
                       <FaFilter className="mr-2" />
                       Filters
                       <FaChevronDown className={`ml-2 transform transition-transform duration-200 ${showFilterDropdown ? 'rotate-180' : ''}`} />
-                    </button>
+                </button>
                     
                     {showFilterDropdown && (
                       <div className="absolute mt-2 right-0 w-72 bg-white dark:bg-secondary-800 rounded-lg shadow-lg border border-secondary-200 dark:border-secondary-700 z-10 p-4">
@@ -857,7 +981,7 @@ const AdminPage = () => {
                                 <option key={status} value={status}>{status}</option>
                               ))}
                             </select>
-                          </div>
+              </div>
 
                           <div>
                             <label className="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Priority</label>
@@ -902,13 +1026,20 @@ const AdminPage = () => {
                     )}
                   </div>
                   
-                  <button
-                    onClick={() => setShowCreateTask(true)}
-                    className="flex items-center px-4 py-2 bg-primary-500 hover:bg-primary-600 text-white rounded-lg font-medium shadow-sm hover:shadow-lg transition-all duration-200 hover:-translate-y-1"
-                  >
-                    <FaPlus className="mr-2" />
-                    Add Task
-                  </button>
+                  <div className="flex items-center gap-4">
+                    <button
+                      onClick={handleCreateTask}
+                      className="flex items-center px-4 py-2 bg-primary-500 hover:bg-primary-600 text-white rounded-lg font-medium shadow-sm hover:shadow-lg transition-all duration-200 hover:-translate-y-1"
+                    >
+                      <FaPlus className="mr-2" /> Create Task
+                    </button>
+                    <Link
+                      to="/admin-create-task"
+                      className="flex items-center px-4 py-2 bg-secondary-100 dark:bg-secondary-700 hover:bg-secondary-200 dark:hover:bg-secondary-600 text-secondary-900 dark:text-white rounded-lg font-medium shadow-sm hover:shadow transition-all duration-200"
+                    >
+                      <FaExternalLinkAlt className="mr-2 text-xs" /> Full Page
+                    </Link>
+                  </div>
                 </div>
               </div>
 
@@ -931,16 +1062,16 @@ const AdminPage = () => {
                         <tr>
                           <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-secondary-500 dark:text-secondary-400 uppercase tracking-wider">
                             Title & Description
-                          </th>
+                        </th>
                           <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-secondary-500 dark:text-secondary-400 uppercase tracking-wider">
-                            Status
-                          </th>
+                          Status
+                        </th>
                           <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-secondary-500 dark:text-secondary-400 uppercase tracking-wider">
                             Priority
-                          </th>
+                        </th>
                           <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-secondary-500 dark:text-secondary-400 uppercase tracking-wider">
-                            Due Date
-                          </th>
+                          Due Date
+                        </th>
                           <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-secondary-500 dark:text-secondary-400 uppercase tracking-wider">
                             Lock Status
                           </th>
@@ -948,10 +1079,10 @@ const AdminPage = () => {
                             Assignees
                           </th>
                           <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-secondary-500 dark:text-secondary-400 uppercase tracking-wider">
-                            Actions
-                          </th>
-                        </tr>
-                      </thead>
+                          Actions
+                        </th>
+                      </tr>
+                    </thead>
                       <tbody className="bg-white dark:bg-secondary-800 divide-y divide-secondary-200 dark:divide-secondary-700">
                         {sortedAndFilteredTasks.map((task) => (
                           <tr 
@@ -968,7 +1099,7 @@ const AdminPage = () => {
                               >
                                 <div className="flex items-center justify-between">
                                   <div className="text-sm font-medium text-secondary-900 dark:text-white group-hover:text-primary-600 dark:group-hover:text-primary-400">
-                                    {task.title || 'No Title'}
+                              {task.title || 'No Title'}
                                   </div>
                                   <FaChevronDown className={`text-secondary-400 dark:text-secondary-500 transform transition-transform duration-200 ${
                                     expandedTask === task._id ? 'rotate-180' : ''
@@ -995,7 +1126,7 @@ const AdminPage = () => {
                             </td>
                             <td className="px-6 py-4">
                               <span className={`text-sm ${isOverdue(task.dueDate) ? 'text-danger-600 dark:text-danger-400' : 'text-secondary-700 dark:text-secondary-300'}`}>
-                                {task.dueDate ? new Date(task.dueDate).toLocaleDateString() : 'No Due Date'}
+                              {task.dueDate ? new Date(task.dueDate).toLocaleDateString() : 'No Due Date'}
                               </span>
                             </td>
                             <td className="px-6 py-4">
@@ -1030,16 +1161,16 @@ const AdminPage = () => {
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-secondary-500 dark:text-secondary-400">
                               <div className="flex items-center space-x-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                                <button
+                              <button
                                   onClick={(e) => {
                                     e.stopPropagation(); // Prevent triggering the row expand
                                     handleEditTask(task);
                                   }}
                                   className="text-primary-600 dark:text-primary-400 hover:text-primary-900 dark:hover:text-primary-300 transition-colors duration-200"
-                                >
-                                  <FaEdit />
-                                </button>
-                                <button
+                              >
+                                <FaEdit />
+                              </button>
+                              <button
                                   onClick={(e) => {
                                     e.stopPropagation(); // Prevent triggering the row expand
                                     handleDeleteTask(task._id);
@@ -1049,11 +1180,11 @@ const AdminPage = () => {
                                 >
                                   {isDeleting && deleteTaskId === task._id ? 
                                     <FaSpinner className="animate-spin" /> : 
-                                    <FaTrash />
+                                <FaTrash />
                                   }
-                                </button>
+                              </button>
                                 <div className="relative">
-                                  <button
+                              <button
                                     onClick={(e) => {
                                       e.stopPropagation(); // Prevent triggering the row expand
                                       handleLockTask(task._id, task.locked);
@@ -1076,7 +1207,7 @@ const AdminPage = () => {
                                         <div className="absolute -top-2 -right-2 w-2 h-2 bg-success-500 rounded-full"></div>
                                       </div>
                                     )}
-                                  </button>
+                              </button>
                                 </div>
                               </div>
                               {deleteSuccess && deleteTaskId === task._id && (
@@ -1102,8 +1233,8 @@ const AdminPage = () => {
                             </td>
                           </tr>
                         ))}
-                      </tbody>
-                    </table>
+                    </tbody>
+                  </table>
                   </div>
                 ) : (
                   <div className="text-center py-12">
@@ -1127,236 +1258,203 @@ const AdminPage = () => {
             <div className="space-y-6">
               {/* Performance Metrics */}
               <div>
-                <h2 className="text-xl font-bold text-secondary-900 dark:text-white flex items-center mb-4">
-                  <span className="bg-gradient-to-r from-primary-500 to-primary-700 bg-clip-text text-transparent">
-                    Performance Metrics
-                  </span>
+                <h2 className="text-lg font-semibold text-gray-900 mb-4">
+                  Performance Metrics
                 </h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="glass-morphism rounded-xl p-6 border border-secondary-200 dark:border-secondary-700 shadow-sm">
-                    <h3 className="text-sm font-medium text-secondary-500 dark:text-secondary-400 mb-2">
+                  {/* Task Completion Rate */}
+                  <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-6">
+                    <h3 className="text-sm font-medium text-gray-500 mb-2">
                       Task Completion Rate
                     </h3>
-                    <div className="flex items-center">
-                      <div className="flex-1 bg-secondary-200 dark:bg-secondary-700 rounded-full h-2">
-                        <div
-                          className="bg-success-500 dark:bg-success-400 h-2 rounded-full"
-                          style={{
-                            width: `${
-                              (metrics.completedTasks / metrics.totalTasks) *
-                              100
-                            }%`,
+                    <div className="h-64">
+                      <div className="flex justify-center items-center h-full">
+                        <div className="w-full max-w-[220px]">
+                          <PieChart
+                            data={{
+                              labels: ['Complete', 'In Progress', 'To Do'],
+                              datasets: [
+                                {
+                                  data: metrics.tasksByStatus,
+                                  backgroundColor: [
+                                    'rgba(72, 187, 120, 0.7)',
+                                    'rgba(66, 153, 225, 0.7)',
+                                    'rgba(160, 174, 192, 0.7)',
+                                  ],
+                                  borderColor: [
+                                    'rgba(72, 187, 120, 1)',
+                                    'rgba(66, 153, 225, 1)',
+                                    'rgba(160, 174, 192, 1)',
+                                  ],
+                                  borderWidth: 1,
+                                },
+                              ],
+                            }}
+                            options={{
+                              responsive: true,
+                              maintainAspectRatio: false,
+                              plugins: {
+                                legend: {
+                                  position: 'bottom',
+                                },
+                                tooltip: {
+                                  callbacks: {
+                                    label: function(context) {
+                                      const value = context.raw;
+                                      const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                      const percentage = total > 0 ? Math.round((value / total) * 100) : 0;
+                                      return `${value} tasks (${percentage}%)`;
+                                    }
+                                  }
+                                }
+                              },
                           }}
                         />
                       </div>
-                      <span className="ml-4 text-sm font-medium text-secondary-900 dark:text-white">
-                        {Math.round(
-                          (metrics.completedTasks / metrics.totalTasks) * 100
-                        )}
-                        %
-                      </span>
                     </div>
                   </div>
-                  <div className="glass-morphism rounded-xl p-6 border border-secondary-200 dark:border-secondary-700 shadow-sm">
-                    <h3 className="text-sm font-medium text-secondary-500 dark:text-secondary-400 mb-2">
-                      Team Performance
+                  </div>
+                  
+                  {/* Task Priority Distribution */}
+                  <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-6">
+                    <h3 className="text-sm font-medium text-gray-500 mb-2">
+                      Task Priority Distribution
                     </h3>
-                    <div className="h-40">
-                      {metrics.teamPerformance.labels.map((team, index) => (
-                        <div key={team} className="flex items-center mb-2">
-                          <span className="w-16 text-sm text-secondary-600 dark:text-secondary-400">
-                            {team}
-                          </span>
-                          <div className="flex-1 bg-secondary-200 dark:bg-secondary-700 rounded-full h-2 ml-2">
-                            <div
-                              className="bg-primary-500 dark:bg-primary-400 h-2 rounded-full"
-                              style={{
-                                width: `${metrics.teamPerformance.data[index]}%`,
+                    <div className="h-64">
+                      <BarChart
+                        data={{
+                          labels: ['Low', 'Medium', 'High'],
+                          datasets: [
+                            {
+                              label: 'Tasks by Priority',
+                              data: metrics.tasksByPriority,
+                              backgroundColor: [
+                                'rgba(72, 187, 120, 0.7)',
+                                'rgba(237, 137, 54, 0.7)',
+                                'rgba(229, 62, 62, 0.7)',
+                              ],
+                              borderColor: [
+                                'rgba(72, 187, 120, 1)',
+                                'rgba(237, 137, 54, 1)',
+                                'rgba(229, 62, 62, 1)',
+                              ],
+                              borderWidth: 1,
+                            },
+                          ],
+                        }}
+                        options={{
+                          responsive: true,
+                          maintainAspectRatio: false,
+                          plugins: {
+                            legend: {
+                              display: false,
+                            },
+                          },
+                          scales: {
+                            y: {
+                              beginAtZero: true,
+                              title: {
+                                display: true,
+                                text: 'Number of Tasks',
+                              },
+                            },
+                          },
                               }}
                             />
                           </div>
-                          <span className="ml-2 text-sm text-secondary-600 dark:text-secondary-400">
-                            {metrics.teamPerformance.data[index]}%
-                          </span>
-                        </div>
-                      ))}
-                    </div>
                   </div>
                 </div>
 
-                {/* Weekly Task Completion Chart */}
-                <div className="mt-6 glass-morphism rounded-xl p-6 border border-secondary-200 dark:border-secondary-700 shadow-sm">
-                  <h3 className="text-sm font-medium text-secondary-500 dark:text-secondary-400 mb-4">
-                    Weekly Progress
+                {/* User Performance */}
+                <div className="mt-6 bg-gray-50 dark:bg-gray-800 rounded-lg p-6">
+                  <h3 className="text-sm font-medium text-gray-500 mb-4">
+                    User Performance
                   </h3>
+                  {metrics.teamPerformance.labels.length > 0 ? (
                   <div className="h-64">
-                    <Line data={chartData} options={chartOptions} />
+                      <BarChart
+                        data={{
+                          labels: metrics.teamPerformance.labels,
+                          datasets: [
+                            {
+                              label: 'Completion Rate (%)',
+                              data: metrics.teamPerformance.data,
+                              backgroundColor: 'rgba(66, 153, 225, 0.7)',
+                              borderColor: 'rgba(66, 153, 225, 1)',
+                              borderWidth: 1,
+                            },
+                          ],
+                        }}
+                        options={{
+                          responsive: true,
+                          maintainAspectRatio: false,
+                          indexAxis: 'y',
+                          plugins: {
+                            legend: {
+                              display: false,
+                            },
+                          },
+                          scales: {
+                            x: {
+                              min: 0,
+                              max: 100,
+                              title: {
+                                display: true,
+                                text: 'Completion Rate (%)',
+                              },
+                            },
+                          },
+                        }}
+                      />
                   </div>
-                </div>
-              </div>
-
-              {/* Recent Activity */}
-              <div>
-                <h2 className="text-xl font-bold text-secondary-900 dark:text-white flex items-center mb-4">
-                  <span className="bg-gradient-to-r from-primary-500 to-primary-700 bg-clip-text text-transparent">
-                    Recent Activity
-                  </span>
-                </h2>
-                <div className="glass-morphism rounded-xl p-6 border border-secondary-200 dark:border-secondary-700 shadow-sm">
-                  <div className="space-y-4">
-                    {/* Mock recent activity items */}
-                    <div className="flex items-start p-3 rounded-lg hover:bg-secondary-50 dark:hover:bg-secondary-800/50 transition-colors duration-200">
-                      <div className="flex-shrink-0">
-                        <div className="h-10 w-10 rounded-full bg-primary-100 dark:bg-primary-900/20 flex items-center justify-center">
-                          <FaUsers className="h-5 w-5 text-primary-600 dark:text-primary-400" />
-                        </div>
-                      </div>
-                      <div className="ml-4">
-                        <p className="text-sm font-medium text-secondary-900 dark:text-white">
-                          New user John Doe joined the team
-                        </p>
-                        <p className="text-xs text-secondary-500 dark:text-secondary-400 mt-1">2 hours ago</p>
-                      </div>
+                  ) : (
+                    <div className="h-64 flex items-center justify-center">
+                      <p className="text-gray-500">No team performance data available</p>
                     </div>
-                    <div className="flex items-start p-3 rounded-lg hover:bg-secondary-50 dark:hover:bg-secondary-800/50 transition-colors duration-200">
-                      <div className="flex-shrink-0">
-                        <div className="h-10 w-10 rounded-full bg-success-100 dark:bg-success-900/20 flex items-center justify-center">
-                          <FaTasks className="h-5 w-5 text-success-600 dark:text-success-400" />
-                        </div>
-                      </div>
-                      <div className="ml-4">
-                        <p className="text-sm font-medium text-secondary-900 dark:text-white">
-                          Task "Update Documentation" completed
-                        </p>
-                        <p className="text-xs text-secondary-500 dark:text-secondary-400 mt-1">5 hours ago</p>
-                      </div>
-                    </div>
-                    <div className="flex items-start p-3 rounded-lg hover:bg-secondary-50 dark:hover:bg-secondary-800/50 transition-colors duration-200">
-                      <div className="flex-shrink-0">
-                        <div className="h-10 w-10 rounded-full bg-warning-100 dark:bg-warning-900/20 flex items-center justify-center">
-                          <FaCalendarAlt className="h-5 w-5 text-warning-600 dark:text-warning-400" />
-                        </div>
-                      </div>
-                      <div className="ml-4">
-                        <p className="text-sm font-medium text-secondary-900 dark:text-white">
-                          Task "Quarterly Review" deadline approaching
-                        </p>
-                        <p className="text-xs text-secondary-500 dark:text-secondary-400 mt-1">1 day ago</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              
-              {/* System Health */}
-              <div>
-                <h2 className="text-xl font-bold text-secondary-900 dark:text-white flex items-center mb-4">
-                  <span className="bg-gradient-to-r from-primary-500 to-primary-700 bg-clip-text text-transparent">
-                    System Health
-                  </span>
-                </h2>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <div className="glass-morphism rounded-xl p-6 border border-secondary-200 dark:border-secondary-700 shadow-sm">
-                    <div className="flex items-center justify-between mb-2">
-                      <h3 className="text-sm font-medium text-secondary-500 dark:text-secondary-400">
-                        Server Status
-                      </h3>
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-success-100 dark:bg-success-900/20 text-success-800 dark:text-success-300">
-                        Healthy
-                      </span>
-                    </div>
-                    <div className="flex items-center mt-4">
-                      <FaCheckCircle className="h-5 w-5 text-success-500 dark:text-success-400" />
-                      <span className="ml-2 text-sm text-secondary-600 dark:text-secondary-400">
-                        All systems operational
-                      </span>
-                    </div>
-                  </div>
-                  <div className="glass-morphism rounded-xl p-6 border border-secondary-200 dark:border-secondary-700 shadow-sm">
-                    <div className="flex items-center justify-between mb-2">
-                      <h3 className="text-sm font-medium text-secondary-500 dark:text-secondary-400">
-                        Database Load
-                      </h3>
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-warning-100 dark:bg-warning-900/20 text-warning-800 dark:text-warning-300">
-                        Moderate
-                      </span>
-                    </div>
-                    <div className="mt-4">
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-xs text-secondary-500 dark:text-secondary-400">Current: 42%</span>
-                        <span className="text-xs text-secondary-500 dark:text-secondary-400">Threshold: 80%</span>
-                      </div>
-                      <div className="w-full bg-secondary-200 dark:bg-secondary-700 rounded-full h-2">
-                        <div className="bg-warning-500 dark:bg-warning-400 h-2 rounded-full" style={{ width: '42%' }}></div>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="glass-morphism rounded-xl p-6 border border-secondary-200 dark:border-secondary-700 shadow-sm">
-                    <div className="flex items-center justify-between mb-2">
-                      <h3 className="text-sm font-medium text-secondary-500 dark:text-secondary-400">
-                        API Requests
-                      </h3>
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary-100 dark:bg-primary-900/20 text-primary-800 dark:text-primary-300">
-                        Normal
-                      </span>
-                    </div>
-                    <div className="mt-4">
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-xs text-secondary-500 dark:text-secondary-400">Today: 1,248</span>
-                        <span className="text-xs text-secondary-500 dark:text-secondary-400">Avg: 1,100</span>
-                      </div>
-                      <div className="w-full bg-secondary-200 dark:bg-secondary-700 rounded-full h-2">
-                        <div className="bg-primary-500 dark:bg-primary-400 h-2 rounded-full" style={{ width: '65%' }}></div>
-                      </div>
-                    </div>
-                  </div>
+                  )}
                 </div>
               </div>
             </div>
           )}
-        </div>
-      </div>
+                </div>
+              </div>
 
       <ReactTooltip 
         id="lock-tooltip"
         place="top"
         variant="dark"
       />
-    </div>
+                        </div>
   );
 };
 
 // Edit Task Form Component
 const EditTaskForm = ({ task, onClose }) => {
   const [updateTask, { isLoading }] = useUpdateAdminTaskMutation();
-  const [editedTask, setEditedTask] = useState({
-    title: task.title || '',
-    description: task.description || '',
-    dueDate: task.dueDate || '',
-    priority: task.priority?.toLowerCase() || 'medium',
-    assignees: task.assignees || [],
-  });
+  // Create refs for all inputs
+  const titleRef = React.useRef();
+  const descriptionRef = React.useRef();
+  const dueDateRef = React.useRef();
+  const priorityRef = React.useRef();
+  const statusRef = React.useRef();
+  
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(false);
-
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    if (name === "assignees") {
-      // Convert comma-separated string to array and trim whitespace
-      const assignees = value ? value.split(",").map(id => id.trim()).filter(Boolean) : [];
-      setEditedTask(prev => ({ ...prev, assignees }));
-    } else {
-      setEditedTask(prev => ({ ...prev, [name]: value }));
-    }
-  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError(null);
     
+    // Get values directly from DOM via refs
+    const title = titleRef.current.value;
+    const description = descriptionRef.current.value;
+    const dueDate = dueDateRef.current.value;
+    const priority = priorityRef.current.value;
+    const status = statusRef.current.value;
+    
     // Validate form fields
     const validationErrors = [];
-    if (!editedTask.title.trim()) {
+    if (!title.trim()) {
       validationErrors.push("Title is required");
     }
     
@@ -1369,19 +1467,15 @@ const EditTaskForm = ({ task, onClose }) => {
       // Create a clean task object with expected fields
       const taskData = {
         taskId: task._id,
-        title: editedTask.title.trim(),
-        description: editedTask.description.trim(),
-        priority: editedTask.priority,
+        title: title.trim(),
+        description: description.trim(),
+        priority: priority,
+        status: status,
       };
       
       // Only include dueDate if it's not empty
-      if (editedTask.dueDate) {
-        taskData.dueDate = editedTask.dueDate;
-      }
-      
-      // Only include assignees if it's not empty
-      if (editedTask.assignees && editedTask.assignees.length > 0) {
-        taskData.assignees = editedTask.assignees;
+      if (dueDate) {
+        taskData.dueDate = dueDate;
       }
       
       console.log("Updating task:", taskData);
@@ -1415,130 +1509,136 @@ const EditTaskForm = ({ task, onClose }) => {
 
       <form onSubmit={handleSubmit} className="space-y-5">
         <div className="flex flex-col">
-          <label htmlFor="title" className="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">
+          <label htmlFor="title" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
             Task Title <span className="text-danger-500">*</span>
           </label>
           <input
             type="text"
             id="title"
             name="title"
+            ref={titleRef}
+            defaultValue={task.title || ''}
             placeholder="Enter task title"
-            value={editedTask.title}
-            onChange={handleChange}
-            className="w-full px-4 py-2.5 bg-white dark:bg-secondary-800 border border-secondary-300 dark:border-secondary-700 rounded-lg text-secondary-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all"
+            className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all"
             required
           />
         </div>
 
         <div className="flex flex-col">
-          <label htmlFor="description" className="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">
+          <label htmlFor="description" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
             Description
           </label>
           <textarea
             id="description"
             name="description"
+            ref={descriptionRef}
+            defaultValue={task.description || ''}
             placeholder="Enter task description"
-            value={editedTask.description}
-            onChange={handleChange}
-            className="w-full px-4 py-2.5 bg-white dark:bg-secondary-800 border border-secondary-300 dark:border-secondary-700 rounded-lg text-secondary-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all resize-none"
+            className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all resize-none"
             rows={4}
           />
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
           <div className="relative flex flex-col">
-            <label htmlFor="dueDate" className="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">
+            <label htmlFor="dueDate" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Due Date
             </label>
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <FaCalendarAlt className="text-secondary-400 dark:text-secondary-500" />
+                <FaCalendarAlt className="text-gray-400 dark:text-gray-500" />
               </div>
               <input
                 type="date"
                 id="dueDate"
                 name="dueDate"
-                value={editedTask.dueDate}
-                onChange={handleChange}
-                className="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-secondary-800 border border-secondary-300 dark:border-secondary-700 rounded-lg text-secondary-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all"
+                ref={dueDateRef}
+                defaultValue={task.dueDate ? new Date(task.dueDate).toISOString().split('T')[0] : ''}
+                className="w-full pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all"
               />
             </div>
           </div>
 
           <div className="relative flex flex-col">
-            <label htmlFor="priority" className="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">
+            <label htmlFor="priority" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Priority
             </label>
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <FaExclamationCircle className="text-secondary-400 dark:text-secondary-500" />
+                <FaExclamationCircle className="text-gray-400 dark:text-gray-500" />
               </div>
               <select
                 name="priority"
-                value={editedTask.priority}
-                onChange={handleChange}
-                className="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-secondary-800 border border-secondary-300 dark:border-secondary-700 rounded-lg text-secondary-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all appearance-none"
+                id="priority"
+                ref={priorityRef}
+                defaultValue={task.priority?.toLowerCase() || 'medium'}
+                className="w-full pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all appearance-none"
               >
                 <option value="low">Low</option>
                 <option value="medium">Medium</option>
                 <option value="high">High</option>
               </select>
-              <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-                <FaChevronDown className="text-secondary-400 dark:text-secondary-500" />
-              </div>
             </div>
           </div>
 
           <div className="relative flex flex-col">
-            <label htmlFor="assignees" className="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">
-              Assign to (User IDs, comma-separated)
+            <label htmlFor="status" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Status
             </label>
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <FaUser className="text-secondary-400 dark:text-secondary-500" />
+                <FaUser className="text-gray-400 dark:text-gray-500" />
               </div>
-              <input
-                type="text"
-                id="assignees"
-                name="assignees"
-                placeholder="Enter user IDs (comma-separated)"
-                value={editedTask.assignees.join(", ")}
-                onChange={handleChange}
-                className="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-secondary-800 border border-secondary-300 dark:border-secondary-700 rounded-lg text-secondary-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all"
-              />
+              <select
+                name="status"
+                id="status"
+                ref={statusRef}
+                defaultValue={task.status || 'Incomplete'}
+                className="w-full pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all appearance-none"
+              >
+                <option value="Incomplete">To Do</option>
+                <option value="In Progress">In Progress</option>
+                <option value="Complete">Completed</option>
+              </select>
             </div>
           </div>
         </div>
 
-        <div className="flex justify-end space-x-3 pt-4 border-t border-secondary-200 dark:border-secondary-700">
+        <div className="flex justify-end mt-6 space-x-3">
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 bg-secondary-100 dark:bg-secondary-800 hover:bg-secondary-200 dark:hover:bg-secondary-700 text-secondary-700 dark:text-secondary-300 rounded-lg font-medium transition-all"
+            className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400"
           >
             Cancel
           </button>
           <button
             type="submit"
+            className="px-4 py-2.5 bg-primary-600 text-white rounded-lg hover:bg-primary-700 text-sm font-medium flex items-center justify-center space-x-2"
             disabled={isLoading}
-            className="px-6 py-2 bg-primary-500 hover:bg-primary-600 text-white rounded-lg font-medium shadow-sm hover:shadow-lg transition-all hover:-translate-y-1 flex items-center"
           >
-            {isLoading ? (
-              <>
-                <FaSpinner className="animate-spin mr-2" />
-                Updating...
-              </>
-            ) : (
-              <>
-                <FaSave className="mr-2" />
-                Update Task
-              </>
-            )}
+            {isLoading ? <FaSpinner className="animate-spin" /> : <FaSave className="mr-1" />}
+            <span>Save Changes</span>
           </button>
         </div>
       </form>
     </div>
   );
+};
+
+// Create component wrappers for charts to handle null data gracefully
+const BarChart = ({ data, options }) => {
+  if (!data || !data.labels || !data.datasets) {
+    return <div className="h-full flex items-center justify-center text-gray-500">No data available</div>;
+  }
+  return <Bar data={data} options={options} />;
+};
+
+const PieChart = ({ data, options }) => {
+  if (!data || !data.labels || !data.datasets) {
+    return <div className="h-full flex items-center justify-center text-gray-500">No data available</div>;
+  }
+  return <Pie data={data} options={options} />;
 };
 
 export default AdminPage;

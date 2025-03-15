@@ -6,15 +6,11 @@ import React, {
   useRef,
 } from "react";
 import { getSocket } from "../services/socketService";
-import { useSelector, useDispatch } from "react-redux";
+import { useSelector } from "react-redux";
 import {
   selectCurrentToken,
   selectCurrentUserId,
 } from "../features/auth/authSlice";
-import {
-  selectJoinedConversations,
-  addJoinedConversation,
-} from "../features/socket/socketSlice";
 import { useGetAllConversationsQuery } from "../features/messages/messageApiSlice";
 import { toast } from "react-toastify";
 import { useLocation } from "react-router-dom";
@@ -28,8 +24,6 @@ export const NotificationProvider = ({ children }) => {
   const [unreadConversations, setUnreadConversations] = useState(new Set());
   const token = useSelector(selectCurrentToken);
   const currentUserId = useSelector(selectCurrentUserId);
-  const joinedConversations = useSelector(selectJoinedConversations);
-  const dispatch = useDispatch();
   const socket = getSocket();
   const location = useLocation();
   const { data: conversations } = useGetAllConversationsQuery(undefined, {
@@ -112,16 +106,15 @@ export const NotificationProvider = ({ children }) => {
 
   useEffect(() => {
     if (socket && token && conversations) {
-      // Only join conversation rooms that haven't been joined yet
+      // Join all conversation rooms at app initialization
       conversations.forEach((conversation) => {
-        if (!joinedConversations.includes(conversation._id)) {
-          console.log(`joined room for conversation: ${conversation._id}`);
-          socket.emit("joinConversation", conversation._id);
-          dispatch(addJoinedConversation(conversation._id));
-        }
+        console.log(`joined room for conversation: ${conversation._id}`);
+        socket.emit("joinConversation", conversation._id);
       });
     }
-  }, [socket, token, conversations, joinedConversations, dispatch]);
+
+    // No cleanup function that leaves rooms
+  }, [socket, token, conversations]);
 
   const value = {
     unreadMessages,

@@ -8,21 +8,31 @@ const logger = require("../logs/logger");
 //@route GET /tasks
 //@access Private
 const getUserTasks = asyncHandler(async (req, res) => {
-  const user = await User.findOne({ _id: req.user.id }).lean().exec();
-  if (!user) {
+  try {
+    // Simplified chaining approach
+    const user = await User.findOne({ _id: req.user.id }).lean().exec();
+
+    if (!user) {
+      return res
+        .status(404)
+        .json({ message: "No user found for provided email" });
+    }
+
+    // Simplified chaining approach
+    const tasks = await Task.find({
+      $or: [{ owner: user._id }, { assignees: user._id }],
+    })
+      .select("-owner -updatedAt -__v")
+      .lean()
+      .exec();
+
+    return res.status(200).json(tasks);
+  } catch (err) {
+    console.error("Error in getUserTasks:", err);
     return res
-      .status(404)
-      .json({ message: "No user found for provided email" });
+      .status(500)
+      .json({ message: "Error retrieving tasks", error: err.message });
   }
-
-  const tasks = await Task.find({
-    $or: [{ owner: user._id }, { assignees: user._id }],
-  })
-    .lean()
-    .select("-owner -updatedAt -__v")
-    .exec();
-
-  return res.status(200).json(tasks);
 });
 
 //@desc Creates a new Task document
@@ -54,12 +64,25 @@ const createTask = asyncHandler(async (req, res) => {
 //@route GET /tasks/:taskId
 //@access Private
 const getTask = asyncHandler(async (req, res) => {
-  const { taskId } = req.params;
-  const task = await Task.findOne({ _id: taskId }).lean().exec();
-  if (!task) {
-    return res.status(404).json({ message: "No Task with provided ID found" });
+  try {
+    const { taskId } = req.params;
+
+    // Simplified chaining approach
+    const task = await Task.findOne({ _id: taskId }).lean().exec();
+
+    if (!task) {
+      return res
+        .status(404)
+        .json({ message: "No Task with provided ID found" });
+    }
+
+    return res.status(200).json(task);
+  } catch (err) {
+    console.error("Error in getTask:", err);
+    return res
+      .status(500)
+      .json({ message: "Error retrieving task", error: err.message });
   }
-  return res.status(200).json(task);
 });
 
 //@desc Updates a specific task ensuring only allowed fields are edited
@@ -80,6 +103,10 @@ const updateTask = asyncHandler(async (req, res) => {
   const task = await Task.findOne({ _id: taskId }).exec();
   if (!task) {
     return res.status(404).json({ message: "No Task with provided ID found" });
+  }
+
+  if (task.locked) {
+    return res.status(423).json({ message: "The task is locked" });
   }
 
   // Check for illegal fields
@@ -130,7 +157,7 @@ const addAssignee = asyncHandler(async (req, res) => {
   const { assigneeId } = req.body;
 
   const [assignee, task] = await Promise.all([
-    User.findById(assigneeId).lean().exec(),
+    User.findById(assigneeId).lean(),
     Task.findOne({
       _id: taskId,
       owner: req.user.id,

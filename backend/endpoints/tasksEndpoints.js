@@ -9,7 +9,7 @@ const {
   taskIdSchema,
   assigneeIdSchema,
 } = require("../utils/validation/taskSchemas");
-const taskController = require("../controllers/taskController");
+const taskController = require("../controllers/tasksController");
 const { verifyJWT } = require("../middleware/verifyJWT");
 
 // All routes are protected

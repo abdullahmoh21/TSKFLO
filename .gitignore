@@ -10,3 +10,5 @@ node_modules
 *.njsproj
 *.sln
 *.sw?
+backend/logs/errors.log
+.qodo

@@ -164,43 +164,37 @@ const deleteUser = asyncHandler(async (req, res) => {
 //@route GET /admin/tasks
 //@access Private
 const getAllTasks = asyncHandler(async (req, res) => {
-  let { page, limit } = req.query;
-
-  page = parseInt(page);
-  limit = parseInt(limit);
-
-  // Set defaults for undefined/NaN values, not for 0
-  if (isNaN(page)) page = 1;
-  if (isNaN(limit)) limit = 10;
-
-  // Ensure page and limit are positive
-  if (page < 1 || limit < 1) {
-    return res
-      .status(400)
-      .json({ error: "Page and limit must be positive numbers." });
-  }
-
-  const skip = (page - 1) * limit;
-
   try {
-    // Get all tasks first
-    const query = Task.find();
-    // Apply pagination
-    query.skip(skip);
-    query.limit(limit);
-    // Apply population
-    query.populate("assignees", "_id name email");
-    // Get as plain objects
-    query.lean();
-    
-    // Execute the query
-    const tasks = await query.exec();
+    let { page, limit } = req.query;
+
+    page = parseInt(page);
+    limit = parseInt(limit);
+
+    // Set defaults for undefined/NaN values, not for 0
+    if (isNaN(page)) page = 1;
+    if (isNaN(limit)) limit = 10;
+
+    // Ensure page and limit are positive
+    if (page < 1 || limit < 1) {
+      return res
+        .status(400)
+        .json({ error: "Page and limit must be positive numbers." });
+    }
+
+    const skip = (page - 1) * limit;
+
+    // Execute queries in proper sequence
+    const tasks = await Task.find()
+      .skip(skip)
+      .limit(limit)
+      .populate("assignees", "_id name email")
+      .lean();
     
     // Get total count in a separate query
-    const totalTasks = await Task.countDocuments().exec();
+    const totalTasks = await Task.countDocuments();
 
     // Send response with pagination metadata
-    res.json({
+    res.status(200).json({
       totalTasks,
       currentPage: page,
       totalPages: Math.ceil(totalTasks / limit),
@@ -240,10 +234,9 @@ const createTask = asyncHandler(async (req, res) => {
 const getTask = asyncHandler(async (req, res) => {
   try {
     const { taskId } = req.params;
-
-    const taskQuery = Task.findOne({ _id: taskId });
-    taskQuery.lean();
-    const task = await taskQuery.exec();
+    
+    // Use find directly with await, no need for separate lean() and exec()
+    const task = await Task.findOne({ _id: taskId }).lean();
 
     if (!task) {
       return res.status(404).json({ message: "No such task exists" });
@@ -261,19 +254,24 @@ const getTask = asyncHandler(async (req, res) => {
 //@route PATCH /admin/tasks/:taskId
 //@access Private
 const updateTask = asyncHandler(async (req, res) => {
-  const { taskId } = req.params;
-  const updates = req.body; //validated with Joi
+  try {
+    const { taskId } = req.params;
+    const updates = req.body; //validated with Joi
 
-  const updatedTask = await Task.findOneAndUpdate({ _id: taskId }, updates, {
-    new: true,
-    runValidators: true,
-  }).lean();
+    const updatedTask = await Task.findOneAndUpdate({ _id: taskId }, updates, {
+      new: true,
+      runValidators: true,
+    }).lean();
 
-  if (!updatedTask) {
-    return res.status(404).json({ message: "No such task exists" });
+    if (!updatedTask) {
+      return res.status(404).json({ message: "No such task exists" });
+    }
+
+    return res.status(200).json(updatedTask);
+  } catch (err) {
+    console.error("Error in updateTask:", err);
+    return res.status(500).json({ message: "Error updating task", error: err.message });
   }
-
-  return res.status(200).json(updatedTask);
 });
 
 //@desc deletes a specific task
@@ -281,15 +279,20 @@ const updateTask = asyncHandler(async (req, res) => {
 //@route DELETE /admin/tasks/:taskId
 //@access Private
 const deleteTask = asyncHandler(async (req, res) => {
-  const { taskId } = req.params;
+  try {
+    const { taskId } = req.params;
 
-  const response = await Task.deleteOne({ _id: taskId }).exec();
+    const response = await Task.deleteOne({ _id: taskId }).exec();
 
-  if (response.deletedCount == 0) {
-    return res.status(404).json({ message: "No Task found" });
+    if (response.deletedCount == 0) {
+      return res.status(404).json({ message: "No Task found" });
+    }
+
+    return res.sendStatus(200);
+  } catch (err) {
+    console.error("Error in deleteTask:", err);
+    return res.status(500).json({ message: "Error deleting task", error: err.message });
   }
-
-  return res.sendStatus(200);
 });
 
 //@desc locks a specific task
@@ -297,22 +300,27 @@ const deleteTask = asyncHandler(async (req, res) => {
 //@route PATCH /admin/tasks/:taskId/lock
 //@access Private
 const lockTask = asyncHandler(async (req, res) => {
-  const { taskId } = req.params;
+  try {
+    const { taskId } = req.params;
 
-  const updatedTask = await Task.findOneAndUpdate(
-    { _id: taskId },
-    { locked: true },
-    {
-      new: true,
-      runValidators: true,
+    const updatedTask = await Task.findOneAndUpdate(
+      { _id: taskId },
+      { locked: true },
+      {
+        new: true,
+        runValidators: true,
+      }
+    ).lean();
+
+    if (!updatedTask) {
+      return res.status(404).json({ message: "No such task exists" });
     }
-  ).lean();
 
-  if (!updatedTask) {
-    return res.status(404).json({ message: "No such task exists" });
+    return res.status(200).json(updatedTask);
+  } catch (err) {
+    console.error("Error in lockTask:", err);
+    return res.status(500).json({ message: "Error locking task", error: err.message });
   }
-
-  return res.status(200).json(updatedTask);
 });
 
 //@desc unlocks a specific task
@@ -320,22 +328,27 @@ const lockTask = asyncHandler(async (req, res) => {
 //@route PATCH /admin/tasks/:taskId/unlock
 //@access Private
 const unlockTask = asyncHandler(async (req, res) => {
-  const { taskId } = req.params;
+  try {
+    const { taskId } = req.params;
 
-  const updatedTask = await Task.findOneAndUpdate(
-    { _id: taskId },
-    { locked: false },
-    {
-      new: true,
-      runValidators: true,
+    const updatedTask = await Task.findOneAndUpdate(
+      { _id: taskId },
+      { locked: false },
+      {
+        new: true,
+        runValidators: true,
+      }
+    ).lean();
+
+    if (!updatedTask) {
+      return res.status(404).json({ message: "No such task exists" });
     }
-  ).lean();
 
-  if (!updatedTask) {
-    return res.status(404).json({ message: "No such task exists" });
+    return res.status(200).json(updatedTask);
+  } catch (err) {
+    console.error("Error in unlockTask:", err);
+    return res.status(500).json({ message: "Error unlocking task", error: err.message });
   }
-
-  return res.status(200).json(updatedTask);
 });
 
 //@desc returns metrics about the system

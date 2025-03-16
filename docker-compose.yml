@@ -1,0 +1,13 @@
+services:
+  app:
+    # Pulls the image you built/pushed in your CI pipeline
+    image: mochi21/taskmanagment:latest
+    container_name: task-management-container
+
+    # Maps your host's port 3200 to the container's port 3200
+    # (which you exposed in Dockerfile)
+    ports:
+      - "3200:3200"
+
+    env_file:
+      - ./backend/.env

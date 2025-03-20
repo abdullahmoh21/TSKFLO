@@ -12,9 +12,7 @@ import {
   FaCubes,
   FaMedal,
   FaRocket,
-  FaGithub,
-  FaTwitter,
-  FaLinkedin
+  FaGithub
 } from "react-icons/fa";
 
 const AboutPage = () => {
@@ -83,17 +81,17 @@ const AboutPage = () => {
                 <div className="p-8 sm:p-10">
                   <h2 className="text-3xl font-bold mb-6 text-secondary-900 dark:text-white">Our Mission</h2>
                   <p className="text-secondary-700 dark:text-secondary-300 mb-6 leading-relaxed">
-                    We're on a mission to simplify complex workflows and help teams achieve their goals through intuitive task management. We believe that when teams collaborate efficiently, amazing things happen.
+                    We're a team of five passionate students who built this project as part of our university coursework, but we believe it has the potential to be something much bigger. Our goal is to simplify task management and collaboration through an intuitive platform that helps teams stay organized and efficient.
                   </p>
                   <p className="text-secondary-700 dark:text-secondary-300 mb-6 leading-relaxed">
-                    Our platform is designed to reduce friction in team coordination, eliminate miscommunication, and provide clear visibility into project progress.
+                    We designed this system to reduce friction in team coordination, eliminate miscommunication, and provide clear visibility into project progress.
                   </p>
                   <div className="space-y-4">
                     {[
-                      "Empower teams to work together seamlessly",
-                      "Provide clarity and accountability",
-                      "Make task management intuitive and enjoyable",
-                      "Help organizations meet their goals on time"
+                      "Built by students, designed for real-world use",
+                      "Streamline teamwork with ease",
+                      "Make task management simple and enjoyable",
+                      "Help teams meet their goals effectively"
                     ].map((point, index) => (
                       <div key={index} className="flex items-start">
                         <div className="flex-shrink-0 h-6 w-6 rounded-full bg-primary-100 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400 flex items-center justify-center mt-0.5">
@@ -107,15 +105,15 @@ const AboutPage = () => {
                 <div className="bg-gradient-to-br from-primary-500/90 to-primary-700 p-8 sm:p-10 flex items-center justify-center">
                   <div className="text-center text-white">
                     <FaRocket className="mx-auto text-5xl mb-6 text-white/90" />
-                    <h3 className="text-2xl font-semibold mb-4">Founded in 2023</h3>
+                    <h3 className="text-2xl font-semibold mb-4">Founded in 2025</h3>
                     <p className="max-w-md mx-auto text-white/80 leading-relaxed">
-                      Since our launch, we've helped hundreds of teams streamline their workflows and complete thousands of tasks efficiently and on schedule.
+                    What started as a university project is now taking shape into something bigger. While it’s still a work in progress, we’ve built the foundation for a platform that aims to help teams streamline their workflows and manage tasks more efficiently. We’re continuously refining and improving it, hoping to make it truly impactful in the future.
                     </p>
                     <div className="mt-8 grid grid-cols-3 gap-4 max-w-xs mx-auto">
                       {[
-                        { number: "500+", label: "Teams" },
-                        { number: "10K+", label: "Tasks" },
-                        { number: "99%", label: "Satisfaction" }
+                        { number: "5", label: "Team Members" },
+                        { number: "50+", label: "Tasks Tracked" },
+                        { number: "100%", label: "Passion" }
                       ].map((stat, index) => (
                         <div key={index} className="text-center">
                           <div className="text-2xl font-bold text-white">{stat.number}</div>
@@ -134,25 +132,42 @@ const AboutPage = () => {
             <div className="bg-white dark:bg-secondary-800 rounded-2xl shadow-lg overflow-hidden p-8 sm:p-10">
               <h2 className="text-3xl font-bold mb-10 text-secondary-900 dark:text-white text-center">Meet Our Leadership Team</h2>
               
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-8">
                 {[
                   {
-                    name: "Sarah Johnson",
+                    name: "Khizar Aamir",
                     role: "CEO & Co-Founder",
                     bio: "Former project manager who experienced firsthand the challenges of team coordination.",
-                    image: "https://randomuser.me/api/portraits/women/44.jpg"
+                    image: "/images/khizar.JPG",
+                    github: "https://github.com/Khizar2004"
                   },
                   {
-                    name: "Michael Chen",
+                    name: "Haider Ali",
                     role: "CTO & Co-Founder",
-                    bio: "Software architect with 15 years experience building enterprise collaboration tools.",
-                    image: "https://randomuser.me/api/portraits/men/32.jpg"
+                    bio: "Software architect with extensive experience building enterprise collaboration tools.",
+                    image: "/images/haider.jpeg",
+                    github: "https://github.com/haiderali077"
                   },
                   {
-                    name: "Amara Patel",
+                    name: "Abdullah Mohsin",
                     role: "Head of Product",
                     bio: "UX specialist focused on creating intuitive and delightful user experiences.",
-                    image: "https://randomuser.me/api/portraits/women/68.jpg"
+                    image: "/images/mohsin.jpeg",
+                    github: "https://github.com/abdullahmoh21"
+                  },
+                  {
+                    name: "Abdur Rehman",
+                    role: "Lead Developer",
+                    bio: "Experienced developer specializing in creating robust and scalable applications.",
+                    image: "/images/qazi.jpeg",
+                    github: "https://github.com/abdur026"
+                  },
+                  {
+                    name: "Abdullah Munir",
+                    role: "UI/UX Designer",
+                    bio: "Creative designer with a passion for building beautiful and functional interfaces.",
+                    image: "/images/munir.jpeg",
+                    github: "https://github.com/abdullahmunir24"
                   }
                 ].map((member, index) => (
                   <div key={index} className="flex flex-col items-center text-center">
@@ -165,13 +180,7 @@ const AboutPage = () => {
                     <p className="text-primary-600 dark:text-primary-400 mb-2">{member.role}</p>
                     <p className="text-secondary-600 dark:text-secondary-400 text-sm">{member.bio}</p>
                     <div className="flex gap-4 mt-4">
-                      <a href="#" className="text-secondary-400 hover:text-secondary-600 dark:hover:text-secondary-300 transition-colors">
-                        <FaTwitter />
-                      </a>
-                      <a href="#" className="text-secondary-400 hover:text-secondary-600 dark:hover:text-secondary-300 transition-colors">
-                        <FaLinkedin />
-                      </a>
-                      <a href="#" className="text-secondary-400 hover:text-secondary-600 dark:hover:text-secondary-300 transition-colors">
+                      <a href={member.github} className="text-secondary-400 hover:text-secondary-600 dark:hover:text-secondary-300 transition-colors">
                         <FaGithub />
                       </a>
                     </div>
@@ -306,7 +315,7 @@ const AboutPage = () => {
                 <blockquote className="text-xl italic text-secondary-700 dark:text-secondary-300 max-w-3xl mx-auto">
                   "We believe that great tools should empower teams without getting in their way. That's the philosophy that guides us every day."
                 </blockquote>
-                <cite className="block mt-4 text-sm text-secondary-600 dark:text-secondary-400">— Sarah Johnson, CEO</cite>
+                <cite className="block mt-4 text-sm text-secondary-600 dark:text-secondary-400">— Khizar Aamir, CEO</cite>
               </div>
             </div>
           </div>

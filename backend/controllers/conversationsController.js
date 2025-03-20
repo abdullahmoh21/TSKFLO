@@ -140,9 +140,45 @@ const createMessage = asyncHandler(async (req, res) => {
   return res.status(201).json(message);
 });
 
+//@desc Clears all messages in a conversation
+//@param {Object} req with valid JWT and conversation ID
+//@route DELETE /:conversationId/clear
+//@access Private
+const clearConversation = asyncHandler(async (req, res) => {
+  const conversationId = req.params.conversationId;
+  const userId = req.user.id;
+
+  // Make sure conversation exists
+  const conversation = await Conversation.findById(conversationId);
+  if (!conversation) {
+    return res.status(404).json({ message: "Conversation not found" });
+  }
+
+  // Ensure the user is a participant
+  if (!conversation.participants.includes(userId)) {
+    return res.status(403).json({
+      message: "Not authorized to clear messages in this conversation",
+    });
+  }
+
+  // Delete all messages in the conversation
+  await Message.deleteMany({ conversation: conversationId });
+
+  // Remove the lastMessage reference from the conversation
+  conversation.lastMessage = null;
+  await conversation.save();
+
+  // Emit a WebSocket event to all participants
+  const io = req.app.get("socketIo");
+  io.in(conversationId.toString()).emit("conversationCleared", { conversationId });
+
+  return res.status(200).json({ message: "All messages cleared successfully" });
+});
+
 module.exports = {
   getAllConversations,
   createConversation,
   getMessages,
   createMessage,
+  clearConversation
 };

@@ -167,6 +167,16 @@ export const messageApiSlice = apiSlice.injectEndpoints({
         { type: "Message", id: conversationId },
       ],
     }),
+    clearConversation: builder.mutation({
+      query: (conversationId) => ({
+        url: `/conversations/${conversationId}/clear`,
+        method: "DELETE",
+        credentials: "include",
+      }),
+      invalidatesTags: (result, error, conversationId) => [
+        { type: "Message", id: conversationId },
+      ],
+    }),
   }),
 });
 
@@ -182,4 +192,5 @@ export const {
   useCreateConversationMutation,
   useGetMessagesQuery,
   useCreateMessageMutation,
+  useClearConversationMutation,
 } = messageApiSlice;

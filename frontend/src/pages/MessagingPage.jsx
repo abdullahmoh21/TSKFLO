@@ -12,12 +12,13 @@ import {
   FaSmile,
   FaUsers,
 } from "react-icons/fa";
-import { useSelector } from "react-redux";
+import { useSelector, useDispatch } from "react-redux";
 import {
   useGetAllConversationsQuery,
   useCreateConversationMutation,
   useGetMessagesQuery,
   useCreateMessageMutation,
+  useClearConversationMutation,
 } from "../features/messages/messageApiSlice";
 import { useSearchUsersQuery } from "../features/user/userApiSlice";
 import { selectCurrentUserId } from "../features/auth/authSlice";
@@ -35,6 +36,9 @@ const MessagingPage = () => {
   const socket = getSocket();
   const [showParticipants, setShowParticipants] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(true);
+  const [showMenu, setShowMenu] = useState(false);
+  const [clearingChat, setClearingChat] = useState(false);
+  const dispatch = useDispatch();
 
   const { data: searchResult, isLoading: isLoadingSearching } =
     useSearchUsersQuery(debouncedSearchTerm, {
@@ -143,6 +147,22 @@ const MessagingPage = () => {
   });
   const [createConversation] = useCreateConversationMutation();
   const [createMessage] = useCreateMessageMutation();
+  const [clearConversation] = useClearConversationMutation();
+
+  const handleClearChat = async () => {
+    if (window.confirm('Are you sure you want to clear all messages in this chat?')) {
+      try {
+        setClearingChat(true);
+        await clearConversation(selectedConversation).unwrap();
+        refetch();
+        setShowMenu(false);
+      } catch (error) {
+        console.error('Error clearing chat:', error);
+      } finally {
+        setClearingChat(false);
+      }
+    }
+  };
 
   // Get other participant name for conversation display
   const getConversationName = (conversation) => {
@@ -696,16 +716,34 @@ const MessagingPage = () => {
                                 }
                                 className="p-2 text-secondary-600 dark:text-secondary-400 hover:text-secondary-800 dark:hover:text-secondary-200 
                                 hover:bg-secondary-100 dark:hover:bg-secondary-700 rounded-full transition-colors"
+                                title="View Participants"
                               >
                                 <FaUser size={16} />
                               </button>
                             )}
-                            <button
-                              className="p-2 text-secondary-600 dark:text-secondary-400 hover:text-secondary-800 dark:hover:text-secondary-200 
-                              hover:bg-secondary-100 dark:hover:bg-secondary-700 rounded-full transition-colors"
-                            >
-                              <FaEllipsisH size={16} />
-                            </button>
+                            <div className="relative">
+                              <button
+                                onClick={() => setShowMenu(!showMenu)}
+                                className="p-2 text-secondary-600 dark:text-secondary-400 hover:text-secondary-800 dark:hover:text-secondary-200 
+                                hover:bg-secondary-100 dark:hover:bg-secondary-700 rounded-full transition-colors"
+                                title="More options"
+                              >
+                                <FaEllipsisH size={16} />
+                              </button>
+                              
+                              {/* Dropdown Menu - only Clear Chat button */}
+                              {showMenu && (
+                                <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-secondary-800 rounded-lg shadow-lg py-1 z-50 border border-secondary-200 dark:border-secondary-700 animate-fade-in">
+                                  <button
+                                    onClick={handleClearChat}
+                                    disabled={clearingChat}
+                                    className="w-full px-4 py-2 text-left text-sm text-secondary-700 dark:text-secondary-300 hover:bg-secondary-100 dark:hover:bg-secondary-700/50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                  >
+                                    {clearingChat ? 'Clearing...' : 'Clear Chat'}
+                                  </button>
+                                </div>
+                              )}
+                            </div>
                           </div>
                         </div>
 
@@ -883,7 +921,7 @@ const MessagingPage = () => {
                 </div>
               </div>
             ) : (
-              <div className="flex-1 flex items-center justify-center bg-white dark:bg-secondary-800 bg-opacity-75 animate-fade-in">
+              <div className="flex-1 flex items-center justify-center bg-secondary-100 dark:bg-secondary-900 bg-opacity-75 animate-fade-in">
                 <div className="text-center p-6 max-w-md">
                   <div className="mx-auto w-16 h-16 bg-primary-100 dark:bg-primary-900/30 rounded-full flex items-center justify-center text-primary-600 dark:text-primary-400 mb-4">
                     <FaCommentMedical size={28} />

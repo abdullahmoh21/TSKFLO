@@ -25,6 +25,8 @@ import {
   FaStar,
   FaExternalLinkAlt,
   FaInfoCircle,
+  FaChevronLeft,
+  FaChevronRight,
 } from "react-icons/fa";
 import { useNavigate, Link } from "react-router-dom";
 import { Line, Bar, Pie } from "react-chartjs-2";
@@ -96,6 +98,10 @@ const AdminPage = () => {
     dueDate: "",
   });
   
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const tasksPerPage = 8;
+  
   // Animation state
   const [isLoaded, setIsLoaded] = useState(false);
   const [hoveredTask, setHoveredTask] = useState(null);
@@ -108,11 +114,11 @@ const AdminPage = () => {
 
   // RTK Query hooks with debug logs
   const {
-    data: tasks = [],
+    data: tasksData = { tasks: [], pagination: { totalTasks: 0, currentPage: 1, totalPages: 1 } },
     isLoading: isLoadingTasks,
     error: tasksError,
     refetch: refetchTasks
-  } = useGetAdminTasksQuery(undefined, {
+  } = useGetAdminTasksQuery({ page: currentPage, limit: tasksPerPage }, {
     onError: (error) => {
       console.error('Tasks Query Error:', error);
       setError(error.message || 'Failed to fetch tasks');
@@ -130,6 +136,10 @@ const AdminPage = () => {
       setError(error.message || 'Failed to fetch users');
     }
   });
+
+  // Extract tasks and pagination data
+  const tasks = tasksData.tasks || [];
+  const pagination = tasksData.pagination || { totalTasks: 0, currentPage: 1, totalPages: 1 };
 
   // Log data for debugging
   useEffect(() => {
@@ -297,8 +307,13 @@ const AdminPage = () => {
           setDeleteTaskId(null);
         }, 2000);
         
-        // Refetch tasks to update the list
-        refetchTasks();
+        // If we're on a page with only one task and it's not the first page,
+        // go back to the previous page after deletion
+        if (tasks.length === 1 && currentPage > 1) {
+          setCurrentPage(currentPage - 1);
+        } else {
+          refetchTasks();
+        }
       } catch (error) {
         console.error("Error deleting task:", error);
         setDeleteError(error.data?.message || "Failed to delete task");
@@ -374,6 +389,11 @@ const AdminPage = () => {
     const assignees = [...new Set(tasks.flatMap(task => task.assignees || []))];
     return assignees.filter(Boolean);
   }, [tasks]);
+
+  // Function to handle page changes
+  const handlePageChange = (newPage) => {
+    setCurrentPage(newPage);
+  };
 
   // Update the sortedAndFilteredTasks to handle potential undefined values
   const sortedAndFilteredTasks = useMemo(() => {
@@ -641,6 +661,8 @@ const AdminPage = () => {
   };
   const handleCreateTask = () => {
     setShowCreateTask(true);
+    // When creating a new task, ensure we're on page 1 to see it immediately after creation
+    setCurrentPage(1);
   };
 
   const handleDeleteUser = async (userId) => {
@@ -652,6 +674,14 @@ const AdminPage = () => {
         toast.error(error.data?.message || "Failed to delete user");
       }
     }
+  };
+
+  // Function to handle successful task creation
+  const handleTaskCreationSuccess = () => {
+    setShowCreateTask(false);
+    // Go to page 1 to see the newly created task
+    setCurrentPage(1);
+    refetchTasks();
   };
 
   return (
@@ -689,7 +719,7 @@ const AdminPage = () => {
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-xl font-bold text-secondary-900 dark:text-white">
                 <span className="bg-gradient-to-r from-primary-500 to-primary-700 bg-clip-text text-transparent">
-                Create New Task
+                  Create New Task
                 </span>
               </h3>
               <button
@@ -1233,8 +1263,89 @@ const AdminPage = () => {
                             </td>
                           </tr>
                         ))}
-                    </tbody>
-                  </table>
+                      </tbody>
+                    </table>
+                    
+                    {/* Pagination */}
+                    <div className="flex items-center justify-between border-t border-secondary-200 dark:border-secondary-700 bg-white dark:bg-secondary-800 px-4 py-3 sm:px-6">
+                      <div className="flex flex-1 justify-between sm:hidden">
+                        <button
+                          onClick={() => handlePageChange(Math.max(1, currentPage - 1))}
+                          disabled={currentPage === 1}
+                          className={`relative inline-flex items-center rounded-md border border-secondary-300 dark:border-secondary-700 bg-white dark:bg-secondary-800 px-4 py-2 text-sm font-medium ${
+                            currentPage === 1
+                              ? 'text-secondary-400 dark:text-secondary-500 cursor-not-allowed'
+                              : 'text-primary-700 dark:text-primary-400 hover:bg-secondary-50 dark:hover:bg-secondary-700/30'
+                          }`}
+                        >
+                          Previous
+                        </button>
+                        <button
+                          onClick={() => handlePageChange(Math.min(pagination.totalPages, currentPage + 1))}
+                          disabled={currentPage === pagination.totalPages}
+                          className={`relative ml-3 inline-flex items-center rounded-md border border-secondary-300 dark:border-secondary-700 bg-white dark:bg-secondary-800 px-4 py-2 text-sm font-medium ${
+                            currentPage === pagination.totalPages
+                              ? 'text-secondary-400 dark:text-secondary-500 cursor-not-allowed'
+                              : 'text-primary-700 dark:text-primary-400 hover:bg-secondary-50 dark:hover:bg-secondary-700/30'
+                          }`}
+                        >
+                          Next
+                        </button>
+                      </div>
+                      <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
+                        <div>
+                          <p className="text-sm text-secondary-700 dark:text-secondary-400">
+                            Showing <span className="font-medium">{tasks.length ? (currentPage - 1) * tasksPerPage + 1 : 0}</span> to{' '}
+                            <span className="font-medium">{Math.min(currentPage * tasksPerPage, pagination.totalTasks)}</span> of{' '}
+                            <span className="font-medium">{pagination.totalTasks}</span> tasks
+                          </p>
+                        </div>
+                        <div>
+                          <nav className="isolate inline-flex -space-x-px rounded-md shadow-sm" aria-label="Pagination">
+                            <button
+                              onClick={() => handlePageChange(Math.max(1, currentPage - 1))}
+                              disabled={currentPage === 1}
+                              className={`relative inline-flex items-center rounded-l-md px-2 py-2 ${
+                                currentPage === 1
+                                  ? 'text-secondary-400 dark:text-secondary-500 cursor-not-allowed'
+                                  : 'text-secondary-500 dark:text-secondary-400 hover:bg-secondary-50 dark:hover:bg-secondary-700/30'
+                              }`}
+                            >
+                              <span className="sr-only">Previous</span>
+                              <FaChevronLeft className="h-4 w-4" aria-hidden="true" />
+                            </button>
+                            
+                            {/* Page buttons */}
+                            {[...Array(pagination.totalPages).keys()].map((page) => (
+                              <button
+                                key={page + 1}
+                                onClick={() => handlePageChange(page + 1)}
+                                className={`relative inline-flex items-center px-4 py-2 text-sm font-medium ${
+                                  currentPage === page + 1
+                                    ? 'z-10 bg-primary-50 dark:bg-primary-900/20 border-primary-500 dark:border-primary-500 text-primary-600 dark:text-primary-400'
+                                    : 'bg-white dark:bg-secondary-800 border-secondary-300 dark:border-secondary-700 text-secondary-500 dark:text-secondary-400 hover:bg-secondary-50 dark:hover:bg-secondary-700/30'
+                                } border`}
+                              >
+                                {page + 1}
+                              </button>
+                            ))}
+                            
+                            <button
+                              onClick={() => handlePageChange(Math.min(pagination.totalPages, currentPage + 1))}
+                              disabled={currentPage === pagination.totalPages}
+                              className={`relative inline-flex items-center rounded-r-md px-2 py-2 ${
+                                currentPage === pagination.totalPages
+                                  ? 'text-secondary-400 dark:text-secondary-500 cursor-not-allowed'
+                                  : 'text-secondary-500 dark:text-secondary-400 hover:bg-secondary-50 dark:hover:bg-secondary-700/30'
+                              }`}
+                            >
+                              <span className="sr-only">Next</span>
+                              <FaChevronRight className="h-4 w-4" aria-hidden="true" />
+                            </button>
+                          </nav>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 ) : (
                   <div className="text-center py-12">
@@ -1443,15 +1554,18 @@ const EditTaskForm = ({ task, onClose }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError(null);
     
+    // Reset states
+    setError(null);
+    setSuccess(false);
+
     // Get values directly from DOM via refs
     const title = titleRef.current.value;
     const description = descriptionRef.current.value;
     const dueDate = dueDateRef.current.value;
     const priority = priorityRef.current.value;
     const status = statusRef.current.value;
-    
+
     // Validate form fields
     const validationErrors = [];
     if (!title.trim()) {

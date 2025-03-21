@@ -61,10 +61,10 @@ const HomeNavBar = () => {
           <div className="flex items-center">
             <Link
               to="/"
-              className="flex items-center gap-2 text-lg font-bold text-white hover:text-primary-200 transition-colors duration-300"
+              className={`flex items-center gap-2 text-lg font-bold ${isScrolled ? 'text-primary-600 dark:text-white' : 'text-white'} hover:text-primary-200 transition-colors duration-300`}
             >
               <FaTasks className="h-6 w-6 animate-bounce-light" />
-              <span className="bg-gradient-to-r from-primary-300 to-primary-100 dark:from-primary-400 dark:to-primary-200 bg-clip-text text-transparent">Task Management</span>
+              <span className={`${isScrolled ? 'text-primary-600 dark:text-transparent dark:bg-gradient-to-r dark:from-primary-400 dark:to-primary-200 dark:bg-clip-text' : 'bg-gradient-to-r from-primary-300 to-primary-100 dark:from-primary-400 dark:to-primary-200 bg-clip-text text-transparent'}`}>Task Management</span>
             </Link>
           </div>
 
@@ -75,8 +75,8 @@ const HomeNavBar = () => {
                 to="/"
                 className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 hover-lift ${
                   isActivePath("/")
-                    ? "bg-white/20 text-white"
-                    : "text-white hover:bg-white/10"
+                    ? isScrolled ? "bg-primary-100 dark:bg-white/20 text-primary-600 dark:text-white" : "bg-white/20 text-white"
+                    : isScrolled ? "text-primary-600 dark:text-white hover:bg-primary-50 dark:hover:bg-white/10" : "text-white hover:bg-white/10"
                 }`}
               >
                 Home
@@ -85,8 +85,8 @@ const HomeNavBar = () => {
                 to="/about"
                 className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 hover-lift ${
                   isActivePath("/about")
-                    ? "bg-white/20 text-white"
-                    : "text-white hover:bg-white/10"
+                    ? isScrolled ? "bg-primary-100 dark:bg-white/20 text-primary-600 dark:text-white" : "bg-white/20 text-white"
+                    : isScrolled ? "text-primary-600 dark:text-white hover:bg-primary-50 dark:hover:bg-white/10" : "text-white hover:bg-white/10"
                 }`}
               >
                 About
@@ -97,13 +97,13 @@ const HomeNavBar = () => {
               {/* Dark mode toggle */}
               <button 
                 onClick={toggleDarkMode}
-                className="p-2 rounded-full hover:bg-white/10 transition-colors text-white"
+                className={`p-2 rounded-full ${isScrolled ? 'hover:bg-primary-50 dark:hover:bg-white/10' : 'hover:bg-white/10'} transition-colors ${isScrolled ? 'text-primary-600 dark:text-white' : 'text-white'}`}
                 aria-label={darkMode ? "Switch to light mode" : "Switch to dark mode"}
               >
                 {darkMode ? (
                   <FaSun className="h-5 w-5 text-yellow-300" />
                 ) : (
-                  <FaMoon className="h-5 w-5" />
+                  <FaMoon className="h-5 w-5 text-purple-500" />
                 )}
               </button>
               
@@ -121,19 +121,19 @@ const HomeNavBar = () => {
             {/* Dark mode toggle (mobile) */}
             <button 
               onClick={toggleDarkMode}
-              className="p-2 rounded-full hover:bg-white/10 transition-colors text-white"
+              className={`p-2 rounded-full ${isScrolled ? 'hover:bg-primary-50 dark:hover:bg-white/10' : 'hover:bg-white/10'} transition-colors ${isScrolled ? 'text-primary-600 dark:text-white' : 'text-white'}`}
               aria-label={darkMode ? "Switch to light mode" : "Switch to dark mode"}
             >
               {darkMode ? (
                 <FaSun className="h-5 w-5 text-yellow-300" />
               ) : (
-                <FaMoon className="h-5 w-5" />
+                <FaMoon className="h-5 w-5 text-purple-500" />
               )}
             </button>
             
             <button
               type="button"
-              className="p-2 rounded-md text-white hover:bg-white/10 transition-colors"
+              className={`p-2 rounded-md ${isScrolled ? 'text-primary-600 dark:text-white hover:bg-primary-50 dark:hover:bg-white/10' : 'text-white hover:bg-white/10'} transition-colors`}
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             >
               {mobileMenuOpen ? (
@@ -153,8 +153,8 @@ const HomeNavBar = () => {
             to="/"
             className={`block px-3 py-2 rounded-md text-base font-medium ${
               isActivePath("/")
-                ? "bg-primary-500/10 text-primary-200"
-                : "text-white hover:bg-white/10"
+                ? isScrolled ? "bg-primary-100 dark:bg-primary-500/10 text-primary-600 dark:text-primary-200" : "bg-primary-500/10 text-primary-200"
+                : isScrolled ? "text-primary-600 dark:text-white hover:bg-primary-50 dark:hover:bg-white/10" : "text-white hover:bg-white/10"
             }`}
             onClick={() => setMobileMenuOpen(false)}
           >
@@ -164,8 +164,8 @@ const HomeNavBar = () => {
             to="/about"
             className={`block px-3 py-2 rounded-md text-base font-medium ${
               isActivePath("/about")
-                ? "bg-primary-500/10 text-primary-200"
-                : "text-white hover:bg-white/10"
+                ? isScrolled ? "bg-primary-100 dark:bg-primary-500/10 text-primary-600 dark:text-primary-200" : "bg-primary-500/10 text-primary-200"
+                : isScrolled ? "text-primary-600 dark:text-white hover:bg-primary-50 dark:hover:bg-white/10" : "text-white hover:bg-white/10"
             }`}
             onClick={() => setMobileMenuOpen(false)}
           >
@@ -173,7 +173,9 @@ const HomeNavBar = () => {
           </Link>
           <Link
             to="/login"
-            className="block px-3 py-2 rounded-md text-base font-medium bg-white/10 text-white hover:bg-white/20"
+            className={`block px-3 py-2 rounded-md text-base font-medium ${
+              isScrolled ? "bg-primary-100 dark:bg-white/10 text-primary-600 dark:text-white hover:bg-primary-200 dark:hover:bg-white/20" : "bg-white/10 text-white hover:bg-white/20"
+            }`}
             onClick={() => setMobileMenuOpen(false)}
           >
             Sign In

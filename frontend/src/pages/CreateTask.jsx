@@ -170,14 +170,8 @@ const CreateTask = ({ isModal = false, onClose }) => {
   return (
     <div className="min-h-screen bg-white dark:bg-secondary-900 py-10">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 max-w-4xl">
-        {/* Back button and Page title - fixed position to ensure visibility */}
+        {/* Page title - fixed position to ensure visibility */}
         <div className="mb-8 sticky top-0 pt-4 pb-2 bg-white dark:bg-secondary-900 z-10">
-          <button 
-            onClick={() => window.location.href = "/dashboard"} 
-            className="flex items-center text-secondary-600 dark:text-secondary-400 hover:text-primary-600 dark:hover:text-primary-400 transition-colors mb-4"
-          >
-            <FaArrowLeft className="mr-2" /> Back to Dashboard
-          </button>
           
           <h1 className="text-3xl font-bold text-secondary-900 dark:text-white flex items-center">
             <FaTasks className="mr-3 text-primary-500" />

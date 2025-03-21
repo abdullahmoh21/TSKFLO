@@ -178,15 +178,6 @@ const LoginPage = () => {
                 )}
               </button>
             </form>
-            
-            <div className="mt-6 text-center">
-              <p className="text-white/70 text-sm">
-                Don't have an account?{" "}
-                <Link to="/" className="text-primary-300 hover:text-primary-200 font-medium transition-colors">
-                  Contact an administrator
-                </Link>
-              </p>
-            </div>
           </div>
           
           {/* Footer */}

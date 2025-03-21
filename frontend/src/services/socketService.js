@@ -15,7 +15,7 @@ export const initializeSocket = (token) => {
   socket = io("http://localhost:3200", {
     withCredentials: true,
     transports: ["websocket", "polling"],
-    reconnectionAttempts: 5,
+    reconnectionAttempts: 50,
     reconnectionDelay: 1000,
     auth: {
       token,
@@ -24,7 +24,7 @@ export const initializeSocket = (token) => {
 
   // Add debugging listeners
   socket.on("connect", () => {
-    console.log("Socket connected with ID:", socket.id);
+    console.log("Socket connected with id:", socket.id);
   });
 
   socket.on("newMessage", (data) => {

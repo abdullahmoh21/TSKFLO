@@ -1,5 +1,73 @@
 import { apiSlice } from "../../app/api/apiSlice";
 import { getSocket } from "../../services/socketService";
+import { selectCurrentUserId } from "../auth/authSlice";
+import { toast } from "react-toastify";
+
+export const messageApiSlice = apiSlice.injectEndpoints({
+  endpoints: (builder) => ({
+    getAllConversations: builder.query({
+      query: () => ({
+        url: "/conversations",
+        method: "GET",
+        credentials: "include",
+      }),
+      providesTags: [{ type: "Conversation", id: "LIST" }],
+    }),
+    createConversation: builder.mutation({
+      query: (participants) => ({
+        url: "/conversations",
+        method: "POST",
+        body: participants,
+        credentials: "include",
+      }),
+      invalidatesTags: [{ type: "Conversation", id: "LIST" }],
+    }),
+    getMessages: builder.query({
+      query: (conversationId) => ({
+        url: `/conversations/${conversationId}/messages`,
+        method: "GET",
+        credentials: "include",
+      }),
+      providesTags: (result, error, conversationId) => [
+        { type: "Message", id: conversationId },
+        { type: "Message", id: "LIST" },
+      ],
+      transformResponse: (response) => {
+        return response || []; // Ensure we always have an array
+      },
+    }),
+    createMessage: builder.mutation({
+      query: ({ conversationId, messageData }) => ({
+        url: `/conversations/${conversationId}/messages`,
+        method: "POST",
+        body: messageData,
+        credentials: "include",
+      }),
+      invalidatesTags: (result, error, { conversationId }) => [
+        { type: "Message", id: conversationId },
+      ],
+    }),
+    deleteConversation: builder.mutation({
+      query: (conversationId) => ({
+        url: `/conversations/${conversationId}/delete`,
+        method: "DELETE",
+        credentials: "include",
+      }),
+      invalidatesTags: (result, error, conversationId) => [
+        { type: "Message", id: conversationId },
+      ],
+    }),
+  }),
+});
+
+// Create a middleware that sets up socket listeners when the app starts
+export const setupSocketListeners = (store) => {
+  onStartListening(store.dispatch, {
+    util: apiSlice.util,
+    getState: store.getState,
+  });
+  return (next) => (action) => next(action);
+};
 
 const onStartListening = (dispatch, api) => {
   const checkAndSetupSocket = () => {
@@ -8,6 +76,7 @@ const onStartListening = (dispatch, api) => {
       // Clear any existing listeners to prevent duplicates
       socket.off("messageCreated");
       socket.off("conversationCreated");
+      socket.off("conversationDeleted");
 
       socket.on("messageCreated", (message) => {
         console.log("Socket message received:", message);
@@ -105,6 +174,73 @@ const onStartListening = (dispatch, api) => {
         }
       });
 
+      // Add the conversation deleted handler
+      socket.on("conversationDeleted", ({ conversationId, deletedBy }) => {
+        console.log("Conversation deleted:", { conversationId, deletedBy });
+        const state = api.getState();
+        const currentUserId = selectCurrentUserId(state);
+        try {
+          // Update the cache to remove the deleted conversation
+          dispatch(
+            api.util.updateQueryData(
+              "getAllConversations",
+              undefined,
+              (draftConversations) => {
+                if (!Array.isArray(draftConversations)) return;
+
+                // Find the deleted conversation to get its details before removal
+                const deletedConversation = draftConversations.find(
+                  (c) => c._id === conversationId
+                );
+
+                if (deletedConversation) {
+                  // Only show toast if the current user didn't delete the conversation
+                  if (deletedBy._id !== currentUserId) {
+                    // Determine if it's a group or DM for notification message
+                    const isGroup = deletedConversation.groupName;
+                    let notificationMessage;
+
+                    if (isGroup) {
+                      notificationMessage = `The group ${deletedConversation.groupName} was deleted by ${deletedBy.name}.`;
+                    } else {
+                      // For DMs, find the other participant's name
+                      const otherParticipant =
+                        deletedConversation.participants?.find(
+                          (p) => p._id !== deletedBy._id
+                        );
+                      const name = otherParticipant?.name || "Unknown user";
+                      notificationMessage = `Your conversation with ${name} has been deleted.`;
+                    }
+
+                    // Show toast notification
+                    toast.info(notificationMessage, {
+                      position: "top-right",
+                      autoClose: 5000,
+                    });
+                  }
+
+                  // Remove the conversation from the array
+                  return draftConversations.filter(
+                    (c) => c._id !== conversationId
+                  );
+                }
+              }
+            )
+          );
+
+          // Also invalidate the messages for this conversation
+          dispatch(
+            api.util.invalidateTags([{ type: "Message", id: conversationId }])
+          );
+        } catch (err) {
+          console.error("Error handling deleted conversation:", err);
+          // Invalidate the conversation list on error
+          dispatch(
+            api.util.invalidateTags([{ type: "Conversation", id: "LIST" }])
+          );
+        }
+      });
+
       return true;
     }
     return false;
@@ -123,63 +259,10 @@ const onStartListening = (dispatch, api) => {
   }
 };
 
-export const messageApiSlice = apiSlice.injectEndpoints({
-  endpoints: (builder) => ({
-    getAllConversations: builder.query({
-      query: () => ({
-        url: "/conversations",
-        method: "GET",
-        credentials: "include",
-      }),
-      providesTags: [{ type: "Conversation", id: "LIST" }],
-    }),
-    createConversation: builder.mutation({
-      query: (participants) => ({
-        url: "/conversations",
-        method: "POST",
-        body: participants,
-        credentials: "include",
-      }),
-      invalidatesTags: [{ type: "Conversation", id: "LIST" }],
-    }),
-    getMessages: builder.query({
-      query: (conversationId) => ({
-        url: `/conversations/${conversationId}/messages`,
-        method: "GET",
-        credentials: "include",
-      }),
-      providesTags: (result, error, conversationId) => [
-        { type: "Message", id: conversationId },
-        { type: "Message", id: "LIST" },
-      ],
-      transformResponse: (response) => {
-        return response || []; // Ensure we always have an array
-      },
-    }),
-    createMessage: builder.mutation({
-      query: ({ conversationId, messageData }) => ({
-        url: `/conversations/${conversationId}/messages`,
-        method: "POST",
-        body: messageData,
-        credentials: "include",
-      }),
-      invalidatesTags: (result, error, { conversationId }) => [
-        { type: "Message", id: conversationId },
-      ],
-    }),
-  }),
-});
-
-// Create a middleware that sets up socket listeners when the app starts
-export const setupSocketListeners = (store) => {
-  // Initialize immediately instead of with a timeout
-  onStartListening(store.dispatch, apiSlice);
-  return (next) => (action) => next(action);
-};
-
 export const {
   useGetAllConversationsQuery,
   useCreateConversationMutation,
   useGetMessagesQuery,
   useCreateMessageMutation,
+  useDeleteConversationMutation,
 } = messageApiSlice;

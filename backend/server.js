@@ -29,17 +29,11 @@ if (process.env.NODE_ENV !== "test") {
     logger.info(`New authenticated socket: ${JSON.stringify(socket.user)}`);
 
     socket.on("joinConversation", (conversationId) => {
-      logger.info(
-        `joinConversation req by userId=${socket.user.id}, conversation=${conversationId}`
-      );
       // In your next step, you'll check if `socket.user.id` is part of the conversation
       socket.join(conversationId);
     });
 
     socket.on("leaveConversation", (conversationId) => {
-      logger.info(
-        `leaveConversation req by userId=${socket.user.id}, conversation=${conversationId}`
-      );
       socket.leave(conversationId);
     });
 

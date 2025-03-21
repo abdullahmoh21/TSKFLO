@@ -1,6 +1,7 @@
 const Conversation = require("../models/Conversation");
 const Message = require("../models/Message");
 const asyncHandler = require("express-async-handler");
+const logger = require("../logs/logger");
 
 //@desc returns all conversations to be displayed in inbox
 //@param {Object} req with valid JWT
@@ -140,9 +141,59 @@ const createMessage = asyncHandler(async (req, res) => {
   return res.status(201).json(message);
 });
 
+//@desc Deletes a conversation along with all its messages
+//@param {Object} req with valid JWT and conversation ID
+//@route DELETE /:conversationId/clear
+//@access Private
+const deleteConversation = asyncHandler(async (req, res) => {
+  const conversationId = req.params.conversationId;
+
+  if (!conversationId) {
+    return res.status(400).json({ message: "Conversation Id is required." });
+  }
+
+  // Make sure conversation exists
+  const conversation = await Conversation.findById(conversationId)
+    .populate("participants", "_id name")
+    .lean()
+    .exec();
+  if (!conversation) {
+    return res.status(404).json({ message: "Conversation not found" });
+  }
+
+  // Ensure the user is a participant
+  if (!conversation.participants.find((user) => user._id == req.user.id)) {
+    return res.status(403).json({
+      message: "Not authorized to clear messages in this conversation",
+    });
+  }
+
+  // Delete the conversation and corresponding messages
+  await Promise.all([
+    Message.deleteMany({ conversation: conversationId }).exec(),
+    Conversation.deleteOne({ _id: conversationId }).exec(),
+  ]);
+
+  const deletedBy = conversation.participants.find(
+    (user) => user._id == req.user.id
+  );
+
+  // Emit a WebSocket event to all participants
+  const io = req.app.get("socketIo");
+  io.in(conversationId.toString()).emit("conversationDeleted", {
+    conversationId,
+    deletedBy,
+  });
+
+  return res
+    .status(200)
+    .json({ message: "Conversation and corresponding messages deleted" });
+});
+
 module.exports = {
   getAllConversations,
   createConversation,
   getMessages,
   createMessage,
+  deleteConversation,
 };

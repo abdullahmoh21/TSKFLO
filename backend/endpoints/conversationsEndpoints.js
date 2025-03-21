@@ -16,4 +16,9 @@ router
   .get(conversationController.getMessages)
   .post(conversationController.createMessage);
 
+router.delete(
+  "/:conversationId/delete",
+  conversationController.deleteConversation
+);
+
 module.exports = router;

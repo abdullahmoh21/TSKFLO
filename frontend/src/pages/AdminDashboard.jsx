@@ -26,7 +26,7 @@ import {
   FaExternalLinkAlt,
   FaInfoCircle,
 } from "react-icons/fa";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, Link, useLocation } from "react-router-dom";
 import { Line, Bar, Pie } from "react-chartjs-2";
 import AdminCreateTask from "../components/AdminCreateTask";
 import { useSelector } from "react-redux";
@@ -74,6 +74,7 @@ ChartJS.register(
 
 const AdminPage = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const token = useSelector((state) => state.auth.token);
   const [activeTab, setActiveTab] = useState("dashboard");
   const [error, setError] = useState(null);
@@ -99,6 +100,17 @@ const AdminPage = () => {
   // Animation state
   const [isLoaded, setIsLoaded] = useState(false);
   const [hoveredTask, setHoveredTask] = useState(null);
+
+  // Monitor URL hash changes to update active tab
+  useEffect(() => {
+    if (location.hash === '#users') {
+      setActiveTab('users');
+    } else if (location.hash === '#tasks') {
+      setActiveTab('tasks');
+    } else {
+      setActiveTab('dashboard');
+    }
+  }, [location.hash]);
 
   // Add the isOverdue function
   const isOverdue = (dueDate) => {
@@ -804,42 +816,6 @@ const AdminPage = () => {
               </div>
             </div>
           </div>
-        </div>
-
-        {/* Navigation Tabs */}
-        <div className="glass-morphism rounded-xl shadow-sm mb-6 border border-secondary-200 dark:border-secondary-700 overflow-hidden">
-          <nav className="flex">
-              <button
-                onClick={() => setActiveTab("dashboard")}
-              className={`px-6 py-4 text-sm font-medium transition-all duration-200 ${
-                  activeTab === "dashboard"
-                  ? "border-b-2 border-primary-500 text-primary-600 dark:text-primary-400"
-                  : "text-secondary-500 dark:text-secondary-400 hover:text-secondary-700 dark:hover:text-secondary-300 hover:bg-secondary-100 dark:hover:bg-secondary-800"
-                }`}
-              >
-                Dashboard
-              </button>
-              <button
-                onClick={() => setActiveTab("users")}
-              className={`px-6 py-4 text-sm font-medium transition-all duration-200 ${
-                  activeTab === "users"
-                  ? "border-b-2 border-primary-500 text-primary-600 dark:text-primary-400"
-                  : "text-secondary-500 dark:text-secondary-400 hover:text-secondary-700 dark:hover:text-secondary-300 hover:bg-secondary-100 dark:hover:bg-secondary-800"
-                }`}
-              >
-                Users
-              </button>
-              <button
-                onClick={() => setActiveTab("tasks")}
-              className={`px-6 py-4 text-sm font-medium transition-all duration-200 ${
-                  activeTab === "tasks"
-                  ? "border-b-2 border-primary-500 text-primary-600 dark:text-primary-400"
-                  : "text-secondary-500 dark:text-secondary-400 hover:text-secondary-700 dark:hover:text-secondary-300 hover:bg-secondary-100 dark:hover:bg-secondary-800"
-                }`}
-              >
-                Tasks
-              </button>
-            </nav>
         </div>
 
         {/* Content Sections */}

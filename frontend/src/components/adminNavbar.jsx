@@ -12,6 +12,7 @@ import {
   FaBars,
   FaTimes,
   FaBell,
+  FaUsers,
 } from "react-icons/fa";
 import { useSelector, useDispatch } from "react-redux";
 import { selectCurrentUserName, logOut } from "../features/auth/authSlice";
@@ -141,7 +142,7 @@ const AdminNavbar = () => {
               <Link
                 to="/admindashboard"
                 className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 hover-lift ${
-                  isActivePath("/admindashboard") && !isActivePath("/messaging")
+                  isActivePath("/admindashboard") && !location.hash.includes("#users") && !location.hash.includes("#tasks")
                     ? "bg-primary-50 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400 shadow-sm"
                     : "text-secondary-700 dark:text-secondary-300 hover:bg-secondary-50 dark:hover:bg-secondary-800"
                 }`}
@@ -149,6 +150,34 @@ const AdminNavbar = () => {
                 <span className="flex items-center gap-1.5">
                   <FaChartBar className="h-4 w-4" />
                   <span>Dashboard</span>
+                </span>
+              </Link>
+
+              <Link
+                to="/admindashboard#users"
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 hover-lift ${
+                  location.hash.includes("#users")
+                    ? "bg-primary-50 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400 shadow-sm"
+                    : "text-secondary-700 dark:text-secondary-300 hover:bg-secondary-50 dark:hover:bg-secondary-800"
+                }`}
+              >
+                <span className="flex items-center gap-1.5">
+                  <FaUsers className="h-4 w-4" />
+                  <span>Users</span>
+                </span>
+              </Link>
+
+              <Link
+                to="/admindashboard#tasks"
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 hover-lift ${
+                  location.hash.includes("#tasks")
+                    ? "bg-primary-50 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400 shadow-sm"
+                    : "text-secondary-700 dark:text-secondary-300 hover:bg-secondary-50 dark:hover:bg-secondary-800"
+                }`}
+              >
+                <span className="flex items-center gap-1.5">
+                  <FaTasks className="h-4 w-4" />
+                  <span>Tasks</span>
                 </span>
               </Link>
 
@@ -200,9 +229,7 @@ const AdminNavbar = () => {
                       ? userData.name
                       : userName || "Admin"}
                   </span>
-                  <div className="h-8 w-8 rounded-full bg-primary-100 dark:bg-primary-900 flex items-center justify-center text-primary-600 dark:text-primary-400 overflow-hidden">
-                    <FaUserCircle className="h-7 w-7" />
-                  </div>
+                  <FaUserCircle className="h-5 w-5" />
                 </button>
               </div>
 
@@ -270,7 +297,7 @@ const AdminNavbar = () => {
           <Link
             to="/admindashboard"
             className={`block px-3 py-2 rounded-md text-base font-medium ${
-              isActivePath("/admindashboard") && !isActivePath("/messaging")
+              isActivePath("/admindashboard") && !location.hash.includes("#users") && !location.hash.includes("#tasks")
                 ? "bg-primary-50 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400"
                 : "text-secondary-700 dark:text-secondary-300 hover:bg-secondary-50 dark:hover:bg-secondary-800"
             }`}
@@ -281,7 +308,37 @@ const AdminNavbar = () => {
               <span>Dashboard</span>
             </span>
           </Link>
-          
+
+          <Link
+            to="/admindashboard#users"
+            className={`block px-3 py-2 rounded-md text-base font-medium ${
+              location.hash.includes("#users")
+                ? "bg-primary-50 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400"
+                : "text-secondary-700 dark:text-secondary-300 hover:bg-secondary-50 dark:hover:bg-secondary-800"
+            }`}
+            onClick={() => setMobileMenuOpen(false)}
+          >
+            <span className="flex items-center gap-1.5">
+              <FaUsers className="h-4 w-4" />
+              <span>Users</span>
+            </span>
+          </Link>
+
+          <Link
+            to="/admindashboard#tasks"
+            className={`block px-3 py-2 rounded-md text-base font-medium ${
+              location.hash.includes("#tasks")
+                ? "bg-primary-50 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400"
+                : "text-secondary-700 dark:text-secondary-300 hover:bg-secondary-50 dark:hover:bg-secondary-800"
+            }`}
+            onClick={() => setMobileMenuOpen(false)}
+          >
+            <span className="flex items-center gap-1.5">
+              <FaTasks className="h-4 w-4" />
+              <span>Tasks</span>
+            </span>
+          </Link>
+
           <Link
             to="/messaging"
             className={`block px-3 py-2 rounded-md text-base font-medium ${
@@ -301,7 +358,7 @@ const AdminNavbar = () => {
               )}
             </span>
           </Link>
-          
+
           <button
             onClick={() => {
               setMobileMenuOpen(false);
@@ -314,7 +371,7 @@ const AdminNavbar = () => {
               <span>Profile</span>
             </span>
           </button>
-          
+
           <button
             onClick={() => {
               setMobileMenuOpen(false);

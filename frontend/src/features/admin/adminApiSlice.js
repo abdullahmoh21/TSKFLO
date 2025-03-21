@@ -16,19 +16,49 @@ export const adminApiSlice = createApi({
   tagTypes: ["AdminTasks", "AdminUsers"],
   endpoints: (builder) => ({
     getAdminTasks: builder.query({
-      query: () => ({
+      query: (params = {}) => ({
         url: "/tasks",
         method: "GET",
+        params: {
+          page: params.page || 1,
+          limit: params.limit || 8
+        },
         credentials: "include",
       }),
       providesTags: ["AdminTasks"],
       transformResponse: (response) => {
         console.log("Tasks Response:", response);
-        if (!response) return [];
-        if (Array.isArray(response)) return response;
-        if (response.tasks) return response.tasks;
-        if (response.data) return response.data;
-        return [];
+        if (!response) return { tasks: [], pagination: { totalTasks: 0, currentPage: 1, totalPages: 1 } };
+        
+        // If response contains tasks and pagination metadata (from backend)
+        if (response.tasks) {
+          return {
+            tasks: response.tasks,
+            pagination: {
+              totalTasks: response.totalTasks || 0,
+              currentPage: response.currentPage || 1,
+              totalPages: response.totalPages || 1
+            }
+          };
+        }
+        
+        // For backward compatibility if the response is an array
+        if (Array.isArray(response)) {
+          return {
+            tasks: response,
+            pagination: { totalTasks: response.length, currentPage: 1, totalPages: 1 }
+          };
+        }
+        
+        // For other response formats
+        if (response.data) {
+          return {
+            tasks: response.data,
+            pagination: { totalTasks: response.data.length, currentPage: 1, totalPages: 1 }
+          };
+        }
+        
+        return { tasks: [], pagination: { totalTasks: 0, currentPage: 1, totalPages: 1 } };
       },
       transformErrorResponse: (response) => {
         console.error("Tasks Error:", response);

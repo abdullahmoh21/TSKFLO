@@ -18,12 +18,13 @@ import {
   useCreateConversationMutation,
   useGetMessagesQuery,
   useCreateMessageMutation,
-  useClearConversationMutation,
+  useDeleteConversationMutation,
 } from "../features/messages/messageApiSlice";
 import { useSearchUsersQuery } from "../features/user/userApiSlice";
 import { selectCurrentUserId } from "../features/auth/authSlice";
 import { getSocket } from "../services/socketService";
 import { useNotification } from "../context/NotificationContext";
+import { toast } from "react-toastify";
 
 const MessagingPage = () => {
   // State for user search input and results
@@ -38,6 +39,8 @@ const MessagingPage = () => {
   const [showMobileMenu, setShowMobileMenu] = useState(true);
   const [showMenu, setShowMenu] = useState(false);
   const [clearingChat, setClearingChat] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const dispatch = useDispatch();
 
   const { data: searchResult, isLoading: isLoadingSearching } =
@@ -94,6 +97,58 @@ const MessagingPage = () => {
   const { data: conversations, isLoading: isLoadingConversations } =
     useGetAllConversationsQuery();
 
+  // Get other participant name for conversation display
+  const getConversationName = (conversation) => {
+    // First check if conversation and participants exist
+    if (!conversation || !conversation.participants) return "Unknown";
+
+    // If it has a group name, use that
+    if (conversation.groupName) {
+      return conversation.groupName;
+    }
+
+    // Safety check for participants array length
+    if (conversation.participants.length === 0) {
+      return "Empty conversation";
+    }
+
+    // If there's only one participant, return their name
+    if (conversation.participants.length === 1) {
+      return conversation.participants[0]?.name || "Unknown User";
+    }
+
+    // Find the other participant (not the current user)
+    const otherParticipant = conversation.participants.find(
+      (participant) => participant._id !== currentUserId
+    );
+
+    // If found, return their name, otherwise use the first participant's name
+    return (
+      otherParticipant?.name ||
+      conversation.participants[0]?.name ||
+      "Unknown User"
+    );
+  };
+
+  // Helper to identify if a conversation is a group chat
+  const isGroupChat = (conversation) => {
+    if (!conversation) return false;
+    // Consider it a group chat if it has a group name or more than 2 participants
+    return (
+      conversation.groupName ||
+      (conversation.participants && conversation.participants.length > 2)
+    );
+  };
+
+  // Filter conversations by search term
+  const filteredConversations = useMemo(() => {
+    if (!conversations) return [];
+    return conversations.filter((conv) => {
+      const name = getConversationName(conv).toLowerCase();
+      return name.includes(searchTerm.toLowerCase());
+    });
+  }, [conversations, searchTerm]);
+
   // Socket listener just for tracking unread messages
   useEffect(() => {
     if (!socket) return;
@@ -147,74 +202,22 @@ const MessagingPage = () => {
   });
   const [createConversation] = useCreateConversationMutation();
   const [createMessage] = useCreateMessageMutation();
-  const [clearConversation] = useClearConversationMutation();
+  const [deleteConversation] = useDeleteConversationMutation();
 
-  const handleClearChat = async () => {
-    if (window.confirm('Are you sure you want to clear all messages in this chat?')) {
-      try {
-        setClearingChat(true);
-        await clearConversation(selectedConversation).unwrap();
-        refetch();
-        setShowMenu(false);
-      } catch (error) {
-        console.error('Error clearing chat:', error);
-      } finally {
-        setClearingChat(false);
-      }
+  const handleDeleteChat = async () => {
+    try {
+      setDeleting(true);
+      await deleteConversation(selectedConversation).unwrap();
+      setShowDeleteConfirm(false);
+      setShowMenu(false);
+      // The UI update will happen automatically through the socket event
+    } catch (error) {
+      console.error("Error deleting conversation:", error);
+      toast.error("Failed to delete conversation");
+    } finally {
+      setDeleting(false);
     }
   };
-
-  // Get other participant name for conversation display
-  const getConversationName = (conversation) => {
-    // First check if conversation and participants exist
-    if (!conversation || !conversation.participants) return "Unknown";
-
-    // If it has a group name, use that
-    if (conversation.groupName) {
-      return conversation.groupName;
-    }
-
-    // Safety check for participants array length
-    if (conversation.participants.length === 0) {
-      return "Empty conversation";
-    }
-
-    // If there's only one participant, return their name
-    if (conversation.participants.length === 1) {
-      return conversation.participants[0]?.name || "Unknown User";
-    }
-
-    // Find the other participant (not the current user)
-    const otherParticipant = conversation.participants.find(
-      (participant) => participant._id !== currentUserId
-    );
-
-    // If found, return their name, otherwise use the first participant's name
-    return (
-      otherParticipant?.name ||
-      conversation.participants[0]?.name ||
-      "Unknown User"
-    );
-  };
-
-  // Helper to identify if a conversation is a group chat
-  const isGroupChat = (conversation) => {
-    if (!conversation) return false;
-    // Consider it a group chat if it has a group name or more than 2 participants
-    return (
-      conversation.groupName ||
-      (conversation.participants && conversation.participants.length > 2)
-    );
-  };
-
-  // Filter conversations by search term
-  const filteredConversations = useMemo(() => {
-    if (!conversations) return [];
-    return conversations.filter((conv) => {
-      const name = getConversationName(conv).toLowerCase();
-      return name.includes(searchTerm.toLowerCase());
-    });
-  }, [conversations, searchTerm]);
 
   const handleCreateConversation = async (e) => {
     e.preventDefault();
@@ -313,6 +316,25 @@ const MessagingPage = () => {
       messageInputRef.current.focus();
     }
   }, [selectedConversation]);
+
+  // Effect to handle conversation deletion when user is viewing the deleted conversation
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleConversationDeleted = ({ conversationId, deletedBy }) => {
+      // If this is the conversation we're currently viewing, reset the view
+      if (selectedConversation === conversationId) {
+        setSelectedConversation(null);
+        setShowMobileMenu(true);
+      }
+    };
+
+    socket.on("conversationDeleted", handleConversationDeleted);
+
+    return () => {
+      socket.off("conversationDeleted", handleConversationDeleted);
+    };
+  }, [socket, selectedConversation]);
 
   return (
     <div className="h-screen flex flex-col bg-secondary-50 dark:bg-secondary-900">
@@ -730,16 +752,19 @@ const MessagingPage = () => {
                               >
                                 <FaEllipsisH size={16} />
                               </button>
-                              
+
                               {/* Dropdown Menu - only Clear Chat button */}
                               {showMenu && (
                                 <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-secondary-800 rounded-lg shadow-lg py-1 z-50 border border-secondary-200 dark:border-secondary-700 animate-fade-in">
                                   <button
-                                    onClick={handleClearChat}
-                                    disabled={clearingChat}
-                                    className="w-full px-4 py-2 text-left text-sm text-secondary-700 dark:text-secondary-300 hover:bg-secondary-100 dark:hover:bg-secondary-700/50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    onClick={() => {
+                                      setShowDeleteConfirm(true);
+                                      setShowMenu(false);
+                                    }}
+                                    disabled={deleting}
+                                    className="w-full px-4 py-2 text-left text-sm text-red-500 hover:bg-secondary-100 dark:hover:bg-secondary-700/50 disabled:opacity-50 disabled:cursor-not-allowed"
                                   >
-                                    {clearingChat ? 'Clearing...' : 'Clear Chat'}
+                                    {deleting ? "Deleting..." : "Delete Chat"}
                                   </button>
                                 </div>
                               )}
@@ -950,6 +975,42 @@ const MessagingPage = () => {
           </div>
         </div>
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-secondary-800 rounded-lg shadow-xl max-w-md w-full p-6 animate-fade-in">
+            <h3 className="text-lg font-bold text-secondary-900 dark:text-white mb-2">
+              Delete Conversation
+            </h3>
+            <div className="bg-red-50 dark:bg-red-900/20 border-l-4 border-red-500 p-4 mb-4">
+              <p className="text-red-700 dark:text-red-400 mb-2">
+                <strong>Warning:</strong> This action is permanent!
+              </p>
+              <p className="text-secondary-700 dark:text-secondary-300">
+                This will delete the entire conversation and all messages for
+                all participants.
+              </p>
+            </div>
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                className="px-4 py-2 text-secondary-700 dark:text-secondary-300 border border-secondary-300 dark:border-secondary-600 rounded-lg hover:bg-secondary-100 dark:hover:bg-secondary-700"
+                disabled={deleting}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteChat}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-70"
+                disabled={deleting}
+              >
+                {deleting ? "Deleting..." : "Delete"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

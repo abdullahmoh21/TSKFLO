@@ -16,7 +16,9 @@ router
   .get(conversationController.getMessages)
   .post(conversationController.createMessage);
 
-// Add the clear conversation endpoint
-router.delete("/:conversationId/clear", conversationController.clearConversation);
+router.delete(
+  "/:conversationId/delete",
+  conversationController.deleteConversation
+);
 
 module.exports = router;

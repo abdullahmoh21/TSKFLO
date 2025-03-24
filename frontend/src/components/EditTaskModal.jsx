@@ -2,8 +2,12 @@ import React, { useState, useEffect } from "react";
 import { FaTimes, FaCalendarAlt, FaExclamationCircle, FaSpinner, FaSave } from "react-icons/fa";
 import { useUpdateTaskMutation } from "../features/tasks/taskApiSlice";
 
-// Maximum description length as defined by the backend
-const MAX_DESCRIPTION_LENGTH = 500;
+// Import shared validation utility
+import { 
+  validateTaskForm, 
+  MAX_DESCRIPTION_LENGTH,
+  getCharacterCountColor
+} from "../utils/formValidation";
 
 const EditTaskModal = ({ task, isOpen, onClose, onSuccess }) => {
   const [errorMessage, setErrorMessage] = useState('');
@@ -51,8 +55,12 @@ const EditTaskModal = ({ task, isOpen, onClose, onSuccess }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    if (taskData.description.length > MAX_DESCRIPTION_LENGTH) {
-      setErrorMessage(`Description must be ${MAX_DESCRIPTION_LENGTH} characters or less.`);
+    // Use the shared validation utility
+    const errors = validateTaskForm(taskData);
+    
+    if (Object.keys(errors).length > 0) {
+      // Display the first error
+      setErrorMessage(Object.values(errors)[0]);
       return;
     }
     
@@ -89,7 +97,8 @@ const EditTaskModal = ({ task, isOpen, onClose, onSuccess }) => {
   if (!isOpen || !task) return null;
   
   const descriptionCharsLeft = MAX_DESCRIPTION_LENGTH - taskData.description.length;
-
+  const characterCountColorClass = getCharacterCountColor(taskData.description.length, MAX_DESCRIPTION_LENGTH);
+  
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm overflow-y-auto animate-fade-in">
       <div className="bg-white dark:bg-secondary-800 rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto animate-scale-in">
@@ -154,9 +163,7 @@ const EditTaskModal = ({ task, isOpen, onClose, onSuccess }) => {
                 placeholder="Enter task description..."
               />
               <div className="flex justify-end mt-1">
-                <span className={`text-xs ${
-                  descriptionCharsLeft < 50 ? 'text-danger-500' : 'text-secondary-500 dark:text-secondary-400'
-                }`}>
+                <span className={`text-xs ${characterCountColorClass}`}>
                   {descriptionCharsLeft} characters remaining
                 </span>
               </div>
@@ -249,4 +256,4 @@ const EditTaskModal = ({ task, isOpen, onClose, onSuccess }) => {
   );
 };
 
-export default EditTaskModal; 
+export default EditTaskModal;

@@ -12,16 +12,19 @@ import { useSelector } from "react-redux";
 import { selectCurrentUserId } from "../features/auth/authSlice";
 import { toast } from "react-toastify";
 
-// Import our new components
+// Import our components
 import TaskFormHeader from "./task/TaskFormHeader";
 import AssigneeSelector from "./task/AssigneeSelector";
 import TextInputField from "./common/TextInputField";
 import TextareaField from "./common/TextareaField";
 import SelectField from "./common/SelectField";
 
-// Maximum length constants
-const MAX_TITLE_LENGTH = 100;
-const MAX_DESCRIPTION_LENGTH = 500;
+// Import shared validation utility
+import { 
+  validateTaskForm, 
+  MAX_TITLE_LENGTH, 
+  MAX_DESCRIPTION_LENGTH 
+} from "../utils/formValidation";
 
 const AdminCreateTask = ({ isModal = false, onClose }) => {
   const navigate = useNavigate();
@@ -84,10 +87,10 @@ const AdminCreateTask = ({ isModal = false, onClose }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    // Basic validation
-    const errors = {};
-    if (!formData.title.trim()) errors.title = "Title is required";
-    if (!formData.dueDate) errors.dueDate = "Due date is required";
+    // Use the shared validation utility
+    const errors = validateTaskForm(formData);
+    
+    // Add admin-specific validation if needed
     if (!formData.description.trim()) errors.description = "Description is required";
     
     setFormErrors(errors);
@@ -234,7 +237,7 @@ const AdminCreateTask = ({ isModal = false, onClose }) => {
                   )}
                 </div>
               </div>
-
+              
               {/* Priority field */}
               <SelectField
                 id="priority"
@@ -279,4 +282,4 @@ const AdminCreateTask = ({ isModal = false, onClose }) => {
   );
 };
 
-export default AdminCreateTask; 
+export default AdminCreateTask;

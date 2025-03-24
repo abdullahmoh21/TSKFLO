@@ -3,8 +3,12 @@ import { useNavigate, useParams } from "react-router-dom";
 import { FaTasks, FaCalendarAlt, FaExclamationCircle, FaSpinner, FaCheck } from "react-icons/fa";
 import { useUpdateTaskMutation, useGetTasksQuery } from "../features/tasks/taskApiSlice";
 
-// Maximum description length as defined by the backend
-const MAX_DESCRIPTION_LENGTH = 500;
+// Import shared validation utility
+import { 
+  validateTaskForm, 
+  MAX_DESCRIPTION_LENGTH,
+  getCharacterCountColor
+} from "../utils/formValidation";
 
 const EditTask = () => {
     const { taskId } = useParams();
@@ -19,7 +23,7 @@ const EditTask = () => {
         status: "Incomplete"
     });
     const [loading, setLoading] = useState(true);
-
+    
     // Fetch tasks to get the one we want to edit
     const { data: tasks = [], isLoading: isLoadingTasks } = useGetTasksQuery();
     
@@ -65,8 +69,12 @@ const EditTask = () => {
     const handleSubmit = async (e) => {
         e.preventDefault();
         
-        if (task.description.length > MAX_DESCRIPTION_LENGTH) {
-            setErrorMessage(`Description must be ${MAX_DESCRIPTION_LENGTH} characters or less.`);
+        // Use the shared validation utility
+        const errors = validateTaskForm(task);
+        
+        if (Object.keys(errors).length > 0) {
+            // Display the first error
+            setErrorMessage(Object.values(errors)[0]);
             return;
         }
         
@@ -100,9 +108,9 @@ const EditTask = () => {
         }
     };
 
-    // Calculate remaining characters
+    // Calculate remaining characters and get the appropriate color class
     const remainingChars = MAX_DESCRIPTION_LENGTH - task.description.length;
-    const isNearLimit = remainingChars <= 50;
+    const characterCountColorClass = getCharacterCountColor(task.description.length, MAX_DESCRIPTION_LENGTH);
 
     if (loading || isLoadingTasks) {
         return (
@@ -169,15 +177,10 @@ const EditTask = () => {
                             placeholder="Enter task description"
                             value={task.description}
                             onChange={handleChange}
-                            className={`border rounded-lg p-3 w-full focus:ring-2 focus:outline-none ${
-                                isNearLimit ? "focus:ring-yellow-500 border-yellow-300" : "focus:ring-blue-500"
-                            }`}
-                            required
+                            className="border rounded-lg p-3 w-full focus:ring-2 focus:outline-none focus:ring-blue-500"
                             rows="4"
                         />
-                        <div className={`text-right text-sm mt-1 ${
-                            isNearLimit ? "text-yellow-600" : "text-gray-500"
-                        }`}>
+                        <div className={`text-right text-sm mt-1 ${characterCountColorClass}`}>
                             {remainingChars} characters remaining
                         </div>
                     </div>
@@ -261,4 +264,4 @@ const EditTask = () => {
     );
 };
 
-export default EditTask; 
+export default EditTask;

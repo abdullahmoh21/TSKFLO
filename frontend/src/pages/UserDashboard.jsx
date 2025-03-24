@@ -23,9 +23,12 @@ import {
   FaChevronUp,
   FaArrowUp,
   FaStar,
+  FaChevronLeft,
+  FaChevronRight,
 } from "react-icons/fa";
 import {
   useGetTasksQuery,
+  useGetTaskMetricsQuery,
   useDeleteTaskMutation,
 } from "../features/tasks/taskApiSlice";
 import { useGetMyDataQuery } from "../features/user/userApiSlice";
@@ -46,6 +49,11 @@ const UserDashboard = () => {
     priority: "",
     taskRelation: "",
   });
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(9); // Changed from 10 to 9 for 3x3 grid
+  const pageSizeOptions = [9, 18, 27, 36]; // Multiples of 3 for the grid
 
   // Get username and userId from Redux state
   const userName = useSelector(selectCurrentUserName);
@@ -70,20 +78,35 @@ const UserDashboard = () => {
   const [editTaskData, setEditTaskData] = useState(null);
   const [showEditModal, setShowEditModal] = useState(false);
 
+  // Prepare query parameters for tasks fetch
+  const queryParams = {
+    page: currentPage,
+    limit: pageSize,
+    ...(filters.status && { status: filters.status }),
+    ...(filters.priority && { priority: filters.priority }),
+    ...(filters.taskRelation && { taskRelation: filters.taskRelation }),
+    ...(hideCompleted && { hideCompleted: true }),
+  };
+
+  // Fetch tasks data from backend with filters and pagination
+  const {
+    data: paginatedData,
+    isLoading,
+    isError,
+    error,
+    refetch,
+  } = useGetTasksQuery(queryParams);
+
+  // Extract tasks array and pagination info from response
+  const tasks = paginatedData?.tasks || [];
+  const totalPages = paginatedData?.totalPages || 0;
+  const totalTasks = paginatedData?.totalTasks || 0;
+
   // Trigger user profile fetch
   const { data: userData, isLoading: isLoadingProfile } = useGetMyDataQuery(
     undefined,
     { skip: !token }
   );
-
-  // Fetch tasks data from backend
-  const {
-    data: tasks = [],
-    isLoading,
-    isError,
-    error,
-    refetch,
-  } = useGetTasksQuery();
 
   useEffect(() => {
     if (userData) {
@@ -109,12 +132,45 @@ const UserDashboard = () => {
   // Delete task mutation
   const [deleteTask, { isLoading: isDeleting }] = useDeleteTaskMutation();
 
+  // Fetch global task metrics
+  const { data: metricsData, isLoading: isLoadingMetrics } =
+    useGetTaskMetricsQuery();
+
+  // Extract metrics
+  const globalMetrics = metricsData?.metrics || {
+    totalTasks: 0,
+    todoCount: 0,
+    doneCount: 0,
+    highPriorityCount: 0,
+    mediumPriorityCount: 0,
+    lowPriorityCount: 0,
+    completionRate: 0,
+  };
+
+  // Handle page change
+  const handlePageChange = (newPage) => {
+    if (newPage >= 1 && newPage <= totalPages) {
+      setCurrentPage(newPage);
+      // Scrolling back to top when changing page
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  };
+
+  // Handle page size change
+  const handlePageSizeChange = (e) => {
+    const newSize = parseInt(e.target.value);
+    setPageSize(newSize);
+    setCurrentPage(1); // Reset to first page when changing page size
+  };
+
   // Rest of the existing functions
   const handleFilterChange = (key, value) => {
     setFilters((prev) => ({
       ...prev,
       [key]: value,
     }));
+    // Reset to first page when filters change
+    setCurrentPage(1);
   };
 
   const clearFilters = () => {
@@ -123,6 +179,14 @@ const UserDashboard = () => {
       priority: "",
       taskRelation: "",
     });
+    setHideCompleted(false);
+    setCurrentPage(1);
+  };
+
+  // Toggle hide completed tasks
+  const toggleHideCompleted = () => {
+    setHideCompleted(!hideCompleted);
+    setCurrentPage(1); // Reset to first page when changing filters
   };
 
   const handleDeleteTask = async (taskId) => {
@@ -134,6 +198,7 @@ const UserDashboard = () => {
           message: "Task deleted successfully",
         });
         setTimeout(() => setNotification(null), 3000);
+        refetch(); // Refresh current page after deletion
       } catch (err) {
         setNotification({
           type: "error",
@@ -194,8 +259,8 @@ const UserDashboard = () => {
       return "You're both the creator and assignee";
     } else if (isOwner) {
       return "You created this task";
-    } else if (isAssignee) {
-      return "Assigned to you";
+    } else if (isAssignee && task.owner) {
+      return `Created by ${task.owner.name}`;
     } else {
       return "Observer"; // fallback, should not happen in most cases
     }
@@ -263,100 +328,76 @@ const UserDashboard = () => {
   // Format date for display
   const formatDate = (dateString) => {
     if (!dateString) return "No due date";
-    return new Date(dateString).toLocaleDateString("en-US", {
-      weekday: "long",
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    });
+
+    const date = new Date(dateString);
+    const day = date.getDate();
+    const month = date.toLocaleString("en-US", { month: "long" });
+    const year = date.getFullYear();
+
+    return `${day} ${month} ${year}`;
   };
 
-  // Filter tasks based on selected filters (updated for populated fields)
-  const filteredTasks = tasks.filter((task) => {
-    // Status filter
-    const statusMatch =
-      !filters.status ||
-      (filters.status === "Done" && task.status === "Complete") ||
-      (filters.status === "To Do" && task.status === "Incomplete");
+  // Simple date format for cards
+  const formatShortDate = (dateString) => {
+    if (!dateString) return "No due date";
 
-    // Priority filter
-    const priorityMatch =
-      !filters.priority || task.priority === filters.priority.toLowerCase();
+    const date = new Date(dateString);
+    const day = date.getDate();
+    const month = date.toLocaleString("en-US", { month: "long" });
+    const year = date.getFullYear();
 
-    // Task relationship filter (updated for populated owner and assignees)
-    let relationMatch = true;
-    if (filters.taskRelation) {
-      if (
-        filters.taskRelation === "created" &&
-        (!task.owner || task.owner._id !== userId)
-      ) {
-        relationMatch = false;
-      }
-      if (
-        filters.taskRelation === "assigned" &&
-        (!task.assignees ||
-          !task.assignees.some((assignee) => assignee._id === userId))
-      ) {
-        relationMatch = false;
-      }
-    }
-
-    // Hide completed tasks if option is enabled
-    const completionMatch = !hideCompleted || task.status !== "Complete";
-
-    return statusMatch && priorityMatch && relationMatch && completionMatch;
-  });
-
-  // Sort tasks by status (incomplete first) and then by due date (closest first)
-  const sortedTasks = [...filteredTasks].sort((a, b) => {
-    // First sort by status (incomplete first)
-    if (a.status !== b.status) {
-      return a.status === "Complete" ? 1 : -1;
-    }
-
-    // If both have due dates, sort by closest due date
-    if (a.dueDate && b.dueDate) {
-      return new Date(a.dueDate) - new Date(b.dueDate);
-    }
-
-    // If only one has a due date, prioritize it
-    if (a.dueDate && !b.dueDate) return -1;
-    if (!a.dueDate && b.dueDate) return 1;
-
-    // If neither has a due date, sort by priority
-    const priorityOrder = { high: 0, medium: 1, low: 2 };
-    return priorityOrder[a.priority] - priorityOrder[b.priority];
-  });
+    return `${day} ${month} ${year}`;
+  };
 
   // Get unique values for filter options
   const statusOptions = ["To Do", "Done"];
   const priorityOptions = ["High", "Medium", "Low"];
 
-  // Count tasks by priority for stats
-  const highPriorityCount = filteredTasks.filter(
-    (t) => t.priority === "high"
-  ).length;
-  const mediumPriorityCount = filteredTasks.filter(
-    (t) => t.priority === "medium"
-  ).length;
-  const lowPriorityCount = filteredTasks.filter(
-    (t) => t.priority === "low"
-  ).length;
+  // Use global metrics instead of calculating from the current page tasks
+  const highPriorityCount = globalMetrics.highPriorityCount;
+  const mediumPriorityCount = globalMetrics.mediumPriorityCount;
+  const lowPriorityCount = globalMetrics.lowPriorityCount;
+  const todoCount = globalMetrics.todoCount;
+  const doneCount = globalMetrics.doneCount;
+  const completionRate = globalMetrics.completionRate;
 
-  // Count tasks by status for stats
-  const todoCount = filteredTasks.filter(
-    (t) => t.status === "Incomplete"
-  ).length;
-  const doneCount = filteredTasks.filter((t) => t.status === "Complete").length;
+  // Generate pagination numbers
+  const generatePaginationNumbers = () => {
+    if (totalPages <= 1) return [];
 
-  // Calculate completion rate
-  const completionRate =
-    filteredTasks.length > 0
-      ? Math.round((doneCount / filteredTasks.length) * 100)
-      : 0;
+    let pages = [];
+    // Always show first page
+    pages.push(1);
+
+    // Calculate range of pages to show around current page
+    let startPage = Math.max(2, currentPage - 1);
+    let endPage = Math.min(totalPages - 1, currentPage + 1);
+
+    // Add ellipsis after first page if needed
+    if (startPage > 2) {
+      pages.push("...");
+    }
+
+    // Add pages in the middle
+    for (let i = startPage; i <= endPage; i++) {
+      pages.push(i);
+    }
+
+    // Add ellipsis before last page if needed
+    if (endPage < totalPages - 1) {
+      pages.push("...");
+    }
+
+    // Always show last page if more than 1 page
+    if (totalPages > 1) {
+      pages.push(totalPages);
+    }
+
+    return pages;
+  };
 
   return (
-    <div className="min-h-screen bg-secondary-50 dark:bg-secondary-900 pt-20 px-4 sm:px-6 lg:px-8 transition-colors duration-300">
+    <div className="min-h-screen bg-secondary-50 dark:bg-secondary-900 pt-20 pb-5 px-4 sm:px-6 lg:px-8 transition-colors duration-300">
       <div className="max-w-7xl mx-auto">
         {/* Welcome Section with Overview Stats */}
         <div
@@ -497,7 +538,7 @@ const UserDashboard = () => {
                 </h2>
                 <div className="flex gap-2">
                   <span className="px-3 py-1 rounded-full text-xs font-medium bg-primary-50 text-primary-700 dark:bg-primary-900/30 dark:text-primary-300">
-                    Total: {filteredTasks.length}
+                    Total: {globalMetrics.totalTasks}
                   </span>
                   <span className="px-3 py-1 rounded-full text-xs font-medium bg-warning-50 text-warning-700 dark:bg-warning-900/30 dark:text-warning-300">
                     To Do: {todoCount}
@@ -510,7 +551,7 @@ const UserDashboard = () => {
 
               <div className="flex items-center gap-3 w-full sm:w-auto">
                 <button
-                  onClick={() => setHideCompleted(!hideCompleted)}
+                  onClick={toggleHideCompleted}
                   className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors hover:bg-secondary-100 dark:hover:bg-secondary-800"
                 >
                   {hideCompleted ? (
@@ -539,6 +580,28 @@ const UserDashboard = () => {
                     <FaChevronDown className="ml-1" />
                   )}
                 </button>
+
+                {/* Page Size Selector */}
+                <div className="flex items-center gap-2">
+                  <label
+                    htmlFor="pageSize"
+                    className="text-sm text-secondary-600 dark:text-secondary-400"
+                  >
+                    Per page:
+                  </label>
+                  <select
+                    id="pageSize"
+                    value={pageSize}
+                    onChange={handlePageSizeChange}
+                    className="p-1.5 text-sm border border-secondary-300 dark:border-secondary-700 rounded-lg bg-white dark:bg-secondary-800 text-secondary-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                  >
+                    {pageSizeOptions.map((size) => (
+                      <option key={size} value={size}>
+                        {size}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
             </div>
 
@@ -623,13 +686,13 @@ const UserDashboard = () => {
         {/* Tasks Grid/List */}
         {!isLoading && !isError && (
           <div
-            className={`mb-8 transform transition-all duration-700 delay-500 ${
+            className={`transform transition-all duration-700 delay-500 ${
               isLoaded
                 ? "translate-y-0 opacity-100"
                 : "translate-y-10 opacity-0"
             }`}
           >
-            {sortedTasks.length === 0 ? (
+            {tasks.length === 0 ? (
               <div className="glass-morphism rounded-xl shadow-md p-8 text-center">
                 <FaClipboardList className="text-4xl mx-auto mb-4 text-secondary-400 dark:text-secondary-600" />
                 <h3 className="text-xl font-medium text-secondary-900 dark:text-white mb-2">
@@ -648,116 +711,188 @@ const UserDashboard = () => {
                 </Link>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                {sortedTasks.map((task, index) => (
-                  <div
-                    key={task._id}
-                    className={`${getCardBackground(
-                      task
-                    )} rounded-xl shadow-md overflow-hidden transition-all duration-300 transform hover:shadow-lg hover:-translate-y-1 ${
-                      hoveredTask === task._id
-                        ? "ring-2 ring-primary-500 dark:ring-primary-400"
-                        : ""
-                    } transform transition-all duration-700 delay-${
-                      (index % 9) * 100
-                    }`}
-                    onMouseEnter={() => setHoveredTask(task._id)}
-                    onMouseLeave={() => setHoveredTask(null)}
-                  >
-                    <div className="p-5">
-                      <div className="flex flex-col mb-3">
-                        <div className="flex justify-between items-start mb-2">
-                          <div className="flex items-start gap-2 w-[60%]">
-                            <div className="flex flex-shrink-0 mt-1">
-                              {task.priority === "high" && (
-                                <span className="text-danger-500 dark:text-danger-400 mr-1">
-                                  <FaArrowUp />
-                                </span>
-                              )}
-                              {isOverdue(task.dueDate) && (
-                                <span className="text-danger-500 dark:text-danger-400">
-                                  <FaExclamationCircle />
-                                </span>
-                              )}
+              <>
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                  {tasks.map((task, index) => (
+                    <div
+                      key={task._id}
+                      className={`${getCardBackground(
+                        task
+                      )} rounded-xl shadow-md overflow-hidden transition-all duration-300 transform hover:shadow-lg hover:-translate-y-1 ${
+                        hoveredTask === task._id
+                          ? "ring-2 ring-primary-500 dark:ring-primary-400"
+                          : ""
+                      } transform transition-all duration-700 delay-${
+                        (index % 9) * 100
+                      } cursor-pointer`} // Add cursor-pointer to indicate clickability
+                      onClick={() => openEditTaskModal(task)} // Open edit modal when task card is clicked
+                      onMouseEnter={() => setHoveredTask(task._id)}
+                      onMouseLeave={() => setHoveredTask(null)}
+                    >
+                      <div className="p-5">
+                        <div className="flex flex-col mb-3">
+                          <div className="flex justify-between items-start mb-2">
+                            <div className="flex items-start gap-2 w-[60%]">
+                              <div className="flex flex-shrink-0 mt-1">
+                                {task.priority === "high" && (
+                                  <span className="text-danger-500 dark:text-danger-400 mr-1">
+                                    <FaArrowUp />
+                                  </span>
+                                )}
+                                {isOverdue(task.dueDate) && (
+                                  <span className="text-danger-500 dark:text-danger-400">
+                                    <FaExclamationCircle />
+                                  </span>
+                                )}
+                              </div>
+                              <h3 className="text-lg font-semibold text-secondary-900 dark:text-white truncate">
+                                {task.title}
+                              </h3>
                             </div>
-                            <h3 className="text-lg font-semibold text-secondary-900 dark:text-white truncate">
-                              {task.title}
-                            </h3>
+                            <div className="flex gap-1 flex-shrink-0">
+                              <span
+                                className={`px-2.5 py-1 rounded-lg text-xs font-medium whitespace-nowrap ${getStatusColor(
+                                  task.status
+                                )}`}
+                              >
+                                {formatStatus(task.status)}
+                              </span>
+                              <span
+                                className={`px-2.5 py-1 rounded-lg text-xs font-medium whitespace-nowrap bg-white/50 dark:bg-secondary-700/50 ${getPriorityColor(
+                                  task.priority
+                                )}`}
+                              >
+                                {formatPriority(task.priority)}
+                              </span>
+                            </div>
                           </div>
-                          <div className="flex gap-1 flex-shrink-0">
-                            <span
-                              className={`px-2.5 py-1 rounded-lg text-xs font-medium whitespace-nowrap ${getStatusColor(
-                                task.status
-                              )}`}
-                            >
-                              {formatStatus(task.status)}
-                            </span>
-                            <span
-                              className={`px-2.5 py-1 rounded-lg text-xs font-medium whitespace-nowrap bg-white/50 dark:bg-secondary-700/50 ${getPriorityColor(
-                                task.priority
-                              )}`}
-                            >
-                              {formatPriority(task.priority)}
-                            </span>
+                          <div className="text-sm text-secondary-500 dark:text-secondary-400">
+                            {getTaskRelationshipLabel(task)}
                           </div>
                         </div>
-                        <div className="text-sm text-secondary-500 dark:text-secondary-400">
-                          {getTaskRelationshipLabel(task)}
-                        </div>
-                      </div>
 
-                      <p className="text-secondary-700 dark:text-secondary-300 mb-4 line-clamp-2">
-                        {task.description || "No description provided"}
-                      </p>
+                        <p className="text-secondary-700 dark:text-secondary-300 mb-4 line-clamp-2">
+                          {task.description || "No description provided"}
+                        </p>
 
-                      <div className="flex justify-between items-center">
-                        <div className="flex items-center gap-1.5 text-sm text-secondary-600 dark:text-secondary-400">
-                          <FaCalendarAlt className="text-primary-500 dark:text-primary-400" />
-                          <span
-                            className={
-                              isOverdue(task.dueDate)
-                                ? "text-danger-600 dark:text-danger-400"
-                                : isApproachingDueDate(task.dueDate)
-                                ? "text-warning-600 dark:text-warning-400"
-                                : ""
-                            }
+                        <div className="flex justify-between items-center">
+                          <div className="flex items-center gap-1.5 text-sm text-secondary-600 dark:text-secondary-400">
+                            <FaCalendarAlt className="text-primary-500 dark:text-primary-400" />
+                            <span
+                              className={
+                                isOverdue(task.dueDate)
+                                  ? "text-danger-600 dark:text-danger-400"
+                                  : isApproachingDueDate(task.dueDate)
+                                  ? "text-warning-600 dark:text-warning-400"
+                                  : ""
+                              }
+                            >
+                              {task.dueDate
+                                ? formatShortDate(task.dueDate)
+                                : "No due date"}
+                            </span>
+                          </div>
+                          {/* Stop propagation on action buttons to prevent opening edit modal */}
+                          <div
+                            className="flex items-center gap-2"
+                            onClick={(e) => e.stopPropagation()}
                           >
-                            {task.dueDate
-                              ? new Date(task.dueDate).toLocaleDateString()
-                              : "No due date"}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => openTaskDetail(task)}
-                            className="p-1.5 rounded-full text-secondary-500 hover:text-primary-500 dark:text-secondary-400 dark:hover:text-primary-400 hover:bg-secondary-100 dark:hover:bg-secondary-700/50 transition-colors"
-                            aria-label="View task details"
-                          >
-                            <FaEye />
-                          </button>
-                          <button
-                            onClick={() => openEditTaskModal(task)}
-                            className="p-1.5 rounded-full text-secondary-500 hover:text-primary-500 dark:text-secondary-400 dark:hover:text-primary-400 hover:bg-secondary-100 dark:hover:bg-secondary-700/50 transition-colors"
-                            aria-label="Edit task"
-                          >
-                            <FaEdit />
-                          </button>
-                          {task.owner && task.owner._id === userId && (
                             <button
-                              onClick={() => handleDeleteTask(task._id)}
-                              className="p-1.5 rounded-full text-secondary-500 hover:text-danger-500 dark:text-secondary-400 dark:hover:text-danger-400 hover:bg-secondary-100 dark:hover:bg-secondary-700/50 transition-colors"
-                              aria-label="Delete task"
-                              disabled={isDeleting}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openTaskDetail(task);
+                              }}
+                              className="p-1.5 rounded-full text-secondary-500 hover:text-primary-500 dark:text-secondary-400 dark:hover:text-primary-400 hover:bg-secondary-100 dark:hover:bg-secondary-700/50 transition-colors"
+                              aria-label="View task details"
                             >
-                              <FaTrash />
+                              <FaEye />
                             </button>
-                          )}
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openEditTaskModal(task);
+                              }}
+                              className="p-1.5 rounded-full text-secondary-500 hover:text-primary-500 dark:text-secondary-400 dark:hover:text-primary-400 hover:bg-secondary-100 dark:hover:bg-secondary-700/50 transition-colors"
+                              aria-label="Edit task"
+                            >
+                              <FaEdit />
+                            </button>
+                            {task.owner && task.owner._id === userId && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDeleteTask(task._id);
+                                }}
+                                className="p-1.5 rounded-full text-secondary-500 hover:text-danger-500 dark:text-secondary-400 dark:hover:text-danger-400 hover:bg-secondary-100 dark:hover:bg-secondary-700/50 transition-colors"
+                                aria-label="Delete task"
+                                disabled={isDeleting}
+                              >
+                                <FaTrash />
+                              </button>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </div>
+                  ))}
+                </div>
+
+                {/* Pagination Controls */}
+                {totalPages > 1 && (
+                  <div className="mt-8 flex justify-center">
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => handlePageChange(currentPage - 1)}
+                        disabled={currentPage === 1}
+                        className={`flex items-center justify-center w-9 h-9 rounded-lg ${
+                          currentPage === 1
+                            ? "text-secondary-400 dark:text-secondary-600 cursor-not-allowed"
+                            : "text-secondary-700 dark:text-secondary-300 hover:bg-primary-50 dark:hover:bg-primary-900/20 hover:text-primary-600 dark:hover:text-primary-400"
+                        }`}
+                        aria-label="Previous page"
+                      >
+                        {"<"}
+                      </button>
+
+                      {generatePaginationNumbers().map((page, index) =>
+                        page === "..." ? (
+                          <span
+                            key={`ellipsis-${index}`}
+                            className="text-secondary-500 dark:text-secondary-400 px-1"
+                          >
+                            ...
+                          </span>
+                        ) : (
+                          <button
+                            key={`page-${page}`}
+                            onClick={() => handlePageChange(page)}
+                            className={`flex items-center justify-center w-9 h-9 rounded-lg ${
+                              currentPage === page
+                                ? "bg-primary-500 text-white"
+                                : "text-secondary-700 dark:text-secondary-300 hover:bg-primary-50 dark:hover:bg-primary-900/20 hover:text-primary-600 dark:hover:text-primary-400"
+                            }`}
+                          >
+                            {page}
+                          </button>
+                        )
+                      )}
+
+                      <button
+                        onClick={() => handlePageChange(currentPage + 1)}
+                        disabled={currentPage === totalPages}
+                        className={`flex items-center justify-center w-9 h-9 rounded-lg ${
+                          currentPage === totalPages
+                            ? "text-secondary-400 dark:text-secondary-600 cursor-not-allowed"
+                            : "text-secondary-700 dark:text-secondary-300 hover:bg-primary-50 dark:hover:bg-primary-900/20 hover:text-primary-600 dark:hover:text-primary-400"
+                        }`}
+                        aria-label="Next page"
+                      >
+                        {">"}
+                      </button>
+                    </div>
                   </div>
-                ))}
-              </div>
+                )}
+              </>
             )}
           </div>
         )}
@@ -789,7 +924,6 @@ const UserDashboard = () => {
                         {selectedTask.description || "No description provided"}
                       </p>
                     </div>
-
                     <div>
                       <h3 className="text-sm text-secondary-500 dark:text-secondary-400 mb-1">
                         Due Date

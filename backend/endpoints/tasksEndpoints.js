@@ -20,6 +20,9 @@ router
   .get(taskController.getUserTasks)
   .post(validator.body(createTaskSchema), taskController.createTask);
 
+// Add metrics endpoint
+router.route("/metrics").get(taskController.getTaskMetrics);
+
 router
   .route("/:taskId")
   .get(validator.params(taskIdSchema), taskController.getTask)

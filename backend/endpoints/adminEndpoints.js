@@ -45,9 +45,18 @@ router
   )
   .delete(validator.params(taskIdParamSchema), adminController.deleteTask);
 
-router.route("/tasks/:taskId/lock").patch(adminController.lockTask);
+router
+  .route("/tasks/:taskId/lock")
+  .patch(validator.params(taskIdParamSchema), adminController.lockTask);
 
-router.route("/tasks/:taskId/unlock").patch(adminController.unlockTask);
+router
+  .route("/tasks/:taskId/unlock")
+  .patch(validator.params(taskIdParamSchema), adminController.unlockTask);
+
+router
+  .route("/tasks/:taskId/assignees")
+  .patch(validator.params(taskIdParamSchema), adminController.addAssignee)
+  .delete(validator.params(taskIdParamSchema), adminController.removeAssignee);
 
 router.route("/metrics").get(adminController.getMetrics);
 

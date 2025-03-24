@@ -6,6 +6,7 @@ const sendEmail = require("../utils/emailTransporter");
 const crypto = require("crypto");
 const bcrypt = require("bcrypt");
 const logger = require("../logs/logger");
+const { now } = require("mongoose");
 
 // ------------------- /admin/users ------------------- //
 
@@ -71,10 +72,10 @@ const invite = asyncHandler(async (req, res) => {
     // Create queries
     const invitedQuery = Invitation.findOne({ email });
     invitedQuery.lean();
-    
+
     const existingUserQuery = User.findOne({ email });
     existingUserQuery.lean();
-    
+
     // Execute queries in parallel
     const [invited, existingUser] = await Promise.all([
       invitedQuery.exec(),
@@ -112,7 +113,9 @@ const invite = asyncHandler(async (req, res) => {
     return res.status(200).json({ link });
   } catch (err) {
     console.error("Error in invite:", err);
-    return res.status(500).json({ message: "Error inviting user", error: err.message });
+    return res
+      .status(500)
+      .json({ message: "Error inviting user", error: err.message });
   }
 });
 
@@ -192,10 +195,10 @@ const getAllTasks = asyncHandler(async (req, res) => {
     query.populate("assignees", "_id name email");
     // Get as plain objects
     query.lean();
-    
+
     // Execute the query
     const tasks = await query.exec();
-    
+
     // Get total count in a separate query
     const totalTasks = await Task.countDocuments().exec();
 
@@ -208,7 +211,9 @@ const getAllTasks = asyncHandler(async (req, res) => {
     });
   } catch (err) {
     console.error("Error in getAllTasks:", err);
-    res.status(500).json({ message: "Error retrieving tasks", error: err.message });
+    res
+      .status(500)
+      .json({ message: "Error retrieving tasks", error: err.message });
   }
 });
 
@@ -252,7 +257,9 @@ const getTask = asyncHandler(async (req, res) => {
     return res.status(200).json(task);
   } catch (err) {
     console.error("Error in getTask:", err);
-    return res.status(500).json({ message: "Error retrieving task", error: err.message });
+    return res
+      .status(500)
+      .json({ message: "Error retrieving task", error: err.message });
   }
 });
 
@@ -264,16 +271,25 @@ const updateTask = asyncHandler(async (req, res) => {
   const { taskId } = req.params;
   const updates = req.body; //validated with Joi
 
-  const updatedTask = await Task.findOneAndUpdate({ _id: taskId }, updates, {
-    new: true,
-    runValidators: true,
-  }).lean();
+  const task = await Task.findOne({ _id: taskId }).exec();
 
-  if (!updatedTask) {
+  if (!task) {
     return res.status(404).json({ message: "No such task exists" });
   }
+  const keys = Object.keys(updates);
+  keys.forEach((key) => {
+    task[key] = updates[key];
+  });
 
-  return res.status(200).json(updatedTask);
+  if (updates?.status === "Complete") {
+    updates.completedBy = req.user.id;
+  } else if (updates?.status === "Incomplete") {
+    updates.completedBy = null;
+  }
+
+  await task.save();
+
+  return res.status(200).json(task);
 });
 
 //@desc deletes a specific task
@@ -338,53 +354,192 @@ const unlockTask = asyncHandler(async (req, res) => {
   return res.status(200).json(updatedTask);
 });
 
+//@desc Adds an assignee to a task, ensuring only owner can add
+//@param {Object} req with valid userId, TaskId, and assignee ID's
+//@route PATCH /admin/tasks/:taskId/assignees
+//@access Private
+const addAssignee = asyncHandler(async (req, res) => {
+  const { taskId } = req.params;
+  const { assigneeId } = req.body;
+
+  const [assignee, task] = await Promise.all([
+    User.findById(assigneeId).lean(),
+    Task.findOne({ _id: taskId }).exec(),
+  ]);
+
+  if (!task) {
+    return res
+      .status(404)
+      .json({ message: "No task found or incorrect permissions" });
+  }
+
+  if (!assignee) {
+    return res.status(404).json({ message: "No user with provided ID exists" });
+  }
+
+  if (task.assignees.includes(assigneeId)) {
+    return res.status(204).json({ message: "No changes made" });
+  }
+
+  task.assignees.push(assigneeId);
+  await task.save();
+
+  //TODO: Send Email alert to assignee
+  return res.status(200).json({ message: "Assignee added successfully", task });
+});
+
+//@desc Removes an assignee from a task, ensuring only owner can add
+//@param {Object} req with valid userId, TaskId, and assignee ID
+//@route DELETE /admin/tasks/:taskId/assignees
+//@access Private
+const removeAssignee = asyncHandler(async (req, res) => {
+  const { taskId } = req.params;
+  const { assigneeId } = req.body;
+
+  const task = await Task.findOne({ _id: taskId }).exec();
+
+  if (!task) {
+    return res
+      .status(404)
+      .json({ message: "Task not found or you do not have permission" });
+  }
+
+  task.assignees = task.assignees.filter((id) => id.toString() !== assigneeId);
+  await task.save();
+  //TODO: Send Email alert to assignee
+
+  return res
+    .status(200)
+    .json({ message: "Assignee removed successfully", task });
+});
+
 //@desc returns metrics about the system
 //@param {Object} req with valid Admin JWT
 //@route GET /admin/metrics
 //@access Private
 const getMetrics = asyncHandler(async (req, res) => {
+  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+
+  // Run metrics for users, tasks, plus the aggregator:
   const [
     totalUsers,
     totalAdmins,
+    totalTasks_30d,
+    completedTasks_30d,
+    incompleteTasks_30d,
+    highPriorityTasks_30d,
+    mediumPriorityTasks_30d,
+    lowPriorityTasks_30d,
+    lockedTasks,
+    overDueTasks,
     totalTasks,
     completedTasks,
     incompleteTasks,
-    lockedTasks,
     highPriorityTasks,
     mediumPriorityTasks,
     lowPriorityTasks,
+    topUsersByCompletedTasks, // <--- aggregator results
   ] = await Promise.all([
-    // User metrics:
+    // 1) total users
     User.countDocuments(),
+
+    // 2) total admins
     User.countDocuments({ role: "admin" }),
 
-    // Task metrics:
+    // 3) tasks in last 30 days
+    Task.countDocuments({ createdAt: { $gte: thirtyDaysAgo } }),
+    Task.countDocuments({
+      status: "Complete",
+      createdAt: { $gte: thirtyDaysAgo },
+    }),
+    Task.countDocuments({
+      status: "Incomplete",
+      createdAt: { $gte: thirtyDaysAgo },
+    }),
+    Task.countDocuments({
+      priority: "high",
+      createdAt: { $gte: thirtyDaysAgo },
+    }),
+    Task.countDocuments({
+      priority: "medium",
+      createdAt: { $gte: thirtyDaysAgo },
+    }),
+    Task.countDocuments({
+      priority: "low",
+      createdAt: { $gte: thirtyDaysAgo },
+    }),
+
+    // 4) tasks all time
+    Task.countDocuments({ locked: true }),
+    Task.countDocuments({ dueDate: { $lt: new Date() } }), // you called this overDueTasks
     Task.countDocuments(),
     Task.countDocuments({ status: "Complete" }),
     Task.countDocuments({ status: "Incomplete" }),
-    Task.countDocuments({ locked: true }),
     Task.countDocuments({ priority: "high" }),
     Task.countDocuments({ priority: "medium" }),
     Task.countDocuments({ priority: "low" }),
+
+    // 5) top 10 users by completed tasks
+    Task.aggregate([
+      { $match: { status: "Complete", completedBy: { $ne: null } } },
+      {
+        $group: {
+          _id: "$completedBy",
+          tasksCompleted: { $sum: 1 },
+        },
+      },
+      { $sort: { tasksCompleted: -1 } },
+      { $limit: 10 },
+      {
+        $lookup: {
+          from: "users",
+          localField: "_id",
+          foreignField: "_id",
+          as: "userInfo",
+        },
+      },
+      { $unwind: "$userInfo" },
+      {
+        $project: {
+          _id: 0,
+          userId: "$_id",
+          tasksCompleted: 1,
+          userName: "$userInfo.name",
+          userEmail: "$userInfo.email",
+        },
+      },
+    ]),
   ]);
 
   return res.status(200).json({
     userMetrics: {
-      totalUsers,
+      totalUsers: totalUsers - totalAdmins,
       totalAdmins,
-      totalNonAdmins: totalUsers - totalAdmins,
+      // Some additional metrics or ratio: userCompletionRate, etc.
     },
     taskMetrics: {
-      totalTasks,
-      completedTasks,
-      incompleteTasks,
-      lockedTasks,
-      tasksByPriority: {
-        high: highPriorityTasks,
-        medium: mediumPriorityTasks,
-        low: lowPriorityTasks,
+      thirtyDays: {
+        totalTasks_30d,
+        completedTasks_30d,
+        incompleteTasks_30d,
+        tasksByPriority: {
+          high: highPriorityTasks_30d,
+          medium: mediumPriorityTasks_30d,
+          low: lowPriorityTasks_30d,
+        },
+      },
+      allTime: {
+        lockedTasks,
+        overDueTasks,
+        totalTasks,
+        completedTasks,
+        incompleteTasks,
+        highPriorityTasks,
+        mediumPriorityTasks,
+        lowPriorityTasks,
       },
     },
+    topUsersByCompletedTasks, // This is the array you can feed to your bar chart
   });
 });
 
@@ -400,5 +555,7 @@ module.exports = {
   deleteTask,
   lockTask,
   unlockTask,
+  addAssignee,
+  removeAssignee,
   getMetrics,
 };

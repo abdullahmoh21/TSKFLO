@@ -1,0 +1,23 @@
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>Task Completed Notification</title>
+  </head>
+  <body>
+    <h1>Task Completed Notification</h1>
+    <p>Hello {{name}},</p>
+    <p>The task <strong>{{taskName}}</strong> has been marked as completed.</p>
+    <p>Owner: {{owner}}</p>
+
+    {{#if assignees}}
+      <p>Assignees:</p>
+      <ul>
+        {{#each assignees}}
+          <li>{{this}}</li>
+        {{/each}}
+      </ul>
+    {{/if}}
+
+    <p>Thank you for your attention!</p>
+  </body>
+</html>

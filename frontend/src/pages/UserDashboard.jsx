@@ -40,6 +40,16 @@ import {
 } from "../features/auth/authSlice";
 import { setUserData } from "../features/auth/authSlice";
 import EditTaskModal from "../components/EditTaskModal";
+import {
+  formatPriority,
+  formatStatus,
+  isOverdue,
+  isApproachingDueDate,
+  getPriorityColor,
+  getStatusColor,
+  formatDate,
+  getCardBackground,
+} from "../utils/taskUtils";
 
 const UserDashboard = () => {
   const dispatch = useDispatch();
@@ -241,15 +251,6 @@ const UserDashboard = () => {
   };
 
   // Helper functions
-  // Format priority to display
-  const formatPriority = (priority) => {
-    return priority.charAt(0).toUpperCase() + priority.slice(1);
-  };
-
-  const formatStatus = (status) => {
-    return status === "Complete" ? "Done" : "To Do";
-  };
-
   const getTaskRelationshipLabel = (task) => {
     const isOwner = task.owner && task.owner._id === userId;
     const isAssignee =

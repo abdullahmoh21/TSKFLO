@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import {
   FaUsers,
   FaTasks,
@@ -46,6 +46,12 @@ import {
 import 'react-tooltip/dist/react-tooltip.css';
 import { Tooltip as ReactTooltip } from 'react-tooltip';
 import { toast } from "react-toastify";
+// Import task utilities
+import { 
+  isOverdue, 
+  getPriorityColor, 
+  getStatusColor 
+} from "../utils/taskUtils";
 
 // Add these imports at the top of your file
 import {
@@ -117,12 +123,6 @@ const AdminPage = () => {
       setActiveTab('dashboard');
     }
   }, [location.hash]);
-
-  // Add the isOverdue function
-  const isOverdue = (dueDate) => {
-    if (!dueDate) return false;
-    return new Date(dueDate) < new Date();
-  };
 
   // RTK Query hooks with debug logs
   const {
@@ -486,40 +486,6 @@ const AdminPage = () => {
 
     return filteredTasks;
   }, [tasks, filters, sortConfig, searchTerm]);
-
-  // Update the getPriorityColor function to handle undefined values
-  const getPriorityColor = (priority) => {
-    if (!priority) return "text-secondary-600 dark:text-secondary-400 bg-secondary-50 dark:bg-secondary-900/20 border-secondary-100 dark:border-secondary-800";
-    
-    switch (priority.toLowerCase()) {
-      case "high":
-        return "text-danger-600 dark:text-danger-400 bg-danger-50 dark:bg-danger-900/20 border-danger-100 dark:border-danger-800";
-      case "medium":
-        return "text-warning-600 dark:text-warning-400 bg-warning-50 dark:bg-warning-900/20 border-warning-100 dark:border-warning-800";
-      case "low":
-        return "text-success-600 dark:text-success-400 bg-success-50 dark:bg-success-900/20 border-success-100 dark:border-success-800";
-      default:
-        return "text-secondary-600 dark:text-secondary-400 bg-secondary-50 dark:bg-secondary-900/20 border-secondary-100 dark:border-secondary-800";
-    }
-  };
-
-  // Update the getStatusColor function to handle undefined values
-  const getStatusColor = (status) => {
-    if (!status) return "text-secondary-600 dark:text-secondary-400 bg-secondary-50 dark:bg-secondary-900/20 border-secondary-100 dark:border-secondary-800";
-    
-    switch (status.toLowerCase()) {
-      case "done":
-      case "completed":
-        return "text-success-600 dark:text-success-400 bg-success-50 dark:bg-success-900/20 border-success-100 dark:border-success-800";
-      case "in progress":
-        return "text-primary-600 dark:text-primary-400 bg-primary-50 dark:bg-primary-900/20 border-primary-100 dark:border-primary-800";
-      case "to do":
-      case "incomplete":
-        return "text-secondary-600 dark:text-secondary-400 bg-secondary-50 dark:bg-secondary-900/20 border-secondary-100 dark:border-secondary-800";
-      default:
-        return "text-secondary-600 dark:text-secondary-400 bg-secondary-50 dark:bg-secondary-900/20 border-secondary-100 dark:border-secondary-800";
-    }
-  };
 
   const handleNewUserChange = (e) => {
     const name = e.target.name;

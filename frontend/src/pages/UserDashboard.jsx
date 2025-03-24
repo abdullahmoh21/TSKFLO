@@ -37,6 +37,16 @@ import {
 } from "../features/auth/authSlice";
 import { setUserData } from "../features/auth/authSlice";
 import EditTaskModal from "../components/EditTaskModal";
+import { 
+  formatPriority, 
+  formatStatus, 
+  isOverdue, 
+  isApproachingDueDate, 
+  getPriorityColor, 
+  getStatusColor, 
+  formatDate, 
+  getCardBackground 
+} from "../utils/taskUtils";
 
 const UserDashboard = () => {
   const dispatch = useDispatch();
@@ -176,15 +186,6 @@ const UserDashboard = () => {
   };
 
   // Helper functions
-  // Format priority to display
-  const formatPriority = (priority) => {
-    return priority.charAt(0).toUpperCase() + priority.slice(1);
-  };
-
-  const formatStatus = (status) => {
-    return status === "Complete" ? "Done" : "To Do";
-  };
-
   const getTaskRelationshipLabel = (task) => {
     const isOwner = task.owner && task.owner._id === userId;
     const isAssignee =
@@ -199,76 +200,6 @@ const UserDashboard = () => {
     } else {
       return "Observer"; // fallback, should not happen in most cases
     }
-  };
-
-  // Check if a task is overdue
-  const isOverdue = (dueDate) => {
-    if (!dueDate) return false;
-    const now = new Date();
-    const due = new Date(dueDate);
-    return due < now && due.toDateString() !== now.toDateString();
-  };
-
-  // Check if a task is approaching due date (within 3 days)
-  const isApproachingDueDate = (dueDate) => {
-    if (!dueDate) return false;
-    const now = new Date();
-    const due = new Date(dueDate);
-    const diffTime = due - now;
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    // Return true if due date is within 3 days and not overdue
-    return diffDays > 0 && diffDays <= 3;
-  };
-
-  // Get priority color
-  const getPriorityColor = (priority) => {
-    switch (priority.toLowerCase()) {
-      case "high":
-        return "text-danger-500 dark:text-danger-400";
-      case "medium":
-        return "text-warning-500 dark:text-warning-400";
-      case "low":
-        return "text-success-500 dark:text-success-400";
-      default:
-        return "text-secondary-500 dark:text-secondary-400";
-    }
-  };
-
-  // Get status color
-  const getStatusColor = (status) => {
-    switch (status) {
-      case "Complete":
-        return "text-success-600 dark:text-success-400 bg-success-50 dark:bg-success-900/20";
-      case "Incomplete":
-        return "text-secondary-600 dark:text-secondary-400 bg-secondary-50 dark:bg-secondary-900/20";
-      default:
-        return "text-secondary-600 dark:text-secondary-400";
-    }
-  };
-
-  // Get card background based on task properties
-  const getCardBackground = (task) => {
-    if (isOverdue(task.dueDate)) {
-      return "border-l-4 border-danger-500 dark:border-danger-600 bg-white dark:bg-secondary-800";
-    }
-    if (isApproachingDueDate(task.dueDate)) {
-      return "border-l-4 border-warning-500 dark:border-warning-600 bg-white dark:bg-secondary-800";
-    }
-    if (task.status === "Complete") {
-      return "border-l-4 border-success-500 dark:border-success-600 bg-white dark:bg-secondary-800";
-    }
-    return "border-l border-primary-200 dark:border-primary-800 bg-white dark:bg-secondary-800";
-  };
-
-  // Format date for display
-  const formatDate = (dateString) => {
-    if (!dateString) return "No due date";
-    return new Date(dateString).toLocaleDateString("en-US", {
-      weekday: "long",
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    });
   };
 
   // Filter tasks based on selected filters (updated for populated fields)

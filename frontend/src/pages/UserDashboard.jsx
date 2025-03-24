@@ -37,6 +37,7 @@ import {
 } from "../features/auth/authSlice";
 import { setUserData } from "../features/auth/authSlice";
 import EditTaskModal from "../components/EditTaskModal";
+import TaskDetailsModal from "../components/TaskDetailsModal";
 
 const UserDashboard = () => {
   const dispatch = useDispatch();
@@ -762,149 +763,21 @@ const UserDashboard = () => {
           </div>
         )}
 
-        {/* Task Detail Modal */}
-        {showTaskModal && selectedTask && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
-            <div className="bg-white dark:bg-secondary-800 rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto animate-scale-in">
-              <div className="p-6">
-                <div className="flex justify-between items-start mb-4">
-                  <h2 className="text-2xl font-bold text-secondary-900 dark:text-white">
-                    {selectedTask.title}
-                  </h2>
-                  <button
-                    onClick={closeTaskModal}
-                    className="p-2 rounded-full hover:bg-secondary-100 dark:hover:bg-secondary-700 text-secondary-500 dark:text-secondary-400"
-                  >
-                    <FaTimes />
-                  </button>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                  <div className="space-y-4">
-                    <div>
-                      <h3 className="text-sm text-secondary-500 dark:text-secondary-400 mb-1">
-                        Description
-                      </h3>
-                      <p className="text-secondary-800 dark:text-secondary-200">
-                        {selectedTask.description || "No description provided"}
-                      </p>
-                    </div>
-
-                    <div>
-                      <h3 className="text-sm text-secondary-500 dark:text-secondary-400 mb-1">
-                        Due Date
-                      </h3>
-                      <p className="text-secondary-800 dark:text-secondary-200 flex items-center gap-2">
-                        <FaCalendarAlt
-                          className={
-                            isOverdue(selectedTask.dueDate)
-                              ? "text-danger-500"
-                              : isApproachingDueDate(selectedTask.dueDate)
-                              ? "text-warning-500"
-                              : "text-primary-500"
-                          }
-                        />
-                        {selectedTask.dueDate
-                          ? formatDate(selectedTask.dueDate)
-                          : "No due date"}
-                        {isOverdue(selectedTask.dueDate) && (
-                          <span className="text-danger-500 dark:text-danger-400 text-sm bg-danger-50 dark:bg-danger-900/30 px-2 py-0.5 rounded-full">
-                            Overdue
-                          </span>
-                        )}
-                        {isApproachingDueDate(selectedTask.dueDate) && (
-                          <span className="text-warning-500 dark:text-warning-400 text-sm bg-warning-50 dark:bg-warning-900/30 px-2 py-0.5 rounded-full">
-                            Due soon
-                          </span>
-                        )}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="space-y-4">
-                    <div>
-                      <h3 className="text-sm text-secondary-500 dark:text-secondary-400 mb-1">
-                        Status
-                      </h3>
-                      <p
-                        className={`inline-flex px-3 py-1 rounded-lg text-sm font-medium ${getStatusColor(
-                          selectedTask.status
-                        )}`}
-                      >
-                        {formatStatus(selectedTask.status)}
-                      </p>
-                    </div>
-
-                    <div>
-                      <h3 className="text-sm text-secondary-500 dark:text-secondary-400 mb-1">
-                        Priority
-                      </h3>
-                      <p
-                        className={`inline-flex px-3 py-1 rounded-lg text-sm font-medium bg-white dark:bg-secondary-700 ${getPriorityColor(
-                          selectedTask.priority
-                        )}`}
-                      >
-                        {formatPriority(selectedTask.priority)}
-                      </p>
-                    </div>
-
-                    <div>
-                      <h3 className="text-sm text-secondary-500 dark:text-secondary-400 mb-1">
-                        Created By
-                      </h3>
-                      <p className="text-secondary-800 dark:text-secondary-200 flex items-center gap-1.5">
-                        <FaUser className="text-primary-500" />
-                        {selectedTask.owner
-                          ? selectedTask.owner.name
-                          : "Unknown"}
-                      </p>
-                    </div>
-
-                    <div>
-                      <h3 className="text-sm text-secondary-500 dark:text-secondary-400 mb-1">
-                        Assigned To
-                      </h3>
-                      {selectedTask.assignees &&
-                      selectedTask.assignees.length > 0 ? (
-                        <div className="flex flex-wrap gap-2">
-                          {selectedTask.assignees.map((assignee) => (
-                            <span
-                              key={assignee._id}
-                              className="inline-flex items-center gap-1 px-2 py-1 bg-primary-50 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300 rounded-lg text-sm"
-                            >
-                              <FaUser className="text-xs" /> {assignee.name}
-                            </span>
-                          ))}
-                        </div>
-                      ) : (
-                        <p className="text-secondary-800 dark:text-secondary-200">
-                          No assignees
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="mt-4 flex justify-end space-x-3">
-                  <button
-                    onClick={() => {
-                      closeTaskModal();
-                      openEditTaskModal(selectedTask);
-                    }}
-                    className="flex items-center px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg transition-colors"
-                  >
-                    <FaEdit className="mr-2" /> Edit Task
-                  </button>
-                  <button
-                    onClick={closeTaskModal}
-                    className="px-4 py-2 bg-secondary-100 dark:bg-secondary-800 hover:bg-secondary-200 dark:hover:bg-secondary-700 text-secondary-700 dark:text-secondary-300 rounded-lg font-medium transition-all"
-                  >
-                    Close
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
+        {/* Task Detail Modal - Using the new reusable modal component */}
+        {selectedTask && (
+          <TaskDetailsModal
+            task={selectedTask}
+            isOpen={showTaskModal}
+            onClose={closeTaskModal}
+            onEditClick={openEditTaskModal}
+            formatDate={formatDate}
+            isOverdue={isOverdue}
+            isApproachingDueDate={isApproachingDueDate}
+            getStatusColor={getStatusColor}
+            getPriorityColor={getPriorityColor}
+            formatStatus={formatStatus}
+            formatPriority={formatPriority}
+          />
         )}
 
         {/* EditTaskModal */}

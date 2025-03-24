@@ -22,13 +22,9 @@ import { useSearchUsersQuery } from "../features/user/userApiSlice";
 import { useSelector } from "react-redux";
 import { selectCurrentUserId } from "../features/auth/authSlice";
 
-// Import shared validation utility
-import { 
-  validateTaskForm, 
-  MAX_TITLE_LENGTH, 
-  MAX_DESCRIPTION_LENGTH,
-  getCharacterCountColor 
-} from "../utils/formValidation";
+// Maximum length constants
+const MAX_TITLE_LENGTH = 100;
+const MAX_DESCRIPTION_LENGTH = 500;
 
 const CreateTask = ({ isModal = false, onClose }) => {
   const navigate = useNavigate();
@@ -110,8 +106,10 @@ const CreateTask = ({ isModal = false, onClose }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    // Use the shared validation utility
-    const errors = validateTaskForm(formData);
+    // Basic validation
+    const errors = {};
+    if (!formData.title.trim()) errors.title = "Title is required";
+    if (!formData.dueDate) errors.dueDate = "Due date is required";
     
     setFormErrors(errors);
     if (Object.keys(errors).length > 0) return;
@@ -160,6 +158,13 @@ const CreateTask = ({ isModal = false, onClose }) => {
         general: errorMessage
       });
     }
+  };
+
+  const getCharacterCountColor = (current, max) => {
+    const percentage = (current / max) * 100;
+    if (percentage < 70) return "text-success-600 dark:text-success-400";
+    if (percentage < 90) return "text-warning-600 dark:text-warning-400";
+    return "text-danger-600 dark:text-danger-400";
   };
 
   return (

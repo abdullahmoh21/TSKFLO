@@ -251,6 +251,15 @@ const UserDashboard = () => {
   };
 
   // Helper functions
+  // Format priority to display
+  const formatPriority = (priority) => {
+    return priority.charAt(0).toUpperCase() + priority.slice(1);
+  };
+
+  const formatStatus = (status) => {
+    return status === "Complete" ? "Done" : "To Do";
+  };
+
   const getTaskRelationshipLabel = (task) => {
     const isOwner = task.owner && task.owner._id === userId;
     const isAssignee =

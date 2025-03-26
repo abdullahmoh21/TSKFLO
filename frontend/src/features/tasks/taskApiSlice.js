@@ -43,7 +43,7 @@ export const taskApiSlice = apiSlice.injectEndpoints({
         method: "POST",
         body: taskData,
       }),
-      invalidatesTags: [{ type: "Task", id: "LIST" }, "TaskMetrics"],
+      invalidatesTags: [{ type: "Task", id: "LIST" }, "TaskMetrics", "Metrics"],
     }),
     updateTask: builder.mutation({
       query: ({ taskId, ...taskData }) => ({
@@ -54,6 +54,7 @@ export const taskApiSlice = apiSlice.injectEndpoints({
       invalidatesTags: (result, error, { taskId }) => [
         { type: "Task", id: taskId },
         "TaskMetrics",
+        "Metrics",
       ],
     }),
     deleteTask: builder.mutation({
@@ -61,7 +62,7 @@ export const taskApiSlice = apiSlice.injectEndpoints({
         url: `tasks/${taskId}`,
         method: "DELETE",
       }),
-      invalidatesTags: [{ type: "Task", id: "LIST" }, "TaskMetrics"],
+      invalidatesTags: [{ type: "Task", id: "LIST" }, "TaskMetrics", "Metrics"],
     }),
     getUsers: builder.query({
       query: () => "users",

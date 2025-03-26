@@ -35,6 +35,9 @@ const EditTaskModal = ({ task, isOpen, onClose, onSuccess }) => {
     status: "Incomplete",
   });
 
+  // Add state to track original task data for comparison
+  const [originalTaskData, setOriginalTaskData] = useState({});
+
   // Initialize selectedAssignees state
   const [selectedAssignees, setSelectedAssignees] = useState([]);
 
@@ -77,13 +80,17 @@ const EditTaskModal = ({ task, isOpen, onClose, onSuccess }) => {
         ? new Date(task.dueDate).toISOString().split("T")[0]
         : "";
 
-      setTaskData({
+      const newTaskData = {
         title: task.title || "",
         description: task.description || "",
         dueDate: formattedDate,
         priority: task.priority || "medium",
         status: task.status || "Incomplete",
-      });
+      };
+
+      setTaskData(newTaskData);
+      // Store the original data for later comparison
+      setOriginalTaskData(newTaskData);
 
       // Set assignees if they exist
       setSelectedAssignees(task.assignees || []);
@@ -183,29 +190,59 @@ const EditTaskModal = ({ task, isOpen, onClose, onSuccess }) => {
     }
 
     try {
-      // Format task data for API
-      const payload = {
-        taskId: task._id,
-        title: taskData.title,
-        description: taskData.description,
-        dueDate: taskData.dueDate,
-        priority: taskData.priority.toLowerCase(),
-        status: taskData.status,
-      };
+      // Create base payload with task ID
+      const payload = { taskId: task._id };
 
-      await updateTask(payload).unwrap();
+      // Only include fields that have actually changed
+      if (taskData.title !== originalTaskData.title) {
+        payload.title = taskData.title;
+      }
 
-      // Show success notification
-      setNotification({
-        type: "success",
-        message: "Task updated successfully!",
-      });
+      if (taskData.description !== originalTaskData.description) {
+        payload.description = taskData.description;
+      }
 
-      // Notify parent component and close after a brief delay
-      setTimeout(() => {
-        if (onSuccess) onSuccess();
-        onClose();
-      }, 1500);
+      if (taskData.dueDate !== originalTaskData.dueDate) {
+        payload.dueDate = taskData.dueDate;
+      }
+
+      if (
+        taskData.priority.toLowerCase() !==
+        originalTaskData.priority.toLowerCase()
+      ) {
+        payload.priority = taskData.priority.toLowerCase();
+      }
+
+      if (taskData.status !== originalTaskData.status) {
+        payload.status = taskData.status;
+      }
+
+      // Only proceed with update if there are changes to send
+      if (Object.keys(payload).length > 1) {
+        // More than just taskId
+        await updateTask(payload).unwrap();
+
+        // Show success notification
+        setNotification({
+          type: "success",
+          message: "Task updated successfully!",
+        });
+
+        // Notify parent component and close after a brief delay
+        setTimeout(() => {
+          if (onSuccess) onSuccess();
+          onClose();
+        }, 1500);
+      } else {
+        // No changes detected
+        setNotification({
+          type: "info",
+          message: "No changes to save",
+        });
+        setTimeout(() => {
+          setNotification(null);
+        }, 1500);
+      }
     } catch (err) {
       console.error("Failed to update task:", err);
       setErrorMessage(

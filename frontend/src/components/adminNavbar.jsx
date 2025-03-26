@@ -1,4 +1,3 @@
-// AdminNavbar.jsx
 import React, { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
@@ -36,12 +35,12 @@ const AdminNavbar = () => {
   const userName = useSelector(selectCurrentUserName);
 
   // API hooks
-  const {
-    data: userData,
-    isLoading: isUserLoading,
-  } = useGetMyDataQuery(undefined, {
-    refetchOnMountOrArgChange: false,
-  });
+  const { data: userData, isLoading: isUserLoading } = useGetMyDataQuery(
+    undefined,
+    {
+      refetchOnMountOrArgChange: false,
+    }
+  );
 
   // Handle navbar style on scroll
   useEffect(() => {
@@ -77,7 +76,7 @@ const AdminNavbar = () => {
           {/* Brand Logo */}
           <div className="flex items-center">
             <Link
-              to="/admindashboard"
+              to="/admin"
               className="flex items-center gap-2 text-lg font-bold text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-300 transition-colors duration-300"
             >
               <FaTasks className="h-6 w-6 animate-bounce-light" />
@@ -91,32 +90,39 @@ const AdminNavbar = () => {
           <div className="hidden md:flex items-center gap-4">
             <nav className="flex items-center gap-1">
               <NavLink
-                to="/admindashboard"
-                label="Dashboard"
+                to="/admin/metrics"
+                label="Metrics"
                 icon={FaChartBar}
-                isActive={isActivePath("/admindashboard") && !location.hash.includes("#users") && !location.hash.includes("#tasks")}
+                isActive={isActivePath("/admin/metrics")}
               />
 
               <NavLink
-                to="/admindashboard#users"
+                to="/admin/dashboard"
+                label="Your Tasks"
+                icon={FaTasks}
+                isActive={isActivePath("/admin/dashboard")}
+              />
+
+              <NavLink
+                to="/admin/users"
                 label="Users"
                 icon={FaUsers}
-                isActive={location.hash.includes("#users")}
+                isActive={isActivePath("/admin/users")}
               />
 
               <NavLink
-                to="/admindashboard#tasks"
+                to="/admin/tasks"
                 label="Tasks"
                 icon={FaTasks}
-                isActive={location.hash.includes("#tasks")}
+                isActive={isActivePath("/admin/tasks")}
               />
 
               <NavLink
-                to="/messaging"
+                to="/admin/messaging"
                 label="Messages"
                 icon={FaEnvelope}
-                isActive={isActivePath("/messaging")}
-                badge={unreadMessages}
+                isActive={isActivePath("/admin/messaging")}
+                badge={unreadMessages > 0 ? unreadMessages : null}
               />
             </nav>
 
@@ -126,8 +132,8 @@ const AdminNavbar = () => {
               <DarkModeToggle />
 
               {/* User menu */}
-              <UserMenu 
-                userName={userName} 
+              <UserMenu
+                userName={userName}
                 userData={userData}
                 isUserLoading={isUserLoading}
               />
@@ -159,22 +165,35 @@ const AdminNavbar = () => {
         <div className="md:hidden bg-white dark:bg-secondary-900 shadow-lg">
           <div className="px-2 pt-2 pb-3 space-y-1">
             <a
-              href="/admindashboard"
+              href="/admin/metrics"
               className={`block px-3 py-2 rounded-md text-base font-medium ${
-                isActivePath("/admindashboard") && !location.hash
+                isActivePath("/admin/metrics")
                   ? "bg-primary-50 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400"
                   : "text-secondary-700 dark:text-secondary-300 hover:bg-secondary-50 dark:hover:bg-secondary-800"
               }`}
             >
               <div className="flex items-center gap-2">
                 <FaChartBar className="h-5 w-5" />
-                <span>Dashboard</span>
+                <span>Metrics</span>
               </div>
             </a>
             <a
-              href="/admindashboard#users"
+              href="/admin/dashboard"
               className={`block px-3 py-2 rounded-md text-base font-medium ${
-                location.hash === "#users"
+                isActivePath("/admin/dashboard")
+                  ? "bg-primary-50 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400"
+                  : "text-secondary-700 dark:text-secondary-300 hover:bg-secondary-50 dark:hover:bg-secondary-800"
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <FaTasks className="h-5 w-5" />
+                <span>Your Tasks</span>
+              </div>
+            </a>
+            <a
+              href="/admin/users"
+              className={`block px-3 py-2 rounded-md text-base font-medium ${
+                isActivePath("/admin/users")
                   ? "bg-primary-50 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400"
                   : "text-secondary-700 dark:text-secondary-300 hover:bg-secondary-50 dark:hover:bg-secondary-800"
               }`}
@@ -185,9 +204,9 @@ const AdminNavbar = () => {
               </div>
             </a>
             <a
-              href="/admindashboard#tasks"
+              href="/admin/tasks"
               className={`block px-3 py-2 rounded-md text-base font-medium ${
-                location.hash === "#tasks"
+                isActivePath("/admin/tasks")
                   ? "bg-primary-50 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400"
                   : "text-secondary-700 dark:text-secondary-300 hover:bg-secondary-50 dark:hover:bg-secondary-800"
               }`}
@@ -198,9 +217,9 @@ const AdminNavbar = () => {
               </div>
             </a>
             <a
-              href="/messaging"
+              href="/admin/messaging"
               className={`block px-3 py-2 rounded-md text-base font-medium ${
-                isActivePath("/messaging")
+                isActivePath("/admin/messaging")
                   ? "bg-primary-50 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400"
                   : "text-secondary-700 dark:text-secondary-300 hover:bg-secondary-50 dark:hover:bg-secondary-800"
               }`}

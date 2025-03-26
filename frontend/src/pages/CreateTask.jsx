@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
+import { toast } from "react-toastify";
 import {
   FaTasks,
   FaCalendarAlt,
@@ -28,6 +29,7 @@ const MAX_DESCRIPTION_LENGTH = 500;
 
 const CreateTask = ({ isModal = false, onClose }) => {
   const navigate = useNavigate();
+  const location = useLocation();
   const userId = useSelector(selectCurrentUserId);
   const [formData, setFormData] = useState({
     title: "",
@@ -41,6 +43,22 @@ const CreateTask = ({ isModal = false, onClose }) => {
   const [assigneeQuery, setAssigneeQuery] = useState("");
   const [showAssigneeDropdown, setShowAssigneeDropdown] = useState(false);
   const [debouncedQuery, setDebouncedQuery] = useState("");
+
+  // Function to determine where to navigate back to using query parameters
+  const getReturnPath = () => {
+    // Check for redirectTo query parameter
+    const queryParams = new URLSearchParams(location.search);
+    const redirectTo = queryParams.get("redirectTo");
+
+    if (redirectTo) {
+      return redirectTo;
+    }
+
+    // Default fallback based on current path
+    return location.pathname.includes("/admin")
+      ? "/admin/dashboard"
+      : "/dashboard";
+  };
 
   // API hooks
   const [createTaskMutation] = useCreateTaskMutation();
@@ -127,35 +145,42 @@ const CreateTask = ({ isModal = false, onClose }) => {
       const result = await createTaskMutation(payload).unwrap();
       console.log("Task creation result:", result);
 
-      // Show success alert
-      alert("Task created successfully!");
+      // Show success toast notification
+      toast.success("Task created successfully!", {
+        position: "top-right",
+        autoClose: 3000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true,
+      });
 
-      // Simple success behavior - just redirect
+      // Navigate based on return path or modal state
       if (isModal && onClose) {
         onClose();
       } else {
-        // Use navigate to maintain session state
-        try {
-          navigate("/dashboard");
-        } catch (error) {
-          console.error("Navigation error:", error);
-          // Only as a fallback, and use href instead of replace to be gentler
-          window.location.href = "/dashboard";
-        }
+        navigate(getReturnPath());
       }
     } catch (err) {
       console.error("Task creation error:", err);
-      // Show a more informative error message
-      const errorMessage =
-        err?.data?.message ||
-        err?.error ||
-        "Failed to create task. Please try again.";
-      alert(errorMessage);
+      // Show error toast notification
+      toast.error(
+        err?.data?.message || "Failed to create task. Please try again.",
+        {
+          position: "top-right",
+          autoClose: 5000,
+          hideProgressBar: false,
+          closeOnClick: true,
+          pauseOnHover: true,
+          draggable: true,
+        }
+      );
 
       // Update form errors for display
       setFormErrors({
         ...formErrors,
-        general: errorMessage,
+        general:
+          err?.data?.message || "Failed to create task. Please try again.",
       });
     }
   };
@@ -429,7 +454,7 @@ const CreateTask = ({ isModal = false, onClose }) => {
             <div className="flex justify-end space-x-4 pt-4 border-t border-secondary-200 dark:border-secondary-700">
               <button
                 type="button"
-                onClick={() => (window.location.href = "/dashboard")}
+                onClick={() => navigate(getReturnPath())}
                 className="px-5 py-3 border border-secondary-300 dark:border-secondary-700 text-secondary-700 dark:text-secondary-300 rounded-lg hover:bg-secondary-100 dark:hover:bg-secondary-700 transition-colors"
               >
                 Cancel

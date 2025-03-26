@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import {
   FaPlus,
   FaFilter,
@@ -30,29 +30,20 @@ import {
   useGetTasksQuery,
   useGetTaskMetricsQuery,
   useDeleteTaskMutation,
-} from "../features/tasks/taskApiSlice";
-import { useGetMyDataQuery } from "../features/user/userApiSlice";
+} from "../../features/tasks/taskApiSlice";
+import { useGetMyDataQuery } from "../../features/user/userApiSlice";
 import { useDispatch, useSelector } from "react-redux";
 import {
   selectCurrentUserId,
   selectCurrentUserName,
   selectCurrentToken,
-} from "../features/auth/authSlice";
-import { setUserData } from "../features/auth/authSlice";
-import EditTaskModal from "../components/EditTaskModal";
-import {
-  formatPriority,
-  formatStatus,
-  isOverdue,
-  isApproachingDueDate,
-  getPriorityColor,
-  getStatusColor,
-  formatDate,
-  getCardBackground,
-} from "../utils/taskUtils";
+} from "../../features/auth/authSlice";
+import { setUserData } from "../../features/auth/authSlice";
+import EditTaskModal from "../../components/EditTaskModal";
 
 const UserDashboard = () => {
   const dispatch = useDispatch();
+  const location = useLocation(); // Add this line to get current location
   const [showFilters, setShowFilters] = useState(false);
   const [filters, setFilters] = useState({
     status: "",
@@ -406,6 +397,14 @@ const UserDashboard = () => {
     return pages;
   };
 
+  // Function to determine the correct path for creating tasks with query parameter
+  const getCreateTaskPath = () => {
+    // Check if we're in the admin section by examining the current path
+    return location.pathname.includes("/admin")
+      ? "/admin/createTask?redirectTo=/admin/dashboard"
+      : "/createTask?redirectTo=/dashboard";
+  };
+
   return (
     <div className="min-h-screen bg-secondary-50 dark:bg-secondary-900 pt-20 pb-5 px-4 sm:px-6 lg:px-8 transition-colors duration-300">
       <div className="max-w-7xl mx-auto">
@@ -426,7 +425,7 @@ const UserDashboard = () => {
               tasks
             </p>
             <Link
-              to="/create-task"
+              to={getCreateTaskPath()}
               className="inline-flex items-center px-4 py-2 bg-white text-primary-700 rounded-lg font-medium hover:bg-primary-50 transition-all shadow-sm hover-lift"
             >
               <FaPlus className="mr-2" /> Create New Task
@@ -714,7 +713,7 @@ const UserDashboard = () => {
                     : "You don't have any tasks yet"}
                 </p>
                 <Link
-                  to="/create-task"
+                  to={getCreateTaskPath()}
                   className="inline-flex items-center px-4 py-2 bg-primary-500 hover:bg-primary-600 text-white rounded-lg shadow-md hover:shadow-lg transition-all hover:-translate-y-1"
                 >
                   <FaPlus className="mr-2" /> Create New Task

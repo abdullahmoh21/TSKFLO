@@ -7,27 +7,17 @@ function UserConstructor(data) {
 
 // Create proper chainable mock methods
 const createChainableMock = (returnValue = null) => {
-  return {
-    lean: jest.fn(function () {
-      return this;
-    }),
-    select: jest.fn(function () {
-      return this;
-    }),
-    skip: jest.fn(function () {
-      return this;
-    }),
-    limit: jest.fn(function () {
-      return this;
-    }),
-    populate: jest.fn(function () {
-      return this;
-    }),
-    sort: jest.fn(function () {
-      return this;
-    }),
-    exec: jest.fn().mockResolvedValue(returnValue),
-  };
+  const chain = {};
+
+  const chainMethods = ["lean", "select", "skip", "limit", "populate", "sort"];
+
+  chainMethods.forEach((method) => {
+    chain[method] = jest.fn(() => chain);
+  });
+
+  chain.exec = jest.fn().mockResolvedValue(returnValue);
+
+  return chain;
 };
 
 const mockUser = {

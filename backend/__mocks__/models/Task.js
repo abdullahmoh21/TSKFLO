@@ -15,9 +15,8 @@ const createChainableMock = (returnValue = null) => {
     "select",
     "skip",
     "limit",
-    "populate",
+    "populate", // Add populate method
     "sort",
-    "exec",
   ];
 
   // Add all chain methods
@@ -31,6 +30,16 @@ const createChainableMock = (returnValue = null) => {
   return chain;
 };
 
+// Helper function to create a document-like object with save method
+const createDocumentMock = (data = {}) => {
+  return {
+    ...data,
+    save: jest.fn().mockResolvedValue(data),
+    toObject: jest.fn().mockReturnValue(data),
+    toJSON: jest.fn().mockReturnValue(data),
+  };
+};
+
 const mockTask = {
   findOne: jest.fn(),
   find: jest.fn(),
@@ -39,6 +48,7 @@ const mockTask = {
   findOneAndUpdate: jest.fn(),
   deleteOne: jest.fn(),
   countDocuments: jest.fn(),
+  aggregate: jest.fn().mockResolvedValue([]),
   prototype: {
     save: jest.fn(),
   },
@@ -61,8 +71,6 @@ mockTask.findOneAndDelete = jest
 mockTask.deleteOne = jest
   .fn()
   .mockImplementation(() => createChainableMock({ deletedCount: 0 }));
-
-// Change this line - make countDocuments return a chainable mock instead of a direct promise
 mockTask.countDocuments = jest
   .fn()
   .mockImplementation(() => createChainableMock(0));

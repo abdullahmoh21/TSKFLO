@@ -28,6 +28,9 @@ jest.mock("mongoose", () => {
   };
 });
 
+// Set up the path mappings for mocks if needed
+jest.mock("./utils/emailTransporter");
+
 beforeEach(() => {
   jest.clearAllMocks();
 });

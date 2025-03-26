@@ -168,10 +168,9 @@ describe("Admin Task Endpoints", () => {
   //
   describe("PATCH /admin/tasks/:taskId", () => {
     it("should return 404 if no task exists", async () => {
-      // Mock exactly what the controller calls: findOneAndUpdate().lean()
-      Task.findOneAndUpdate = jest.fn().mockReturnValue({
-        // The lean() function should resolve to null for this test
-        lean: jest.fn().mockResolvedValue(null),
+      // Setup mock to return null (no task found)
+      Task.findOne.mockReturnValue({
+        exec: jest.fn().mockResolvedValue(null),
       });
 
       const res = await request(app)
@@ -186,10 +185,15 @@ describe("Admin Task Endpoints", () => {
     it("should update the task and return it", async () => {
       const updatedTask = { ...mockTask, title: "Updated Title" };
 
-      // Mock exactly what the controller calls: findOneAndUpdate().lean()
-      Task.findOneAndUpdate = jest.fn().mockReturnValue({
-        // The lean() function should resolve to the updated task
-        lean: jest.fn().mockResolvedValue(updatedTask),
+      // Create a mock task object with a save method
+      const taskWithSave = {
+        ...mockTask,
+        save: jest.fn().mockResolvedValue(updatedTask),
+      };
+
+      // Mock findOne to return our task with save method
+      Task.findOne.mockReturnValue({
+        exec: jest.fn().mockResolvedValue(taskWithSave),
       });
 
       const res = await request(app)

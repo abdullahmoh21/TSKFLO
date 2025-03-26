@@ -13,7 +13,6 @@ import { useSelector } from "react-redux";
 import { selectCurrentUserName } from "../features/auth/authSlice";
 import { useGetMyDataQuery } from "../features/user/userApiSlice";
 import { useNotification } from "../context/NotificationContext";
-
 // Import our new components
 import NavLink from "./navigation/NavLink";
 import DarkModeToggle from "./navigation/DarkModeToggle";

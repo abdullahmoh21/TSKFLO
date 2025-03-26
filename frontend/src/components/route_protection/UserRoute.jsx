@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from "react";
-import { Navigate } from "react-router-dom";
+import { Navigate, Outlet } from "react-router-dom";
 import { useSelector } from "react-redux";
-import { selectCurrentToken } from "../features/auth/authSlice";
+import { selectCurrentToken } from "../../features/auth/authSlice";
 import { FaSpinner } from "react-icons/fa";
 
-const ProtectedRoute = ({ children }) => {
+const UserRoute = () => {
   const token = useSelector(selectCurrentToken);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -34,8 +34,8 @@ const ProtectedRoute = ({ children }) => {
     return <Navigate to="/login" />;
   }
 
-  // Render the protected content if authenticated
-  return children;
+  // Render the outlet (child routes) if authenticated
+  return <Outlet />;
 };
 
-export default ProtectedRoute;
+export default UserRoute;

@@ -1,137 +1,94 @@
-import React, { useEffect } from "react";
+import React from "react";
 import {
   BrowserRouter as Router,
   Routes,
   Route,
-  useLocation,
   Navigate,
+  Outlet,
 } from "react-router-dom";
-import { useSelector, useDispatch } from "react-redux";
+import { useSelector } from "react-redux";
 import {
   selectCurrentToken,
   selectCurrentUserRole,
 } from "./features/auth/authSlice";
-import HomeNavBar from "./components/homeNavBar";
-import UserNavbar from "./components/userNavBar";
-import AdminNavbar from "./components/adminNavbar";
-import HomePage from "./pages/HomePage";
-import LoginPage from "./pages/LoginPage";
-import UserDashboard from "./pages/UserDashboard";
-import CreateTask from "./pages/CreateTask";
-import AboutPage from "./pages/AboutPage";
-import ProtectedRoute from "./components/ProtectedRoute";
-import AdminRoute from "./components/AdminRoute";
-import AdminPage from "./pages/AdminDashboard";
+
+// Layouts
+import AdminLayout from "./layouts/AdminLayout";
+import UserLayout from "./layouts/UserLayout";
+import HomeLayout from "./layouts/HomeLayout";
+
+// User pages
+import UserDashboard from "./pages/user/UserDashboard";
 import MessagingPage from "./pages/MessagingPage";
+
+// Admin pages
+import AdminMetrics from "./pages/admin/AdminMetrics";
+import AdminTasks from "./pages/admin/AdminTasks";
+import AdminUsers from "./pages/admin/AdminUsers";
+
+// Public pages
+import HomePage from "./pages/public/HomePage";
+import LoginPage from "./pages/public/LoginPage";
+import AboutPage from "./pages/public/AboutPage";
+
+// common page
+import CreateTask from "./pages/CreateTask";
+
+// Other components
+import UserRoute from "./components/route_protection/UserRoute";
+import AdminRoute from "./components/route_protection/AdminRoute";
 import PersistLogin from "./components/PersistLogin";
-import AdminCreateTask from "./components/AdminCreateTask";
 import SocketInitializer from "./features/socket/SocketInitializer";
 import { NotificationProvider } from "./context/NotificationContext";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
-// Create a wrapper component that uses location
-function AppContent() {
-  const location = useLocation();
-  const token = useSelector(selectCurrentToken);
-  const userRole = useSelector(selectCurrentUserRole);
-  const isAdmin = userRole === "admin";
-
-  // Decide which Navbar to show based on the current path and user role
-  let NavbarComponent;
-  if (
-    isAdmin &&
-    (location.pathname.startsWith("/admindashboard") ||
-      location.pathname.startsWith("/messaging") ||
-      location.pathname.startsWith("/admin-create-task"))
-  ) {
-    NavbarComponent = AdminNavbar;
-  } else if (
-    location.pathname.startsWith("/dashboard") ||
-    location.pathname.startsWith("/create-task") ||
-    (!isAdmin && location.pathname.startsWith("/messaging"))
-  ) {
-    NavbarComponent = UserNavbar;
-  } else {
-    NavbarComponent = HomeNavBar;
-  }
-
-  return (
-    <>
-      <NavbarComponent />
-      <Routes>
-        {/* Public routes */}
-        <Route path="/" element={<HomePage />} />
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/about" element={<AboutPage />} />
-
-        <Route element={<PersistLogin />}>
-          <Route
-            path="/dashboard"
-            element={
-              <ProtectedRoute>
-                <UserDashboard />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/create-task"
-            element={
-              <ProtectedRoute>
-                <CreateTask />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/admindashboard"
-            element={
-              <AdminRoute>
-                <AdminPage />
-              </AdminRoute>
-            }
-          />
-          <Route
-            path="/admin-create-task"
-            element={
-              <AdminRoute>
-                <AdminCreateTask />
-              </AdminRoute>
-            }
-          />
-          <Route
-            path="/messaging"
-            element={
-              <ProtectedRoute>
-                <MessagingPage />
-              </ProtectedRoute>
-            }
-          />
-        </Route>
-
-        {/* Fallback route */}
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    </>
-  );
-}
-
 function App() {
   return (
     <Router>
       <NotificationProvider>
-        <ToastContainer
-          position="top-right"
-          autoClose={5000}
-          hideProgressBar={false}
-          newestOnTop
-          closeOnClick
-          rtl={false}
-          pauseOnFocusLoss
-          draggable
-          pauseOnHover
-        />
+        <ToastContainer position="top-right" autoClose={5000} pauseOnHover />
         <SocketInitializer />
-        <AppContent />
+
+        <Routes>
+          {/* Public routes with HomeNavBar */}
+          <Route element={<HomeLayout />}>
+            <Route path="/" element={<HomePage />} />
+            <Route path="about" element={<AboutPage />} />
+            <Route path="login" element={<LoginPage />} />
+          </Route>
+
+          {/* Protected routes - User & Admin */}
+          <Route element={<PersistLogin />}>
+            {/* User routes with UserNavBar */}
+            <Route element={<UserRoute />}>
+              <Route element={<UserLayout />}>
+                <Route path="dashboard" element={<UserDashboard />} />
+                <Route path="createTask" element={<CreateTask />} />
+                <Route path="messaging" element={<MessagingPage />} />
+              </Route>
+            </Route>
+
+            {/* Admin routes with AdminLayout */}
+            <Route element={<AdminRoute />}>
+              <Route path="admin" element={<AdminLayout />}>
+                <Route
+                  index
+                  element={<Navigate to="/admin/metrics" replace />}
+                />
+                <Route path="metrics" element={<AdminMetrics />} />
+                <Route path="dashboard" element={<UserDashboard />} />
+                <Route path="tasks" element={<AdminTasks />} />
+                <Route path="users" element={<AdminUsers />} />
+                <Route path="messaging" element={<MessagingPage />} />
+                <Route path="createTask" element={<CreateTask />} />
+              </Route>
+            </Route>
+          </Route>
+
+          {/* Catch all route - redirect to home */}
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
       </NotificationProvider>
     </Router>
   );

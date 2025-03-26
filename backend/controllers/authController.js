@@ -14,7 +14,7 @@ const login = asyncHandler(async (req, res) => {
 
   const foundUser = await User.findOne(
     { email },
-    "email role password emailVerified lastLogin"
+    "_id email name role password emailVerified lastLogin"
   ).exec();
   if (!foundUser) {
     return res.status(401).json({ message: "Invalid login credentials" }); // Avoid user enumeration
@@ -35,6 +35,7 @@ const login = asyncHandler(async (req, res) => {
     {
       user: {
         id: foundUser._id,
+        name: foundUser.name,
         role: foundUser.role,
       },
     },
@@ -46,6 +47,7 @@ const login = asyncHandler(async (req, res) => {
     {
       user: {
         id: foundUser._id,
+        name: foundUser.name,
         role: foundUser.role,
       },
     },
@@ -90,7 +92,7 @@ const refresh = asyncHandler(async (req, res) => {
   // Optimized database query with projection to minimize data retrieval
   const foundUser = await User.findOne(
     { _id: userId },
-    "_id email role refreshTokenHash"
+    "_id email name role refreshTokenHash"
   )
     .lean()
     .exec();
@@ -106,6 +108,7 @@ const refresh = asyncHandler(async (req, res) => {
     {
       user: {
         id: foundUser._id,
+        name: foundUser.name,
         role: foundUser.role,
       },
     },

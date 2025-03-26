@@ -4,10 +4,11 @@
     <title>Task Completed Notification</title>
   </head>
   <body>
-    <h1>Task Completed Notification</h1>
     <p>Hello {{name}},</p>
-    <p>The task <strong>{{taskName}}</strong> has been marked as completed.</p>
-    <p>Owner: {{owner}}</p>
+    <p>The task
+      <strong>{{taskName}}</strong>
+      has been assigned to you by
+      {{adder}}.</p>
 
     {{#if assignees}}
       <p>Assignees:</p>

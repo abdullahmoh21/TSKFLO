@@ -2,6 +2,7 @@ const asyncHandler = require("express-async-handler");
 const Task = require("../models/Task");
 const User = require("../models/User");
 const logger = require("../logs/logger");
+const sendEmail = require("../utils/emailTransporter");
 
 //@desc Returns list of tasks user owns or is assigned to
 //@param {Object} req with valid userId
@@ -101,10 +102,26 @@ const getUserTasks = asyncHandler(async (req, res) => {
 const createTask = asyncHandler(async (req, res) => {
   const { title, description, priority, dueDate, assignees } = req.body;
 
-  const user = await User.findOne({ _id: req.user.id }).lean().exec();
+  const user = await User.findById(req.user.id).lean().exec();
   if (!user) {
-    return res.status(404).json({ message: "No user found in DB" });
+    return res
+      .status(404)
+      .json({ message: "Requester's User not found in DB" });
   }
+
+  let validAssignees = [];
+  if (assignees && Array.isArray(assignees) && assignees.length > 0) {
+    // Validate that each assignee exists
+    validAssignees = await User.find({ _id: { $in: assignees } })
+      .lean()
+      .exec();
+    if (validAssignees.length !== assignees.length) {
+      return res
+        .status(400)
+        .json({ message: "One or more assignees not found" });
+    }
+  }
+
   const newTask = new Task({
     title,
     description,
@@ -112,9 +129,34 @@ const createTask = asyncHandler(async (req, res) => {
     dueDate,
     status: "Incomplete",
     owner: req.user.id,
-    assignees,
+    assignees, // storing user IDs
   });
   await newTask.save();
+
+  // Send an email to each assignee after creating the task
+  if (validAssignees.length > 0) {
+    try {
+      const assigneeNames = validAssignees.map((assignee) => assignee.name);
+      for (const a of validAssignees) {
+        const emailData = {
+          name: a.name,
+          taskName: newTask.title,
+          adder: user.name,
+          assignees: assigneeNames,
+        };
+        try {
+          await sendEmail(a.email, "AssigneeAdded", emailData);
+        } catch (emailError) {
+          logger.error("Error sending email:", emailError);
+          // Continue with next assignee, don't fail the task creation
+        }
+      }
+    } catch (err) {
+      logger.error("Error processing emails:", err);
+      // Don't fail the task creation if emails fail
+    }
+  }
+
   return res.status(200).json({ message: "Task created successfully" });
 });
 
@@ -181,10 +223,14 @@ const updateTask = asyncHandler(async (req, res) => {
     task[key] = newData[key];
   });
 
-  if (newData?.status === "Completed") {
+  if (newData?.status === "Complete") {
+    logger.debug(`setting completedBy to: ${req.user.id}`);
     task.completedBy = req.user.id;
+    task.completedAt = new Date();
   } else if (newData?.status === "Incomplete") {
+    logger.debug(`setting completedBy to: null`);
     task.completedBy = null;
+    task.completedAt = null;
   }
 
   await task.save();
@@ -221,32 +267,59 @@ const addAssignee = asyncHandler(async (req, res) => {
   const { taskId } = req.params;
   const { assigneeId } = req.body;
 
+  // get assignee and task if they exist
   const [assignee, task] = await Promise.all([
     User.findById(assigneeId).lean(),
-    Task.findOne({
-      _id: taskId,
-      owner: req.user.id,
-    }).exec(),
+    Task.findOne({ _id: taskId }).populate("assignees", "_id name").exec(),
   ]);
 
+  // handle if neither exist
   if (!task) {
-    return res
-      .status(404)
-      .json({ message: "No task found or incorrect permissions" });
+    return res.status(404).json({ message: "No such task found" });
   }
-
   if (!assignee) {
     return res.status(404).json({ message: "No user with provided ID exists" });
   }
 
-  if (task.assignees.includes(assigneeId)) {
+  // make sure users can only edit assignee's on tasks they own
+  if (req.user.role === "user" && task.owner != req.user.id) {
+    return res
+      .status(404)
+      .json({ message: "Only task owners can edit assignees" });
+  }
+
+  if (task.assignees.some((a) => a._id.toString() === assigneeId)) {
     return res.status(204).json({ message: "No changes made" });
   }
 
   task.assignees.push(assigneeId);
   await task.save();
 
-  //TODO: Send Email alert to assignee
+  try {
+    // Get names of existing (populated) assignees only, excluding the new assignee
+    const existingAssigneeNames = task.assignees
+      .filter((a) => a.name && a._id.toString() !== assigneeId) // Filter out the new assignee
+      .map((a) => a.name);
+
+    // Add the new assignee name with (You) designation
+    const allAssigneeNames = [
+      ...existingAssigneeNames,
+      assignee.name + " (You)",
+    ];
+
+    // Send Email alert to the new assignee
+    const emailData = {
+      name: assignee.name,
+      taskName: task.title,
+      adder: req.user.name,
+      assignees: allAssigneeNames,
+    };
+    await sendEmail(assignee.email, "AssigneeAdded", emailData);
+  } catch (emailError) {
+    logger.error("Error sending email:", emailError);
+    // Don't fail the API call if email fails
+  }
+
   return res.status(200).json({ message: "Assignee added successfully", task });
 });
 
@@ -258,21 +331,44 @@ const removeAssignee = asyncHandler(async (req, res) => {
   const { taskId } = req.params;
   const { assigneeId } = req.body;
 
-  const task = await Task.findOne({
-    _id: taskId,
-    owner: req.user.id,
-  }).exec();
+  const [assignee, task] = await Promise.all([
+    User.findById(assigneeId).lean().exec(),
+    Task.findOne({ _id: taskId }).exec(), // Removed populate since we only need IDs
+  ]);
 
   if (!task) {
+    return res.status(404).json({ message: "Task not found" });
+  }
+  if (!assignee) {
+    return res.status(404).json({ message: "User not found" });
+  }
+  // make sure users can only edit assignee's on tasks they own
+  if (req.user.role === "user" && task.owner != req.user.id) {
     return res
       .status(404)
-      .json({ message: "Task not found or you do not have permission" });
+      .json({ message: "Only task owners can edit assignees" });
+  }
+  if (!task.assignees.some((id) => id.toString() === assigneeId)) {
+    return res.status(204).json({ message: "No changes made" });
   }
 
+  // Remove the assignee from the task
   task.assignees = task.assignees.filter((id) => id.toString() !== assigneeId);
   await task.save();
 
-  //TODO: Send Email alert to assignee
+  try {
+    // Send Email alert to the removed assignee
+    const emailData = {
+      name: assignee.name,
+      taskName: task.title,
+      remover: req.user.name,
+    };
+    await sendEmail(assignee.email, "AssigneeRemoved", emailData);
+  } catch (emailError) {
+    logger.error("Error sending email:", emailError);
+    // Don't fail the API call if email fails
+  }
+
   return res
     .status(200)
     .json({ message: "Assignee removed successfully", task });

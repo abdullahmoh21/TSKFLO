@@ -283,8 +283,10 @@ const updateTask = asyncHandler(async (req, res) => {
 
   if (updates?.status === "Complete") {
     updates.completedBy = req.user.id;
+    updates.completedAt = new Date();
   } else if (updates?.status === "Incomplete") {
     updates.completedBy = null;
+    updates.completedAt = null;
   }
 
   await task.save();
@@ -438,7 +440,7 @@ const getMetrics = asyncHandler(async (req, res) => {
     highPriorityTasks,
     mediumPriorityTasks,
     lowPriorityTasks,
-    topUsersByCompletedTasks, // <--- aggregator results
+    topUsersByCompletedTasks_30d,
   ] = await Promise.all([
     // 1) total users
     User.countDocuments(),
@@ -481,7 +483,13 @@ const getMetrics = asyncHandler(async (req, res) => {
 
     // 5) top 10 users by completed tasks
     Task.aggregate([
-      { $match: { status: "Complete", completedBy: { $ne: null } } },
+      {
+        $match: {
+          status: "Complete",
+          completedBy: { $ne: null },
+          completedAt: { $gte: thirtyDaysAgo },
+        },
+      },
       {
         $group: {
           _id: "$completedBy",
@@ -539,7 +547,7 @@ const getMetrics = asyncHandler(async (req, res) => {
         lowPriorityTasks,
       },
     },
-    topUsersByCompletedTasks, // This is the array you can feed to your bar chart
+    topUsersByCompletedTasks_30d, // This is the array you can feed to your bar chart
   });
 });
 

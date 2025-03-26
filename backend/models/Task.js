@@ -32,6 +32,9 @@ const taskSchema = new Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
     },
+    completedAt: {
+      type: Date,
+    },
     locked: {
       type: Boolean,
       default: false,

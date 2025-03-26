@@ -33,9 +33,9 @@ async function compileTemplate(templateName, data) {
 
 function sendEmail(
   to,
-  subject = null,
   template = null,
   handlebarData = {},
+  subject = null,
   text = null
 ) {
   return new Promise(async (resolve, reject) => {
@@ -43,7 +43,8 @@ function sendEmail(
       let htmlContent = null;
       const tempToSubject = new Map([
         ["inviteUser", "Invitation to Join Task Management System"],
-        ["taskAssigned", "New Task Assigned"],
+        ["AssigneeRemoved", "Task Assignment removed"],
+        ["AssigneeAdded", "Task Assigned"],
       ]);
       if (template) {
         try {
@@ -89,7 +90,7 @@ function sendEmail(
           logger.error("Error sending email:", error);
           return reject(error);
         }
-        logger.info("Message sent:", info.messageId);
+        logger.info(`Message sent to ${to} of type '${template}'`);
         resolve(info);
       });
     } catch (error) {

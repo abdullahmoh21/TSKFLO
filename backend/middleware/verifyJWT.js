@@ -6,6 +6,7 @@ const verifyJWT = (req, res, next) => {
     req.user = {
       id: "67acb6c00a79cee04957d04b",
       role: "admin",
+      name: "Test User",
     };
     return next();
   }
